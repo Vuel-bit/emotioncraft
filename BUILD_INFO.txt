@@ -1,0 +1,12 @@
+Build ID: v0_2_27_disp_telegraph_timeslice_peakfix
+Date: 2026-02-07
+Notes:
+- Dispositions: allow multiple concurrent dispositions across different wells (telegraph+active are per-well exclusive).
+- Dispositions: fix halo direction mapping (Aversion CCW, Damping CW) while keeping start positions.
+- Dispositions: per-instance duration + 5-phase envelope timing plan (low→med→high→med→low) affects BOTH mechanics + halo timing.
+- Dispositions: halo is now **painted** (historical segments keep their color; head/glow reflects current pressure).
+- Dispositions: halo fill-head motion is now **envelope-warped** so peak intensity always occurs at 180° from the start (progress(peak)=0.5).
+- Dispositions: telegraph scheduling fixed (events are announced at fireAt-telegraph) so warning halos reliably appear.
+- Dispositions: continuous envelopes now define peakTime as the true argmax (not a phase boundary midpoint), so peak maps to 180°.
+- Dispositions: painted halo is time-sliced (segments are laid down using per-slice intensity/progress) preventing "peak too early" artifacts.
+- Mental Break: cancels all telegraph/active dispositions and clears delayed arrivals; scheduler continues.

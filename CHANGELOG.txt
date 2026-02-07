@@ -1,0 +1,45 @@
+CHANGELOG — v0_2_27_disp_telegraph_timeslice_peakfix (2026-02-07)
+
+Dispositions
+- Telegraph scheduling fixed so warning halos reliably appear during the full telegraph window (events are announced at fireAt - telegraphSeconds rather than only at fireAt).
+- Continuous envelope peakTime corrected to use the true argmax (not the midpoint of a non-plateau high phase), ensuring peak always maps to 180° (progress(peak)=0.5).
+- Painted halo segments are now laid down using time-sliced sampling (time→progress + time→intensity per slice), preventing the continuous "peak too early" artifact.
+- Mental Break cancellation clears slot telegraph bookkeeping so scheduling restarts cleanly immediately after breaks.
+
+Debug (EC.DEBUG)
+- Throttled (1Hz) logs: telegraph count + target indices, and one active continuous instance sample (t/el, intensity, progress, progress@peak).
+
+---
+
+CHANGELOG — v0_2_26_disp_painted_warped_halo (2026-02-07)
+
+Dispositions
+- Active halo is now painted as accumulated segments: once a segment is drawn green/yellow/red it remains that color for the lifetime of that disposition instance.
+- Halo head / fill progress is now envelope-warped so the peak intensity moment is always exactly opposite the start (progress(peak)=0.5), while still completing exactly once by the end.
+- Warning/telegraph halo visibility fixed so it reliably shows during telegraph.
+
+---
+
+CHANGELOG — v0_2_25_disp_pressure_color (2026-02-07)
+
+Dispositions
+- Halo color now truthfully represents current pressure intensity (green→yellow→red), driven by the same intensity01 used for mechanics.
+- Optional per-event discrete mode (default off; 25% chance) uses stepwise intensity across the 5 phases (Low/Med/High/Med/Low) and snaps halo color accordingly.
+
+---
+
+CHANGELOG — v0_2_24_disp_concurrency_envelope (2026-02-07)
+
+Dispositions
+- Multiple concurrent disposition instances are allowed as long as they do not share a well (telegraph OR active reserves a well).
+- Targeting: if an event would hit a reserved well, it rerolls among free wells; if no wells are free, the event is delayed and retried.
+- Halo direction mapping corrected (start position unchanged):
+  - TENDENCY: start bottom, CW
+  - AFFINITY: start bottom, CCW
+  - AVERSION: start top, CCW
+  - DAMPING: start top, CW
+- Per-instance variation: each firing rolls its own duration (base ± up to 5s; clamped 8–40s) and a 5-phase envelope timing plan (weights 0.10–0.30 summing to 1.0). The envelope drives both mechanics intensity and the active halo progress (completes exactly once per instance).
+
+Visual/UI (carried forward from v0_2_23)
+- Disposition halo gradient inversion for AVERSION + DAMPING: top=green, bottom=red (TENDENCY + AFFINITY unchanged).
+- Removed pre-Apply ghost previews on wells (no ghost target rings or spin arrows while adjusting sliders).
