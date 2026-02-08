@@ -215,4 +215,266 @@
       return { err: (err && err.message) ? err.message : String(err) };
     }
   };
+
+
+  // --- Fail-safe gesture lifecycle (mobile DOM end/cancel) ---
+  // Canonical state lives in EC.INPUT.gestureState.
+  // These helpers are instrumentation + state hygiene only (no gameplay/mechanics changes).
+
+  function _idbgSafe() {
+    try {
+      EC.UI_STATE = EC.UI_STATE || {};
+      EC.UI_STATE.inputDbg = EC.UI_STATE.inputDbg || {};
+      const D = EC.UI_STATE.inputDbg;
+      if (!Array.isArray(D.log)) D.log = [];
+      return D;
+    } catch (e) {
+      return null;
+    }
+  }
+
+  function _ilog(line) {
+    try {
+      const D = _idbgSafe();
+      if (!D) return;
+      const ts = (typeof performance !== 'undefined' && performance.now) ? Math.floor(performance.now()) : Date.now();
+      D.log.push(ts + ' ' + line);
+      if (D.log.length > 260) D.log.splice(0, D.log.length - 260);
+    } catch (e) {}
+  }
+
+  function _setResolveLine(line, status) {
+    try {
+      const D = _idbgSafe();
+      if (!D) return;
+      D.resolveLine = String(line || '');
+      D.lastResolve = D.resolveLine;
+      D.lastResolveStatus = String(status || '');
+    } catch (e) {}
+  }
+
+  function _kv(meta) {
+    try {
+      if (!meta) return '';
+      const parts = [];
+      for (const k in meta) {
+        if (!Object.prototype.hasOwnProperty.call(meta, k)) continue;
+        let v = meta[k];
+        if (v == null) v = '';
+        v = String(v);
+        if (v.length > 80) v = v.slice(0, 80) + '…';
+        parts.push(k + '=' + v);
+      }
+      return parts.join(' ');
+    } catch (e) {
+      return '';
+    }
+  }
+
+  if (typeof EC.INPUT.clearGesture !== 'function') {
+    EC.INPUT.clearGesture = function clearGesture(reason, meta) {
+      const gs = EC.INPUT.gestureState;
+      if (!gs) return false;
+      const prevKey = gs.key || '?';
+      const prevWell = (gs.well != null) ? gs.well : '?';
+      const prevActive = !!gs.active;
+
+      gs.active = 0;
+      gs.key = '';
+      gs.kind = '';
+      gs.well = -1;
+      gs.pid = -1;
+      gs.touchId = null;
+      gs.x0 = 0;
+      gs.y0 = 0;
+      gs.t0 = 0;
+
+      try {
+        const D = _idbgSafe();
+        if (D) {
+          D.gestureLine = `active=0 key=? well=? x0/y0=? t0=?`;
+          D.lastGestureClear = `reason=${reason || ''} prevActive=${prevActive ? 1 : 0} prevKey=${prevKey} prevWell=${prevWell}`;
+        }
+      } catch (e) {}
+
+      _ilog(`RESOLVE_CLEAR: reason=${reason || ''} active=0 key=? well=? prevActive=${prevActive ? 1 : 0} prevKey=${prevKey} prevWell=${prevWell} ${_kv(meta)}`);
+      return true;
+    };
+  }
+
+  if (typeof EC.INPUT.resolveDomTouchEnd !== 'function') {
+    EC.INPUT.resolveDomTouchEnd = function resolveDomTouchEnd(domEv, why) {
+      const gs = EC.INPUT.gestureState;
+      const gsId = (gs && gs._id) ? gs._id : '?';
+
+      let status = 'resolved_exception';
+      let resolveLine = '';
+
+      // Snapshot-ish fields for the Copy Input Log header.
+      try {
+        const D = _idbgSafe();
+        if (D) D.lastResolveCall = `why=${why || ''} gsId=${gsId}`;
+      } catch (e) {}
+
+      _ilog(`RESOLVE_ENTER: why=${why || ''} gsId=${gsId} active=${(gs && gs.active) ? 1 : 0} storedKey=${(gs && gs.key) ? gs.key : '?'}`);
+
+      try {
+        if (!gs || !gs.active) {
+          status = 'resolved_no_gesture';
+          resolveLine = `hasGesture=0 reason=no_gesture`;
+          _setResolveLine(resolveLine, status);
+          _ilog(`RESOLVE_EARLY: gsId=${gsId} reason=no_gesture`);
+          _ilog(`RESOLVE_RETURN: gsId=${gsId} status=${status} activeAfter=0 resolveLineSet=Y`);
+          return { status: status, resolveLine: resolveLine, resolveLineSet: true, activeAfter: 0 };
+        }
+
+        // Compute endKey + end client coords.
+        let endKey = '?:?';
+        let cx = null, cy = null;
+        let endTouchId = null;
+
+        const isTouchEvt = !!(domEv && (domEv.changedTouches || domEv.touches));
+        const storedKey = gs.key || '';
+
+        if (gs.kind === 'touch') {
+          // Prefer matching the stored touchId.
+          let ct = null;
+          if (domEv && domEv.changedTouches && domEv.changedTouches.length) {
+            for (let i = 0; i < domEv.changedTouches.length; i++) {
+              const t = domEv.changedTouches[i];
+              if (t && gs.touchId != null && t.identifier === gs.touchId) { ct = t; break; }
+            }
+            if (!ct) ct = domEv.changedTouches[0];
+          }
+          if (ct && ct.identifier != null) {
+            endTouchId = ct.identifier;
+            endKey = 't:' + endTouchId;
+            cx = ct.clientX;
+            cy = ct.clientY;
+          } else {
+            endKey = 't:?';
+          }
+
+          // Require matching key.
+          if (endKey !== storedKey) {
+            status = (endKey === 't:?') ? 'resolved_touch_not_found' : 'resolved_key_mismatch';
+            resolveLine = `hasGesture=0 reason=${status} storedKey=${storedKey || '?'} endKey=${endKey}`;
+            _setResolveLine(resolveLine, status);
+            _ilog(`RESOLVE_EARLY: gsId=${gsId} reason=${status} storedKey=${storedKey || '?'} endKey=${endKey}`);
+            EC.INPUT.clearGesture(status, { why: why || '', storedKey: storedKey || '?', endKey: endKey });
+            _ilog(`RESOLVE_RETURN: gsId=${gsId} status=${status} activeAfter=${gs.active ? 1 : 0} resolveLineSet=Y`);
+            return { status: status, resolveLine: resolveLine, resolveLineSet: true, activeAfter: (gs.active ? 1 : 0) };
+          }
+
+        } else if (gs.kind === 'pointer') {
+          const pid = (domEv && domEv.pointerId != null) ? domEv.pointerId : null;
+          endKey = (pid != null) ? ('p:' + pid) : 'p:?';
+          cx = domEv ? domEv.clientX : null;
+          cy = domEv ? domEv.clientY : null;
+          if (endKey !== storedKey) {
+            status = 'resolved_key_mismatch';
+            resolveLine = `hasGesture=0 reason=key_mismatch storedKey=${storedKey || '?'} endKey=${endKey}`;
+            _setResolveLine(resolveLine, status);
+            _ilog(`RESOLVE_EARLY: gsId=${gsId} reason=key_mismatch storedKey=${storedKey || '?'} endKey=${endKey}`);
+            EC.INPUT.clearGesture(status, { why: why || '', storedKey: storedKey || '?', endKey: endKey });
+            _ilog(`RESOLVE_RETURN: gsId=${gsId} status=${status} activeAfter=${gs.active ? 1 : 0} resolveLineSet=Y`);
+            return { status: status, resolveLine: resolveLine, resolveLineSet: true, activeAfter: (gs.active ? 1 : 0) };
+          }
+
+        } else {
+          status = 'resolved_key_mismatch';
+          resolveLine = `hasGesture=0 reason=unknown_kind storedKey=${storedKey || '?'} kind=${gs.kind || '?'}`;
+          _setResolveLine(resolveLine, status);
+          _ilog(`RESOLVE_EARLY: gsId=${gsId} reason=unknown_kind kind=${gs.kind || '?'}`);
+          EC.INPUT.clearGesture(status, { why: why || '', storedKey: storedKey || '?' });
+          _ilog(`RESOLVE_RETURN: gsId=${gsId} status=${status} activeAfter=${gs.active ? 1 : 0} resolveLineSet=Y`);
+          return { status: status, resolveLine: resolveLine, resolveLineSet: true, activeAfter: (gs.active ? 1 : 0) };
+        }
+
+        if (cx == null || cy == null || gs.x0 == null || gs.y0 == null || gs.t0 == null) {
+          status = 'resolved_missing_coords';
+          resolveLine = `hasGesture=0 reason=missing_coords key=${storedKey || '?'} cx=${cx} cy=${cy}`;
+          _setResolveLine(resolveLine, status);
+          _ilog(`RESOLVE_EARLY: gsId=${gsId} reason=missing_coords`);
+          EC.INPUT.clearGesture(status, { why: why || '', key: storedKey || '?' });
+          _ilog(`RESOLVE_RETURN: gsId=${gsId} status=${status} activeAfter=${gs.active ? 1 : 0} resolveLineSet=Y`);
+          return { status: status, resolveLine: resolveLine, resolveLineSet: true, activeAfter: (gs.active ? 1 : 0) };
+        }
+
+        const now = (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
+        const dt = Math.max(0, now - gs.t0);
+        const dx = (cx - gs.x0);
+        const dy = (cy - gs.y0);
+
+        const THRESH_MS = 400;
+        const THRESH_PX = 18;
+        const step = 5;
+
+        const flick = (dt <= THRESH_MS) && (Math.max(Math.abs(dx), Math.abs(dy)) >= THRESH_PX);
+        let cls = flick ? 'FLICK' : 'TAP';
+        let dir = 'NONE';
+        let applied = 'ok';
+        let applyReason = 'ok';
+
+        const w = (gs.well != null) ? gs.well : -1;
+        if (w < 0 || w > 5) {
+          applied = 'fail';
+          applyReason = 'invalid_idx';
+        } else if (!flick) {
+          // TAP selects the well.
+          try { if (EC.SIM) EC.SIM.selectedWellIndex = w; } catch (e) {}
+        } else {
+          let dA = 0, dS = 0;
+          if (Math.abs(dx) >= Math.abs(dy)) {
+            dir = (dx >= 0) ? 'RIGHT' : 'LEFT';
+            dS = (dx >= 0) ? step : -step;
+          } else {
+            dir = (dy <= 0) ? 'UP' : 'DOWN';
+            dA = (dy <= 0) ? step : -step;
+          }
+
+          try { if (EC.SIM) EC.SIM.selectedWellIndex = w; } catch (e) {}
+
+          if (EC.UI_CONTROLS && typeof EC.UI_CONTROLS.flickStep === 'function') {
+            try {
+              const res = EC.UI_CONTROLS.flickStep(w, dA, dS);
+              const ok = !!(res && res.ok);
+              if (!ok) {
+                applied = 'fail';
+                applyReason = (res && res.reason) ? res.reason : 'apply_failed';
+              }
+            } catch (e) {
+              applied = 'fail';
+              applyReason = 'apply_throw';
+            }
+          } else {
+            applied = 'fail';
+            applyReason = 'missing_flickStep';
+          }
+        }
+
+        status = flick ? 'resolved_ok_flick' : 'resolved_ok_tap';
+        resolveLine = `hasGesture=1 key=${storedKey || '?'} dt=${dt.toFixed(0)} dx=${dx.toFixed(1)} dy=${dy.toFixed(1)} class=${cls} dir=${dir} applied=${applied} reason=${applyReason}`;
+        _setResolveLine(resolveLine, status);
+        _ilog(`RESOLVE_OK: gsId=${gsId} dt=${dt.toFixed(0)} dx=${dx.toFixed(1)} dy=${dy.toFixed(1)} class=${cls} dir=${dir} applied=${applied} reason=${applyReason}`);
+
+        // Always clear after an end/cancel resolve attempt.
+        EC.INPUT.clearGesture('resolved_ok', { status: status, why: why || '' });
+
+        _ilog(`RESOLVE_RETURN: gsId=${gsId} status=${status} activeAfter=${gs.active ? 1 : 0} resolveLineSet=Y`);
+        return { status: status, resolveLine: resolveLine, resolveLineSet: true, activeAfter: (gs.active ? 1 : 0) };
+
+      } catch (err) {
+        const msg = (err && err.message) ? err.message : String(err);
+        status = 'resolved_exception';
+        resolveLine = `hasGesture=0 reason=exception msg=${msg}`;
+        _setResolveLine(resolveLine, status);
+        _ilog(`RESOLVE_EARLY: gsId=${gsId} reason=exception msg=${msg}`);
+        try { EC.INPUT.clearGesture('resolved_exception', { msg: msg, why: why || '' }); } catch (e) {}
+        _ilog(`RESOLVE_RETURN: gsId=${gsId} status=${status} activeAfter=${(gs && gs.active) ? 1 : 0} resolveLineSet=Y`);
+        return { status: status, resolveLine: resolveLine, resolveLineSet: true, activeAfter: (gs && gs.active) ? 1 : 0 };
+      }
+    };
+  }
+
 })();

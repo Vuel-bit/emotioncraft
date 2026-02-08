@@ -9,7 +9,7 @@
   const EC = (window.EC = window.EC || {});
 
   // Build label used by UI summary/debug
-  EC.BUILD = EC.BUILD || 'v0_2_58_input_module_picker_fix';
+  EC.BUILD = EC.BUILD || 'v0_2_63_resolve_failsafe_unified';
 
   // -----------------------------
   // Pixi setup
@@ -314,28 +314,51 @@ function _domArmHookLog(e, label) {
     _ilog(`RESOLVE_ATTEMPT: gsId=${(EC.INPUT&&EC.INPUT.gestureState&&EC.INPUT.gestureState._id)||'?'} storedActive=${storedActive?1:0} storedKey=${storedKey} endKey=${endKey} match=${match?'y':'n'} reason=${reason}`);
   } catch (_) {}
 
+  // Call canonical resolver (fail-safe) for DOM touchend
+  let __resolveStatus = 'unrun';
   try {
-    if (EC.RENDER && typeof EC.RENDER._resolveGestureFromDom === 'function') {
-      EC.RENDER._resolveGestureFromDom(e, 'end');
+    const st0 = (EC.INPUT && EC.INPUT.gestureState) ? EC.INPUT.gestureState : null;
+    const hasFn = !!(EC.INPUT && typeof EC.INPUT.resolveDomTouchEnd === 'function');
+    const storedActive0 = !!(st0 && st0.active);
+    const storedKey0 = (st0 && st0.key) ? st0.key : '?';
+    _ilog(`RESOLVE_CALL: hasFn=${hasFn?'Y':'N'} fn=EC.INPUT.resolveDomTouchEnd gsId=${(st0&&st0._id)||'?'} storedActive=${storedActive0?1:0} storedKey=${storedKey0} endKey=${endKey} why=touchend`);
+    if (hasFn) {
+      const rv = EC.INPUT.resolveDomTouchEnd(e, 'touchend');
+      __resolveStatus = (rv && rv.status) ? rv.status : (((EC.UI_STATE&&EC.UI_STATE.inputDbg)&&EC.UI_STATE.inputDbg.lastResolveStatus) ? EC.UI_STATE.inputDbg.lastResolveStatus : 'ok');
+    } else {
+      // Function missing: clear defensively if anything is active
+      if (EC.INPUT && typeof EC.INPUT.clearGesture === 'function') {
+        EC.INPUT.clearGesture('resolved_fn_missing', { why: 'touchend', endKey });
+      } else if (st0) {
+        try { st0.active = 0; st0.key = ''; st0.kind = ''; st0.well = -1; } catch (_) {}
+      }
+      __resolveStatus = 'resolved_fn_missing';
     }
   } catch (err) {
     const msg = (err && err.message) ? err.message : String(err);
     _ilog('RESOLVE_ERR: ' + msg);
+    try { if (EC.INPUT && typeof EC.INPUT.clearGesture === 'function') EC.INPUT.clearGesture('resolved_exception', { why: 'touchend', msg }); } catch (_) {}
+    __resolveStatus = 'resolved_exception';
   }
 
   try {
     const dbg = (EC.UI_STATE && EC.UI_STATE.inputDbg) || null;
     if (dbg) {
-      // Snapshot-friendly last resolve
-      dbg.lastResolve = dbg.resolveLine || '';
-      if (!dbg.resolveLine) {
+      let activeAfter = !!(EC.INPUT && EC.INPUT.gestureState && EC.INPUT.gestureState.active);
+      if (activeAfter && storedActive) {
         try {
-          const st = (EC.INPUT && EC.INPUT.gestureState) ? EC.INPUT.gestureState : null;
-          const storedActive = !!(st && st.active);
-          const storedKey = st && st.key ? st.key : '?';
-          dbg.resolveLine = storedActive ? (`hasGesture=1 key=${storedKey} dt=? dx=? dy=? class=? dir=? applied=? reason=resolve_unset`) : ('hasGesture=0 reason=no_gesture');
-        } catch (_) { dbg.resolveLine = 'hasGesture=0 reason=no_gesture'; }
+          if (EC.INPUT && typeof EC.INPUT.clearGesture === 'function') EC.INPUT.clearGesture('post_resolve_force_clear', { why: 'touchend' });
+        } catch (_) {}
+        activeAfter = !!(EC.INPUT && EC.INPUT.gestureState && EC.INPUT.gestureState.active);
       }
+      const resolveLineSet = dbg.resolveLine ? 'Y' : 'N';
+      if (!dbg.resolveLine) {
+        dbg.resolveLine = 'hasGesture=0 reason=resolve_missing';
+      }
+      dbg.lastResolve = dbg.resolveLine;
+      // Prefer resolver status if it set one
+      if (!dbg.lastResolveStatus) dbg.lastResolveStatus = __resolveStatus;
+      _ilog(`RESOLVE_RETURN: status=${dbg.lastResolveStatus||__resolveStatus} activeAfter=${activeAfter?1:0} resolveLineSet=${resolveLineSet}`);
       _ilog('RESOLVE: ' + dbg.resolveLine);
     }
   } catch (_) {}
@@ -369,28 +392,51 @@ function _domArmHookLog(e, label) {
     _ilog(`RESOLVE_ATTEMPT: gsId=${(EC.INPUT&&EC.INPUT.gestureState&&EC.INPUT.gestureState._id)||'?'} storedActive=${storedActive?1:0} storedKey=${storedKey} endKey=${endKey} match=${match?'y':'n'} reason=${reason}`);
   } catch (_) {}
 
+  // Call canonical resolver (fail-safe) for DOM touchcancel
+  let __resolveStatus = 'unrun';
   try {
-    if (EC.RENDER && typeof EC.RENDER._resolveGestureFromDom === 'function') {
-      EC.RENDER._resolveGestureFromDom(e, 'cancel');
+    const st0 = (EC.INPUT && EC.INPUT.gestureState) ? EC.INPUT.gestureState : null;
+    const hasFn = !!(EC.INPUT && typeof EC.INPUT.resolveDomTouchEnd === 'function');
+    const storedActive0 = !!(st0 && st0.active);
+    const storedKey0 = (st0 && st0.key) ? st0.key : '?';
+    _ilog(`RESOLVE_CALL: hasFn=${hasFn?'Y':'N'} fn=EC.INPUT.resolveDomTouchEnd gsId=${(st0&&st0._id)||'?'} storedActive=${storedActive0?1:0} storedKey=${storedKey0} endKey=${endKey} why=touchcancel`);
+    if (hasFn) {
+      const rv = EC.INPUT.resolveDomTouchEnd(e, 'touchcancel');
+      __resolveStatus = (rv && rv.status) ? rv.status : (((EC.UI_STATE&&EC.UI_STATE.inputDbg)&&EC.UI_STATE.inputDbg.lastResolveStatus) ? EC.UI_STATE.inputDbg.lastResolveStatus : 'ok');
+    } else {
+      // Function missing: clear defensively if anything is active
+      if (EC.INPUT && typeof EC.INPUT.clearGesture === 'function') {
+        EC.INPUT.clearGesture('resolved_fn_missing', { why: 'touchcancel', endKey });
+      } else if (st0) {
+        try { st0.active = 0; st0.key = ''; st0.kind = ''; st0.well = -1; } catch (_) {}
+      }
+      __resolveStatus = 'resolved_fn_missing';
     }
   } catch (err) {
     const msg = (err && err.message) ? err.message : String(err);
     _ilog('RESOLVE_ERR: ' + msg);
+    try { if (EC.INPUT && typeof EC.INPUT.clearGesture === 'function') EC.INPUT.clearGesture('resolved_exception', { why: 'touchcancel', msg }); } catch (_) {}
+    __resolveStatus = 'resolved_exception';
   }
 
   try {
     const dbg = (EC.UI_STATE && EC.UI_STATE.inputDbg) || null;
     if (dbg) {
-      // Snapshot-friendly last resolve
-      dbg.lastResolve = dbg.resolveLine || '';
-      if (!dbg.resolveLine) {
+      let activeAfter = !!(EC.INPUT && EC.INPUT.gestureState && EC.INPUT.gestureState.active);
+      if (activeAfter && storedActive) {
         try {
-          const st = (EC.INPUT && EC.INPUT.gestureState) ? EC.INPUT.gestureState : null;
-          const storedActive = !!(st && st.active);
-          const storedKey = st && st.key ? st.key : '?';
-          dbg.resolveLine = storedActive ? (`hasGesture=1 key=${storedKey} dt=? dx=? dy=? class=? dir=? applied=? reason=resolve_unset`) : ('hasGesture=0 reason=no_gesture');
-        } catch (_) { dbg.resolveLine = 'hasGesture=0 reason=no_gesture'; }
+          if (EC.INPUT && typeof EC.INPUT.clearGesture === 'function') EC.INPUT.clearGesture('post_resolve_force_clear', { why: 'touchcancel' });
+        } catch (_) {}
+        activeAfter = !!(EC.INPUT && EC.INPUT.gestureState && EC.INPUT.gestureState.active);
       }
+      const resolveLineSet = dbg.resolveLine ? 'Y' : 'N';
+      if (!dbg.resolveLine) {
+        dbg.resolveLine = 'hasGesture=0 reason=resolve_missing';
+      }
+      dbg.lastResolve = dbg.resolveLine;
+      // Prefer resolver status if it set one
+      if (!dbg.lastResolveStatus) dbg.lastResolveStatus = __resolveStatus;
+      _ilog(`RESOLVE_RETURN: status=${dbg.lastResolveStatus||__resolveStatus} activeAfter=${activeAfter?1:0} resolveLineSet=${resolveLineSet}`);
       _ilog('RESOLVE: ' + dbg.resolveLine);
     }
   } catch (_) {}
@@ -476,23 +522,26 @@ function _stageDbg(ev, kind) {
   }
 
   function _resolveActiveGestureFromStage(ev, isOutside) {
-    const st = EC.RENDER && EC.RENDER._gesture;
+    // NOTE: Stage fallback should only resolve pointer-based gestures.
+    // Touch gestures are resolved via DOM touchend/touchcancel.
+    const st = (EC.INPUT && EC.INPUT.gestureState) ? EC.INPUT.gestureState : (EC.RENDER && EC.RENDER._gesture);
     if (!st || !st.active) return;
+    if (st.kind && st.kind !== 'pointer') return;
 
     const pid = _pidFromEv(ev);
     if (st.pid != null && st.pid >= 0 && pid != null && pid >= 0 && pid !== st.pid) return;
 
     const getXY = EC.RENDER && EC.RENDER._getClientXY;
     const setDbg = EC.RENDER && EC.RENDER._setGestureDebug;
-    const { x, y, oe } = (getXY ? getXY(ev) : { x: 0, y: 0, oe: null });
+    const xy = (getXY ? getXY(ev) : null);
+    if (!xy) return;
+    const x = xy.x, y = xy.y, oe = xy.oe;
     try { if (oe && typeof oe.preventDefault === 'function') oe.preventDefault(); } catch (_) {}
 
     const t1 = (performance && performance.now) ? performance.now() : Date.now();
     const dt = t1 - (st.t0 || t1);
-    const dx = x - st.x0;
-    const dy = y - st.y0;
-
-    EC.RENDER._gesture = null;
+    const dx = x - (st.x0 || x);
+    const dy = y - (st.y0 || y);
 
     const THRESH_MS = 400;
     const THRESH_PX = 18;
@@ -501,31 +550,43 @@ function _stageDbg(ev, kind) {
     const dist = Math.max(adx, ady);
     const isFlick = (dt <= THRESH_MS) && (dist >= THRESH_PX);
 
+    // Determine target well index
+    let iWell = -1;
+    if (typeof st.well === 'number') iWell = st.well;
+    else if (typeof st.wellId !== 'undefined') iWell = _wellIndexById(st.wellId);
+
+    // Clear gesture deterministically (canonical state)
+    try {
+      if (EC.INPUT && typeof EC.INPUT.clearGesture === 'function') EC.INPUT.clearGesture('stage_resolve', { outside: !!isOutside, dt: Math.round(dt) });
+      else { st.active = 0; st.key = ''; }
+    } catch (_) {}
+
     if (!isFlick) {
-      EC.onWellTap && EC.onWellTap(st.wellId);
+      try { if (iWell >= 0 && EC.SIM) EC.SIM.selectedWellIndex = iWell; } catch (_) {}
       if (setDbg) setDbg(`SWIPE: up(stage) dt=${dt.toFixed(0)} dx=${dx.toFixed(0)} dy=${dy.toFixed(0)} => TAP`);
       return;
     }
 
     let dA = 0, dS = 0;
-    if (adx > ady) dS = (dx > 0) ? +5 : -5;
-    else dA = (dy < 0) ? +5 : -5;
+    let dirTxt = '';
+    if (adx > ady) { dS = (dx > 0) ? +5 : -5; dirTxt = (dS > 0) ? 'RIGHT (S+5)' : 'LEFT (S-5)'; }
+    else { dA = (dy < 0) ? +5 : -5; dirTxt = (dA > 0) ? 'UP (A+5)' : 'DOWN (A-5)'; }
 
-    EC.onWellTap && EC.onWellTap(st.wellId);
-
-    const SIM = EC.SIM;
-    const i = _wellIndexById(st.wellId);
     const fn = EC.UI_CONTROLS && typeof EC.UI_CONTROLS.flickStep === 'function' ? EC.UI_CONTROLS.flickStep : null;
     const toast = EC.UI_CONTROLS && typeof EC.UI_CONTROLS.toast === 'function' ? EC.UI_CONTROLS.toast : null;
-    if (!fn || i < 0) {
+    const SIM = EC.SIM;
+
+    if (!fn || iWell < 0) {
       if (toast) toast('Select a Well first.');
       if (setDbg) setDbg(`SWIPE: up(stage) dt=${dt.toFixed(0)} dx=${dx.toFixed(0)} dy=${dy.toFixed(0)} => FLICK (no index)`);
       return;
     }
-    try { SIM.selectedWellIndex = i; } catch (_) {}
 
-    const res = fn(i, dA, dS) || { ok: false, reason: 'unknown' };
-    const dirTxt = (dS !== 0) ? (dS > 0 ? 'RIGHT (S+5)' : 'LEFT (S-5)') : (dA > 0 ? 'UP (A+5)' : 'DOWN (A-5)');
+    try { SIM.selectedWellIndex = iWell; } catch (_) {}
+
+    let res = null;
+    try { res = fn(iWell, dA, dS) || { ok: false, reason: 'unknown' }; } catch (e) { res = { ok: false, reason: 'exception' }; }
+
     if (!res.ok) {
       if (res.reason === 'noenergy') { if (toast) toast('Not enough Energy.'); }
       if (EC.SFX && typeof EC.SFX.error === 'function') EC.SFX.error();
@@ -544,15 +605,20 @@ app.stage.on('pointermove', (ev) => { _stageDbg(ev,'pointermove'); });
 
   app.stage.on('pointerup', (ev) => { _stageDbg(ev,'pointerup'); _resolveActiveGestureFromStage(ev, false); });
   app.stage.on('pointerupoutside', (ev) => { _stageDbg(ev,'pointerupoutside'); _resolveActiveGestureFromStage(ev, true); });
-  app.stage.on('pointercancel', (ev) => { _stageDbg(ev,'pointercancel');
-    const st = EC.RENDER && EC.RENDER._gesture;
-    if (!st || !st.active) return;
-    const pid = _pidFromEv(ev);
-    if (st.pid != null && st.pid >= 0 && pid != null && pid >= 0 && pid !== st.pid) return;
-    EC.RENDER._gesture = null;
-    const setDbg = EC.RENDER && EC.RENDER._setGestureDebug;
-    if (setDbg) setDbg('SWIPE: cancel(stage)');
-  });
+  app.stage.on('pointercancel', (ev) => {
+  _stageDbg(ev,'pointercancel');
+  const st = (EC.INPUT && EC.INPUT.gestureState) ? EC.INPUT.gestureState : (EC.RENDER && EC.RENDER._gesture);
+  if (!st || !st.active) return;
+  if (st.kind && st.kind !== 'pointer') return;
+  const pid = _pidFromEv(ev);
+  if (st.pid != null && st.pid >= 0 && pid != null && pid >= 0 && pid !== st.pid) return;
+  try {
+    if (EC.INPUT && typeof EC.INPUT.clearGesture === 'function') EC.INPUT.clearGesture('stage_cancel', { pid });
+    else { st.active = 0; st.key = ''; }
+  } catch (_) {}
+  const setDbg = EC.RENDER && EC.RENDER._setGestureDebug;
+  if (setDbg) setDbg('SWIPE: cancel(stage)');
+});
 
   const bg = new PIXI.Graphics();
   root.addChild(bg);
