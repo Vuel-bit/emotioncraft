@@ -353,8 +353,40 @@
 
     // Debug panel (monospace)
     if (debugEl) {
-      const parts = [];
-      parts.push(`MVP Debug`);
+const parts = [];
+// Always show raw input instrumentation at the top when available.
+try {
+  const D = (EC.UI_STATE && EC.UI_STATE.inputDbg) || null;
+  if (D) {
+    parts.push('INPUT');
+    const dom = D.dom || {};
+    parts.push(`DOM(canvas) counters: pd=${dom.pd||0} pm=${dom.pm||0} pu=${dom.pu||0} pc=${dom.pc||0}   ts=${dom.ts||0} tm=${dom.tm||0} te=${dom.te||0} tc=${dom.tc||0}`);
+    const st = D.pixiStage || {};
+    parts.push(`Pixi STAGE counters: pd=${st.pd||0} pm=${st.pm||0} pu=${st.pu||0} po=${st.po||0} pc=${st.pc||0}`);
+    const wl = D.pixiWell || {};
+    parts.push(`Pixi WELL counters:  pd=${wl.pd||0} pm=${wl.pm||0} pu=${wl.pu||0} po=${wl.po||0} pc=${wl.pc||0}`);
+
+    const lp = D.lastDomPointer || null;
+    if (lp) parts.push(`last DOM pointer: ${lp.type||'?'} pid=${lp.pid} pType=${lp.pointerType||'?'} primary=${lp.isPrimary?'Y':'n'} x=${lp.x} y=${lp.y} defPrev=${lp.defaultPrevented?'Y':'n'} cap=${lp.capture||''}`);
+    const lt = D.lastDomTouch || null;
+    if (lt) parts.push(`last DOM touch:   ${lt.type||'?'} touches=${lt.touches||0} changed=${lt.changed||0} x=${lt.x} y=${lt.y} defPrev=${lt.defaultPrevented?'Y':'n'}`);
+
+    const ls = D.lastStage || null;
+    if (ls) parts.push(`last Pixi stage:  ${ls.type||'?'} pid=${ls.pid} x=${ls.x} y=${ls.y} src=${ls.src||'?'}`);
+    const lw = D.lastWell || null;
+    if (lw) parts.push(`last Pixi well:   w=${lw.wellIndex} ${lw.type||'?'} pid=${lw.pid}`);
+
+    if (Array.isArray(D.log) && D.log.length) {
+      parts.push('');
+      parts.push('INPUT LOG (tail)');
+      const tail = D.log.slice(Math.max(0, D.log.length - 20));
+      for (let i=0;i<tail.length;i++) parts.push(tail[i]);
+    }
+    parts.push('');
+  }
+} catch (_) {}
+parts.push(`MVP Debug`);
+
       parts.push(`energy=${(SIM.energy||0).toFixed(3)}  regen=${regen.toFixed(3)}/s  spill=${spillOn ? 'ON' : 'off'}  spillA=${(SIM._spillA||0).toFixed(2)}  spillS=${(SIM._spillS||0).toFixed(2)}`);
       if (SIM._spillMsg) parts.push('spillMsg: ' + SIM._spillMsg);
       parts.push(`selected=${i}`);
@@ -372,7 +404,56 @@
       }
       parts.push(`hold: ${hold.toFixed(2)} / ${holdReq}`);
       parts.push(`err: ${err.toFixed(4)}  won=${won}`);
-      debugEl.textContent = parts.join('\n');
+// Build debug overlay DOM once so we can add controls (Copy Input Log) while still rendering mostly as text.
+if (!UI_STATE._dbgBuilt && debugEl) {
+  UI_STATE._dbgBuilt = true;
+  debugEl.innerHTML = [
+    '<div class="dbgTop">',
+    '  <div class="dbgTitle">DEBUG</div>',
+    '  <div class="dbgActions">',
+    '    <button class="dbgBtn" id="btnCopyInputLog" type="button">Copy Input Log</button>',
+    '  </div>',
+    '</div>',
+    '<pre class="dbgPre" id="debugPre"></pre>',
+  ].join('\n');
+
+  const btn = document.getElementById('btnCopyInputLog');
+  if (btn && !UI_STATE._copyLogWired) {
+    UI_STATE._copyLogWired = true;
+    btn.addEventListener('click', async () => {
+      try {
+        const dbg = (EC.UI_STATE && EC.UI_STATE.inputDbg) || {};
+        const log = Array.isArray(dbg.log) ? dbg.log : [];
+        const tail = log.slice(Math.max(0, log.length - 50)).join('\n');
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          await navigator.clipboard.writeText(tail);
+          UI_STATE.uiMsg = 'Copied input log.';
+          UI_STATE.uiMsgT = 1.5;
+        } else {
+          const ta = document.createElement('textarea');
+          ta.value = tail;
+          ta.style.position = 'fixed';
+          ta.style.left = '-9999px';
+          document.body.appendChild(ta);
+          ta.select();
+          document.execCommand('copy');
+          document.body.removeChild(ta);
+          UI_STATE.uiMsg = 'Copied input log.';
+          UI_STATE.uiMsgT = 1.5;
+        }
+      } catch (_) {
+        UI_STATE.uiMsg = 'Copy failed.';
+        UI_STATE.uiMsgT = 1.5;
+      }
+    });
+  }
+}
+
+if (debugEl) {
+  const pre = document.getElementById('debugPre');
+  if (pre) pre.textContent = parts.join('\n');
+  else debugEl.textContent = parts.join('\n');
+}
     }
 
     // Expose selected-hue drive for renderer pulse indicator

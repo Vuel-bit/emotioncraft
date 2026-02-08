@@ -270,6 +270,19 @@
     // Per-pointer gesture state.
     c.on('pointerdown', (ev) => {
       const { x, y, oe } = _getClientXY(ev);
+// Input instrumentation
+try {
+  EC.UI_STATE = EC.UI_STATE || {};
+  const D = EC.UI_STATE.inputDbg;
+  if (D) {
+    D.pixiWell = D.pixiWell || { pd:0, pm:0, pu:0, po:0, pc:0 };
+    D.pixiWell.pd = (D.pixiWell.pd||0) + 1;
+    const pid0 = (ev && ev.pointerId != null) ? ev.pointerId : (ev && ev.data && ev.data.pointerId != null ? ev.data.pointerId : -1);
+    D.lastWell = { wellIndex: _wellIndexById(w.id), type: 'pointerdown', pid: pid0 };
+    if (Array.isArray(D.log)) D.log.push(((performance && performance.now)?Math.floor(performance.now()):Date.now()) + ' PIXI WELL down w=' + D.lastWell.wellIndex + ' pid=' + pid0);
+    if (D.log && D.log.length > 120) D.log.splice(0, D.log.length - 120);
+  }
+} catch (_) {}
 
       // Prevent browser scroll/back gestures only when the gesture begins on a well.
       try { if (oe && typeof oe.preventDefault === 'function') oe.preventDefault(); } catch (_) {}
@@ -289,15 +302,32 @@
       };
 
       // Pointer capture: improves reliability when finger drifts.
-      // Prefer capturing on the canvas element when available.
-      try {
-        const view = EC.RENDER && EC.RENDER.app && EC.RENDER.app.view;
-        if (view && typeof view.setPointerCapture === 'function' && pid != null && pid >= 0) {
-          view.setPointerCapture(pid);
-        } else if (oe && oe.target && typeof oe.target.setPointerCapture === 'function' && pid != null && pid >= 0) {
-          oe.target.setPointerCapture(pid);
-        }
-      } catch (_) {}
+// Prefer capturing on the canvas element when available.
+let _cap = 'n/a';
+try {
+  const view = EC.RENDER && EC.RENDER.app && EC.RENDER.app.view;
+  if (view && typeof view.setPointerCapture === 'function' && pid != null && pid >= 0) {
+    view.setPointerCapture(pid);
+    _cap = 'OK(view)';
+  } else if (oe && oe.target && typeof oe.target.setPointerCapture === 'function' && pid != null && pid >= 0) {
+    oe.target.setPointerCapture(pid);
+    _cap = 'OK(target)';
+  } else {
+    _cap = 'noapi';
+  }
+} catch (e) {
+  _cap = 'err';
+}
+try {
+  const D = EC.UI_STATE && EC.UI_STATE.inputDbg;
+  if (D) {
+    D.lastDomPointer = D.lastDomPointer || {};
+    D.lastDomPointer.capture = _cap;
+    if (Array.isArray(D.log)) D.log.push(((performance && performance.now)?Math.floor(performance.now()):Date.now()) + ' CAPTURE ' + _cap + ' pid=' + pid);
+    if (D.log && D.log.length > 120) D.log.splice(0, D.log.length - 120);
+  }
+} catch (_) {}
+
 
       _setGestureDebug(`SWIPE: down pid=${pid}`);
     });
@@ -379,9 +409,43 @@
       _setGestureDebug(`SWIPE: dt=${dt.toFixed(0)} dx=${dx.toFixed(0)} dy=${dy.toFixed(0)} => ${dirTxt} APPLIED ✅${isOutside ? ' (upoutside)' : ''}`);
     }
 
-    c.on('pointerup', (ev) => _resolveGesture(ev, false));
-    c.on('pointerupoutside', (ev) => _resolveGesture(ev, true));
-    c.on('pointercancel', (ev) => {
+
+// Instrumentation only (no gameplay logic) — track pointermove delivery on well objects.
+c.on('pointermove', (ev) => {
+  try {
+    const D = EC.UI_STATE && EC.UI_STATE.inputDbg;
+    if (D) {
+      D.pixiWell = D.pixiWell || { pd:0, pm:0, pu:0, po:0, pc:0 };
+      D.pixiWell.pm = (D.pixiWell.pm||0) + 1;
+      const pid = (ev && ev.pointerId != null) ? ev.pointerId : (ev && ev.data && ev.data.pointerId != null ? ev.data.pointerId : -1);
+      D.lastWell = { wellIndex: _wellIndexById(w.id), type: 'pointermove', pid };
+    }
+  } catch (_) {}
+});
+
+// DOM fallback resolver (Android/iOS): resolve or cancel gesture end from raw DOM events on the canvas.
+// This calls the same internal resolve path used by the well pointerup handlers.
+EC.RENDER._resolveGestureFromDom = function(domEv, kind) {
+  try {
+    const st = EC.RENDER && EC.RENDER._gesture;
+    if (!st || !st.active) return;
+    // Wrap DOM event into a shape compatible with _getClientXY
+    const wrapped = { pointerId: (domEv && domEv.pointerId != null) ? domEv.pointerId : -1, data: { originalEvent: domEv } };
+    if (kind === 'cancel') {
+      EC.RENDER._gesture = null;
+      if (EC.RENDER && typeof EC.RENDER._setGestureDebug === 'function') EC.RENDER._setGestureDebug('SWIPE: cancel(DOM)');
+      try {
+        const D = EC.UI_STATE && EC.UI_STATE.inputDbg;
+        if (D && Array.isArray(D.log)) D.log.push(((performance && performance.now)?Math.floor(performance.now()):Date.now()) + ' DOM cancel -> cleared');
+      } catch (_) {}
+      return;
+    }
+    _resolveGesture(wrapped, true);
+  } catch (_) {}
+};
+    c.on('pointerup', (ev) => { try { const D=EC.UI_STATE&&EC.UI_STATE.inputDbg; if(D){D.pixiWell= D.pixiWell||{pd:0,pm:0,pu:0,po:0,pc:0}; D.pixiWell.pu=(D.pixiWell.pu||0)+1; D.lastWell={wellIndex:_wellIndexById(w.id), type:'pointerup', pid:(ev&&ev.pointerId!=null)?ev.pointerId:(ev&&ev.data&&ev.data.pointerId!=null?ev.data.pointerId:-1)}; } } catch(_){} _resolveGesture(ev, false); });
+    c.on('pointerupoutside', (ev) => { try { const D=EC.UI_STATE&&EC.UI_STATE.inputDbg; if(D){D.pixiWell= D.pixiWell||{pd:0,pm:0,pu:0,po:0,pc:0}; D.pixiWell.po=(D.pixiWell.po||0)+1; D.lastWell={wellIndex:_wellIndexById(w.id), type:'pointerupoutside', pid:(ev&&ev.pointerId!=null)?ev.pointerId:(ev&&ev.data&&ev.data.pointerId!=null?ev.data.pointerId:-1)}; } } catch(_){} _resolveGesture(ev, true); });
+    c.on('pointercancel', (ev) => { try { const D=EC.UI_STATE&&EC.UI_STATE.inputDbg; if(D){D.pixiWell= D.pixiWell||{pd:0,pm:0,pu:0,po:0,pc:0}; D.pixiWell.pc=(D.pixiWell.pc||0)+1; D.lastWell={wellIndex:_wellIndexById(w.id), type:'pointercancel', pid:(ev&&ev.pointerId!=null)?ev.pointerId:(ev&&ev.data&&ev.data.pointerId!=null?ev.data.pointerId:-1)}; } } catch(_){}
       const st = EC.RENDER && EC.RENDER._gesture;
       if (!st || !st.active) return;
       EC.RENDER._gesture = null;

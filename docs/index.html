@@ -205,7 +205,7 @@
       font-size: 11px;
       line-height: 1.15;
       color: rgba(232,238,252,0.88);
-      white-space: pre;
+      white-space: normal;
       pointer-events: none;
     }
 
@@ -410,6 +410,34 @@
       backdrop-filter: blur(10px);
     }
     .debug.show { display: block; }
+.debug .dbgTop{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:10px;
+  margin-bottom:8px;
+}
+.debug .dbgTitle{
+  font-weight:700;
+  letter-spacing:0.06em;
+  opacity:0.9;
+}
+.debug .dbgActions{ display:flex; gap:8px; }
+.debug .dbgBtn{
+  font: inherit;
+  font-size: 11px;
+  padding: 6px 8px;
+  border-radius: 10px;
+  border: 1px solid rgba(255,255,255,0.18);
+  background: rgba(255,255,255,0.06);
+  color: rgba(255,255,255,0.92);
+}
+.debug .dbgBtn:active{ transform: translateY(1px); }
+.debug .dbgPre{
+  margin: 0;
+  white-space: pre;
+}
+
 
     .fail {
       position: absolute;
