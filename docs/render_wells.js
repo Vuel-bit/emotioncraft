@@ -308,7 +308,7 @@ views.forEach((v, id) => {
 });
 
 // Return inside pick if available; otherwise return nearest well with inside=false
-        return bestInside || bestAny;
+return bestInside || bestAny;
       } catch (_) { return null; }
     };
 
@@ -569,6 +569,49 @@ c.on('pointermove', (ev) => {
 // ------------------------------------------------------------
 // DOM touchstart arming (keys off Touch.identifier)
 // ------------------------------------------------------------
+
+// Arms a gesture from a pre-computed pick (used by DOM touch/pointer handlers). No re-pick occurs here.
+EC.RENDER._armGestureFromPick = function(info, appRef) {
+  try {
+    const cur = EC.RENDER && EC.RENDER._gesture;
+    if (cur && cur.active) return false;
+    if (!info || info.idx == null || info.idx < 0) return false;
+
+    const nowT = (performance && performance.now) ? performance.now() : Date.now();
+    const kind = info.kind || 'touch'; // 'touch' | 'pointer'
+    const key = info.key || '?';
+    const wellId = info.idx;
+    const t0 = (info.t0 != null) ? info.t0 : nowT;
+    const x0 = (info.clientX != null) ? info.clientX : 0;
+    const y0 = (info.clientY != null) ? info.clientY : 0;
+
+    const g = {
+      active: true,
+      kind,
+      key,
+      touchId: (kind === 'touch') ? (info.touchId != null ? info.touchId : (key.startsWith('t:') ? parseInt(key.slice(2),10) : null)) : null,
+      wellId,
+      pid: (kind === 'pointer') ? (info.pid != null ? info.pid : (key.startsWith('p:') ? parseInt(key.slice(2),10) : -1)) : -1,
+      t0,
+      x0,
+      y0,
+    };
+    EC.RENDER._gesture = g;
+
+    // Update always-visible gesture line in debug overlay
+    try {
+      const D = EC.UI_STATE && EC.UI_STATE.inputDbg;
+      if (D) {
+        D.gestureLine = `active=1 key=${g.key||'?'} well=${g.wellId} x0/y0=${Math.round(g.x0)}/${Math.round(g.y0)} t0=${Math.round(g.t0)}`;
+      }
+    } catch (_) {}
+
+    return true;
+  } catch (_) {
+    return false;
+  }
+};
+
 // Called from main.js DOM listeners. Arms a gesture only if touchstart began on a well.
 EC.RENDER._armGestureFromDomTouchStart = function(domTouchEvent, app) {
   try {

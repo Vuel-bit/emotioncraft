@@ -151,13 +151,117 @@ function _domArmHookLog(e, label) {
   view.addEventListener('touchstart', (e) => {
   _domArmHookLog(e, 'canvas');
   _recordDomTouch(e,'ts');
-  // Arm gesture using Touch.identifier when touch starts over a well (DOM-level; do not depend on Pixi WELL events).
+
+  // Execution Ladder — make it impossible for arming/picking to be silent.
+  const D = _idbg();
+  const _setLast = (k,v) => { try { if (D) D[k]=v; } catch (_) {} };
+
   try {
-    if (EC.RENDER && typeof EC.RENDER._armGestureFromDomTouchStart === 'function') {
-      const armed = EC.RENDER._armGestureFromDomTouchStart(e, app);
-      _ilog('ARM_CALL touchstart armed=' + (armed ? 'Y' : 'n'));
+    _setLast('lastTouchstartStatus','ENTER');
+    _ilog('TOUCHSTART_ENTER');
+
+    const hasEC = !!window.EC;
+    const hasRENDER = !!(window.EC && EC.RENDER);
+    const hasSIM = !!(window.EC && EC.SIM);
+    const hasAPP = !!(app);
+    const hasVIEW = !!(app && app.view);
+    const hasPickFn = !!(window.EC && EC.RENDER && typeof EC.RENDER.pickWellIndexFromClientXY === 'function');
+    const hasArmFn = !!(window.EC && EC.RENDER && (typeof EC.RENDER._armGestureFromPick === 'function' || typeof EC.RENDER._armGestureFromDomTouchStart === 'function'));
+    const nowMs = (performance && performance.now) ? Math.floor(performance.now()) : Date.now();
+    _ilog(`TOUCHSTART_ENV: hasEC=${hasEC?1:0} hasRENDER=${hasRENDER?1:0} hasSIM=${hasSIM?1:0} hasAPP=${hasAPP?1:0} hasVIEW=${hasVIEW?1:0} hasPickFn=${hasPickFn?1:0} hasArmFn=${hasArmFn?1:0} now=${nowMs}`);
+    _setLast('lastTouchstartStatus','ENV');
+
+    // Ensure we actively prevent default (in addition to _domArmHookLog) and prove it.
+    let before = !!(e && e.defaultPrevented);
+    try { e.preventDefault(); } catch (_) {}
+    let after = !!(e && e.defaultPrevented);
+    _ilog(`TOUCHSTART_PREVENT: defPrevBefore=${before?'Y':'n'} defPrevAfter=${after?'Y':'n'}`);
+
+    _ilog('TOUCHSTART_BEFORE_PICK');
+    _setLast('lastTouchstartStatus','BEFORE_PICK');
+
+    const oe = e;
+    const ch = (oe && oe.changedTouches && oe.changedTouches.length) ? oe.changedTouches[0] : null;
+    const t = ch || ((oe && oe.touches && oe.touches.length) ? oe.touches[0] : null);
+    if (!t || t.identifier == null) {
+      _ilog('TOUCHSTART_RETURN: reason=no_touch_identifier');
+      _setLast('lastTouchstartStatus','RETURN(no_touch_identifier)');
+      return;
     }
-  } catch (err) { _ilog('ARM_CALL touchstart err'); }
+
+    const clientX = t.clientX, clientY = t.clientY;
+    const touchId = t.identifier;
+    const endKey = 't:' + touchId; // for snapshot convenience
+    let pick = null;
+
+    try {
+      if (EC.RENDER && typeof EC.RENDER.pickWellIndexFromClientXY === 'function') {
+        pick = EC.RENDER.pickWellIndexFromClientXY(clientX, clientY, app);
+      } else {
+        _ilog('PICK_ERR: missing_pick_fn');
+      }
+    } catch (err) {
+      const msg = (err && err.message) ? err.message : String(err);
+      _ilog('PICK_ERR: ' + msg);
+      _setLast('lastPick', `idx=? inside=? cx/cy=${clientX},${clientY}`);
+      _setLast('lastTouchstartStatus','PICK_ERR');
+      _ilog('TOUCHSTART_BEFORE_ARM');
+      _ilog('ARM: ok=n key=' + endKey + ' well=-1 reason=pick_throw');
+      _setLast('lastArm', `ok=n key=${endKey} well=-1 reason=pick_throw`);
+      _setLast('lastTouchstartStatus','EXIT');
+      _ilog('TOUCHSTART_EXIT');
+      return;
+    }
+
+    try {
+      if (pick && typeof pick.idx === 'number') {
+        const inside = pick.inside ? 'Y' : 'n';
+        const line = `PICK: idx=${pick.idx} cx/cy=${clientX.toFixed(1)},${clientY.toFixed(1)} local=${pick.rx.toFixed(1)},${pick.ry.toFixed(1)} dist=${pick.dist.toFixed(1)} r=${pick.r.toFixed(1)} inside=${inside}`;
+        _ilog(line);
+        _setLast('lastPick', `idx=${pick.idx} inside=${inside} cx/cy=${clientX.toFixed(1)},${clientY.toFixed(1)}`);
+      } else {
+        const line = `PICK: idx=-1 cx/cy=${clientX.toFixed(1)},${clientY.toFixed(1)} local=? dist=? r=? inside=n`;
+        _ilog(line);
+        _setLast('lastPick', `idx=-1 inside=n cx/cy=${clientX.toFixed(1)},${clientY.toFixed(1)}`);
+      }
+    } catch (_) {}
+
+    _ilog('TOUCHSTART_BEFORE_ARM');
+    _setLast('lastTouchstartStatus','BEFORE_ARM');
+
+    // Arm only on pick hit.
+    if (!pick || !pick.inside || pick.idx == null || pick.idx < 0) {
+      _ilog('ARM: ok=n key=' + endKey + ' well=-1 reason=pick_miss');
+      _setLast('lastArm', `ok=n key=${endKey} well=-1 reason=pick_miss`);
+      _setLast('lastTouchstartStatus','EXIT');
+      _ilog('TOUCHSTART_EXIT');
+      return;
+    }
+
+    const key = 't:' + touchId;
+    let armed = false;
+    try {
+      if (EC.RENDER && typeof EC.RENDER._armGestureFromPick === 'function') {
+        armed = !!EC.RENDER._armGestureFromPick({ kind:'touch', key, idx: pick.idx, clientX, clientY, t0: nowMs }, app);
+      } else if (EC.RENDER && typeof EC.RENDER._armGestureFromDomTouchStart === 'function') {
+        armed = !!EC.RENDER._armGestureFromDomTouchStart(e, app);
+      }
+      _ilog(`ARM: ok=${armed?'y':'n'} key=${key} well=${pick.idx} reason=${armed?'ok':'arm_fn_returned_false'}`);
+      _setLast('lastArm', `ok=${armed?'y':'n'} key=${key} well=${pick.idx} reason=${armed?'ok':'arm_fn_returned_false'}`);
+    } catch (err) {
+      const msg = (err && err.message) ? err.message : String(err);
+      _ilog('ARM_ERR: ' + msg);
+      _ilog(`ARM: ok=n key=${key} well=${pick.idx} reason=arm_throw`);
+      _setLast('lastArm', `ok=n key=${key} well=${pick.idx} reason=arm_throw`);
+    }
+
+    _setLast('lastTouchstartStatus','EXIT');
+    _ilog('TOUCHSTART_EXIT');
+  } catch (err) {
+    const msg = (err && err.message) ? err.message : String(err);
+    _setLast('lastTouchstartStatus','THROW');
+    _ilog('TOUCHSTART_THROW: ' + msg);
+  }
 }, opts);
   view.addEventListener('touchmove', (e) => {
   _domArmHookLog(e, 'canvas');
@@ -166,20 +270,94 @@ function _domArmHookLog(e, label) {
   view.addEventListener('touchend', (e) => {
   _domArmHookLog(e, 'canvas');
   _recordDomTouch(e,'te');
-  // Always attempt resolve on end, even if no gesture exists (it will log RESOLVE hasGesture=0).
+
+  const D = _idbg();
+  const touchesN = (e && e.touches) ? e.touches.length : 0;
+  const changedN = (e && e.changedTouches) ? e.changedTouches.length : 0;
+  const ch = (e && e.changedTouches && e.changedTouches.length) ? e.changedTouches[0] : null;
+  const endId = (ch && ch.identifier != null) ? ch.identifier : -1;
+  const endKey = (endId >= 0) ? ('t:' + endId) : 't:?';
+
+  try {
+    if (D) D.lastTouchend = `type=touchend touches=${touchesN} changed=${changedN} endKey=${endKey}`;
+  } catch (_) {}
+
+  _ilog(`TOUCHEND_ENTER type=touchend touches=${touchesN} changed=${changedN} endKey=${endKey}`);
+
+  // Resolve attempt logging (even if no gesture)
+  try {
+    const st = (EC.RENDER && EC.RENDER._gesture) ? EC.RENDER._gesture : null;
+    const storedActive = !!(st && st.active);
+    const storedKey = st && st.key ? st.key : '?';
+    const match = storedActive && (storedKey === endKey);
+    let reason = 'ok';
+    if (!storedActive) reason = 'no_gesture';
+    else if (!match) reason = 'key_mismatch';
+    _ilog(`RESOLVE_ATTEMPT: storedActive=${storedActive?1:0} storedKey=${storedKey} endKey=${endKey} match=${match?'y':'n'} reason=${reason}`);
+  } catch (_) {}
+
   try {
     if (EC.RENDER && typeof EC.RENDER._resolveGestureFromDom === 'function') {
       EC.RENDER._resolveGestureFromDom(e, 'end');
+    }
+  } catch (err) {
+    const msg = (err && err.message) ? err.message : String(err);
+    _ilog('RESOLVE_ERR: ' + msg);
+  }
+
+  try {
+    const dbg = (EC.UI_STATE && EC.UI_STATE.inputDbg) || null;
+    if (dbg) {
+      // Snapshot-friendly last resolve
+      dbg.lastResolve = dbg.resolveLine || '';
+      _ilog('RESOLVE: ' + (dbg.resolveLine || 'hasGesture=? reason=?'));
     }
   } catch (_) {}
 }, opts);
   view.addEventListener('touchcancel', (e) => {
   _domArmHookLog(e, 'canvas');
   _recordDomTouch(e,'tc');
-  // Always attempt resolve on cancel, even if no gesture exists.
+
+  const D = _idbg();
+  const touchesN = (e && e.touches) ? e.touches.length : 0;
+  const changedN = (e && e.changedTouches) ? e.changedTouches.length : 0;
+  const ch = (e && e.changedTouches && e.changedTouches.length) ? e.changedTouches[0] : null;
+  const endId = (ch && ch.identifier != null) ? ch.identifier : -1;
+  const endKey = (endId >= 0) ? ('t:' + endId) : 't:?';
+
+  try {
+    if (D) D.lastTouchend = `type=touchcancel touches=${touchesN} changed=${changedN} endKey=${endKey}`;
+  } catch (_) {}
+
+  _ilog(`TOUCHEND_ENTER type=touchcancel touches=${touchesN} changed=${changedN} endKey=${endKey}`);
+
+  // Resolve attempt logging (even if no gesture)
+  try {
+    const st = (EC.RENDER && EC.RENDER._gesture) ? EC.RENDER._gesture : null;
+    const storedActive = !!(st && st.active);
+    const storedKey = st && st.key ? st.key : '?';
+    const match = storedActive && (storedKey === endKey);
+    let reason = 'ok';
+    if (!storedActive) reason = 'no_gesture';
+    else if (!match) reason = 'key_mismatch';
+    _ilog(`RESOLVE_ATTEMPT: storedActive=${storedActive?1:0} storedKey=${storedKey} endKey=${endKey} match=${match?'y':'n'} reason=${reason}`);
+  } catch (_) {}
+
   try {
     if (EC.RENDER && typeof EC.RENDER._resolveGestureFromDom === 'function') {
       EC.RENDER._resolveGestureFromDom(e, 'cancel');
+    }
+  } catch (err) {
+    const msg = (err && err.message) ? err.message : String(err);
+    _ilog('RESOLVE_ERR: ' + msg);
+  }
+
+  try {
+    const dbg = (EC.UI_STATE && EC.UI_STATE.inputDbg) || null;
+    if (dbg) {
+      // Snapshot-friendly last resolve
+      dbg.lastResolve = dbg.resolveLine || '';
+      _ilog('RESOLVE: ' + (dbg.resolveLine || 'hasGesture=? reason=?'));
     }
   } catch (_) {}
 }, opts);
