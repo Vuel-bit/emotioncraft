@@ -341,8 +341,9 @@
         rippleB.position.y = Math.sin(ripT * 0.31 + i * 0.6) * (2.0 + 3.8 * magEff);
 
         // Alpha: subtle at rest, stronger under spin
-        rippleA.alpha = 0.06 + 0.10 * magEff;
-        rippleB.alpha = 0.04 + 0.08 * magEff;
+        // Remove remaining "mist/haze" around wells (visual noise)
+        rippleA.alpha = 0;
+        rippleB.alpha = 0;
 
         // Wobble rotation (organic, non-repeating)
         const wob = 0.08 * Math.sin(ripT * 0.55 + i) + 0.05 * Math.sin(ripT * 0.91 + i * 1.7);
@@ -488,7 +489,8 @@
       if (edgeShade) {
         edgeShade.tint = mixToward(bodyCol, 0xffffff, 0.15);
         edgeShade.width = edgeShade.height = r * 2.06;
-        edgeShade.alpha = 0.07 + 0.08 * bloom + 0.04 * contract;
+        // Remove remaining "mist/haze" around wells (keep rim/selection crisp)
+        edgeShade.alpha = 0;
       }
 
       // Mask and rim keep the well a perfect circle at all times.
@@ -703,8 +705,8 @@
         const rr = Math.min(10, Math.round(bh * 0.48));
         asPlate.clear();
         // Darker backing for legibility over active liquid textures.
-        asPlate.lineStyle(1, 0x000000, 0.35);
-        asPlate.beginFill(0x000000, 0.50);
+        asPlate.lineStyle(1, 0x000000, 0.45);
+        asPlate.beginFill(0x000000, 0.68);
         asPlate.drawRoundedRect(-bw * 0.5, yAS - bh * 0.5, bw, bh, rr);
         asPlate.endFill();
         asPlate.position.set(0, 0);

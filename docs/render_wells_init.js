@@ -778,10 +778,11 @@
         const name = new Text(MVP_WELL_NAME[hue] || '', {
           fontFamily: 'system-ui, -apple-system, Segoe UI, Roboto, Arial',
           fontSize: 14,
-          fontWeight: '700',
+          fontWeight: '800',
           fill: 0xffffff,
           stroke: 0x000000,
-          strokeThickness: 4,
+          strokeThickness: 5,
+          letterSpacing: 0.5,
           align: 'center',
           wordWrap: true,
           wordWrapWidth: 120,
@@ -798,7 +799,10 @@
         const amountLabel = new Text('', {
           fontFamily: 'system-ui, -apple-system, Segoe UI, Roboto, Arial',
           fontSize: 12,
+          fontWeight: '800',
           fill: 0xffffff,
+          stroke: 0x000000,
+          strokeThickness: 4,
           align: 'center',
         });
         // NOTE: typo fix — was `label` (undefined), should be `amountLabel`.
@@ -809,7 +813,10 @@
         const spinText = new Text('', {
           fontFamily: 'system-ui, -apple-system, Segoe UI, Roboto, Arial',
           fontSize: 11,
+          fontWeight: '800',
           fill: 0xffffff,
+          stroke: 0x000000,
+          strokeThickness: 4,
           align: 'center',
         });
         spinText.anchor.set(0.5);

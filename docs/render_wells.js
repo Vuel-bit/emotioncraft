@@ -35,6 +35,45 @@
 
   EC.RENDER = EC.RENDER || {};
   const wellViews = (EC.RENDER.wellViews = EC.RENDER.wellViews || new Map());
+
+  // ------------------------------------------------------------
+  // Shared gesture helpers (used by per-well handlers + stage fallback)
+  // ------------------------------------------------------------
+  // Always-visible on-screen swipe debug line. (Can be gated later.)
+  if (!EC.RENDER._setGestureDebug) {
+    EC.RENDER._setGestureDebug = function _setGestureDebug(s) {
+      EC.UI_STATE = EC.UI_STATE || {};
+      EC.UI_STATE.gestureDebug = s;
+      if (EC.DEBUG) {
+        try { console.log(s); } catch (_) {}
+      }
+    };
+  }
+
+  // Robust extraction of clientX/clientY across PointerEvent / TouchEvent shims.
+  if (!EC.RENDER._getClientXY) {
+    EC.RENDER._getClientXY = function _getClientXY(ev) {
+      const oe = (ev && ev.data && ev.data.originalEvent) ? ev.data.originalEvent : (ev && ev.nativeEvent ? ev.nativeEvent : null);
+
+      // PointerEvent path
+      if (oe && oe.clientX != null && oe.clientY != null) {
+        return { x: oe.clientX, y: oe.clientY, oe };
+      }
+
+      // TouchEvent path (mobile Safari commonly)
+      const t = (oe && oe.changedTouches && oe.changedTouches.length) ? oe.changedTouches[0]
+              : (oe && oe.touches && oe.touches.length) ? oe.touches[0]
+              : null;
+      if (t && t.clientX != null && t.clientY != null) {
+        return { x: t.clientX, y: t.clientY, oe };
+      }
+
+      // Fallback: Pixi global coords (stage/world coords; less ideal for gesture deltas)
+      const x = (ev && ev.global ? ev.global.x : 0);
+      const y = (ev && ev.global ? ev.global.y : 0);
+      return { x, y, oe };
+    };
+  }
   function mixWellColor(w) {
     const rAmt = w.comp.red, bAmt = w.comp.blue, yAmt = w.comp.yellow;
     const sum = rAmt + bAmt + yAmt;
@@ -225,23 +264,8 @@
     // Down/Up-only: do NOT depend on pointermove.
     // ------------------------------------------------------------
 
-    // Always-visible (this chunk) on-screen swipe debug line. (Can be gated later.)
-    function _setGestureDebug(s) {
-      EC.UI_STATE = EC.UI_STATE || {};
-      EC.UI_STATE.gestureDebug = s;
-      if (EC.DEBUG) {
-        try { console.log(s); } catch (_) {}
-      }
-    }
-
-    function _getClientXY(ev) {
-      // Pixi FederatedPointerEvent provides .data.originalEvent (PointerEvent/TouchEvent shim)
-      // Some builds expose .nativeEvent. Fall back to global coords.
-      const oe = (ev && ev.data && ev.data.originalEvent) ? ev.data.originalEvent : (ev && ev.nativeEvent ? ev.nativeEvent : null);
-      const x = (oe && oe.clientX != null) ? oe.clientX : (ev && ev.global ? ev.global.x : 0);
-      const y = (oe && oe.clientY != null) ? oe.clientY : (ev && ev.global ? ev.global.y : 0);
-      return { x, y, oe };
-    }
+    const _setGestureDebug = EC.RENDER._setGestureDebug;
+    const _getClientXY = EC.RENDER._getClientXY;
 
     // Per-pointer gesture state.
     c.on('pointerdown', (ev) => {

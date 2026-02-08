@@ -180,6 +180,7 @@
     const mvpHudEl = dom.mvpHudEl || document.getElementById('mvpHud');
     const notifyBarEl = document.getElementById('notifyBar');
     const notifyTextEl = document.getElementById('notifyText');
+    const gestureDbgEl = document.getElementById('gestureDebugOverlay');
     const patientInfoEl = document.getElementById('patientInfo');
     const topbarEl = document.getElementById('topbar');
     const objectivePanelEl = dom.objectivePanelEl || document.getElementById('objectivePanel');
@@ -229,6 +230,8 @@
       // On-device gesture resolution line (required for this chunk; can be gated later).
       const g = UI_STATE.gestureDebug || '';
       if (notifyTextEl) notifyTextEl.textContent = g ? (short ? (short + "\n" + g) : g) : short;
+      // Always-visible debug overlay (does not depend on the notify bar state)
+      if (gestureDbgEl) gestureDbgEl.textContent = g || 'SWIPE: (waiting)';
     } catch (_) { /* ignore */ }
 
     // Patient + step (top-left)
