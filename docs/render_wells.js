@@ -448,7 +448,7 @@ try {
         try {
           const D = EC.UI_STATE && EC.UI_STATE.inputDbg;
           const endKey = 'p:' + pid;
-          if (D) D.resolveLine = `hasGesture=1 endKey=${endKey} storedKey=${st.key||'?'} dt=? dx=? dy=? class=NONE dir=NONE applied=fail reason=pid_mismatch end=${kind||'end'}`;
+          if (D) D.resolveLine = `hasGesture=0 reason=pid_mismatch storedKey=${st.key||'?'} endKey=${endKey}`;
           if (D && Array.isArray(D.log)) D.log.push(((performance&&performance.now)?Math.floor(performance.now()):Date.now()) + ' RESOLVE mismatch pointer endKey=' + endKey + ' stored=' + (st.key||'?'));
         } catch (_) {}
         return;
@@ -479,7 +479,7 @@ try {
         const D = EC.UI_STATE && EC.UI_STATE.inputDbg;
         if (D) {
           const wi = _wellIndexById(st.wellId);
-          D.resolveLine = `hasGesture=1 endKey=${evKey||'?'} storedKey=${st.key||'?'} well=${wi} dt=${dt.toFixed(0)} dx=${dx.toFixed(0)} dy=${dy.toFixed(0)} class=? dir=? applied=? reason=?`;
+          D.resolveLine = `hasGesture=1 endKey=${evKey||'?'} storedKey=${st.key||'?'} well=${wi} dt=${dt.toFixed(0)} dx=${dx.toFixed(0)} dy=${dy.toFixed(0)} class=NONE dir=NONE applied=fail reason=pre_classify`;
         }
       } catch (_) {}
 
@@ -537,7 +537,7 @@ try {
         if (EC.SFX && typeof EC.SFX.error === 'function') EC.SFX.error();
         try {
           const D = EC.UI_STATE && EC.UI_STATE.inputDbg;
-          if (D) D.resolveLine = `hasGesture=1 endKey=${evKey||'?'} storedKey=${st.key||'?'} kind=${st.kind||'?'} well=${_wellIndexById(st.wellId)} dt=${dt.toFixed(0)} dx=${dx.toFixed(0)} dy=${dy.toFixed(0)} class=FLICK dir=${dirTxt} applied=FAIL(reason=${res.reason||'fail'})`;
+          if (D) D.resolveLine = `hasGesture=1 endKey=${evKey||'?'} storedKey=${st.key||'?'} kind=${st.kind||'?'} well=${_wellIndexById(st.wellId)} dt=${dt.toFixed(0)} dx=${dx.toFixed(0)} dy=${dy.toFixed(0)} class=FLICK dir=${dirTxt} applied=fail reason=${res.reason||'fail'}`;
         } catch (_) {}
         _setGestureDebug(`SWIPE: dt=${dt.toFixed(0)} dx=${dx.toFixed(0)} dy=${dy.toFixed(0)} => ${dirTxt} ❌`);
         return;
@@ -819,7 +819,7 @@ EC.RENDER._resolveGestureFromDom = function(domEv, kind) {
         try {
           const D = EC.UI_STATE && EC.UI_STATE.inputDbg;
           const endKey = 'p:' + pid;
-          if (D) D.resolveLine = `hasGesture=1 endKey=${endKey} storedKey=${st.key||'?'} dt=? dx=? dy=? class=NONE dir=NONE applied=fail reason=pid_mismatch end=${kind||'end'}`;
+          if (D) D.resolveLine = `hasGesture=0 reason=pid_mismatch storedKey=${st.key||'?'} endKey=${endKey}`;
           if (D && Array.isArray(D.log)) D.log.push(((performance&&performance.now)?Math.floor(performance.now()):Date.now()) + ' RESOLVE mismatch pointer endKey=' + endKey + ' stored=' + (st.key||'?'));
         } catch (_) {}
         return;

@@ -9,7 +9,7 @@
   const EC = (window.EC = window.EC || {});
 
   // Build label used by UI summary/debug
-  EC.BUILD = EC.BUILD || 'v0_2_54_dom_touch_capture_arm_picker';
+  EC.BUILD = EC.BUILD || 'v0_2_58_input_module_picker_fix';
 
   // -----------------------------
   // Pixi setup
@@ -165,8 +165,8 @@ function _domArmHookLog(e, label) {
     const hasSIM = !!(window.EC && EC.SIM);
     const hasAPP = !!(app);
     const hasVIEW = !!(app && app.view);
-    const hasPickFn = !!(window.EC && EC.RENDER && typeof EC.RENDER.pickWellIndexFromClientXY === 'function');
-    const hasArmFn = !!(window.EC && EC.RENDER && (typeof EC.RENDER._armGestureFromPick === 'function' || typeof EC.RENDER._armGestureFromDomTouchStart === 'function'));
+    const hasPickFn = !!(window.EC && EC.INPUT && typeof EC.INPUT.pickWellIndexFromClientXY === 'function');
+    const hasArmFn = !!(window.EC && EC.INPUT && typeof EC.INPUT.armGestureFromPick === 'function');
     const nowMs = (performance && performance.now) ? Math.floor(performance.now()) : Date.now();
     _ilog(`TOUCHSTART_ENV: hasEC=${hasEC?1:0} hasRENDER=${hasRENDER?1:0} hasSIM=${hasSIM?1:0} hasAPP=${hasAPP?1:0} hasVIEW=${hasVIEW?1:0} hasPickFn=${hasPickFn?1:0} hasArmFn=${hasArmFn?1:0} now=${nowMs}`);
     _setLast('lastTouchstartStatus','ENV');
@@ -195,8 +195,8 @@ function _domArmHookLog(e, label) {
     let pick = null;
 
     try {
-      if (EC.RENDER && typeof EC.RENDER.pickWellIndexFromClientXY === 'function') {
-        pick = EC.RENDER.pickWellIndexFromClientXY(clientX, clientY, app);
+      if (EC.INPUT && typeof EC.INPUT.pickWellIndexFromClientXY === 'function') {
+        pick = EC.INPUT.pickWellIndexFromClientXY(clientX, clientY);
       } else {
         _ilog('PICK_ERR: missing_pick_fn');
       }
@@ -241,10 +241,8 @@ function _domArmHookLog(e, label) {
     const key = 't:' + touchId;
     let armed = false;
     try {
-      if (EC.RENDER && typeof EC.RENDER._armGestureFromPick === 'function') {
-        armed = !!EC.RENDER._armGestureFromPick({ kind:'touch', key, idx: pick.idx, clientX, clientY, t0: nowMs }, app);
-      } else if (EC.RENDER && typeof EC.RENDER._armGestureFromDomTouchStart === 'function') {
-        armed = !!EC.RENDER._armGestureFromDomTouchStart(e, app);
+      if (EC.INPUT && typeof EC.INPUT.armGestureFromPick === 'function') {
+        armed = !!EC.INPUT.armGestureFromPick({ kind:'touch', key, idx: pick.idx, clientX, clientY, t0: nowMs, touchId: touchId });
       }
       _ilog(`ARM: ok=${armed?'y':'n'} key=${key} well=${pick.idx} reason=${armed?'ok':'arm_fn_returned_false'}`);
       _setLast('lastArm', `ok=${armed?'y':'n'} key=${key} well=${pick.idx} reason=${armed?'ok':'arm_fn_returned_false'}`);
@@ -310,7 +308,7 @@ function _domArmHookLog(e, label) {
     if (dbg) {
       // Snapshot-friendly last resolve
       dbg.lastResolve = dbg.resolveLine || '';
-      _ilog('RESOLVE: ' + (dbg.resolveLine || 'hasGesture=? reason=?'));
+      _ilog('RESOLVE: ' + (dbg.resolveLine || 'hasGesture=0 reason=resolveLine_missing'));
     }
   } catch (_) {}
 }, opts);
@@ -357,7 +355,7 @@ function _domArmHookLog(e, label) {
     if (dbg) {
       // Snapshot-friendly last resolve
       dbg.lastResolve = dbg.resolveLine || '';
-      _ilog('RESOLVE: ' + (dbg.resolveLine || 'hasGesture=? reason=?'));
+      _ilog('RESOLVE: ' + (dbg.resolveLine || 'hasGesture=0 reason=resolveLine_missing'));
     }
   } catch (_) {}
 }, opts);
