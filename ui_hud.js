@@ -226,7 +226,9 @@
       const tele = hud.telegraphText || '';
       const act = hud.activeText || '';
       const short = (act || tele) || ((UI_STATE.uiMsgT > 0 && UI_STATE.uiMsg) ? UI_STATE.uiMsg : '');
-      if (notifyTextEl) notifyTextEl.textContent = short;
+      // Debug-only: show last gesture resolution on-device (no devtools needed).
+      const g = (EC.DEBUG && UI_STATE.gestureDebug) ? UI_STATE.gestureDebug : '';
+      if (notifyTextEl) notifyTextEl.textContent = g ? (short ? (short + "\n" + g) : g) : short;
     } catch (_) { /* ignore */ }
 
     // Patient + step (top-left)

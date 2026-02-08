@@ -1,6 +1,13 @@
-Build ID: v0_2_43_boardfirst_safezone_ui_hotfix
-Date: 2026-02-07
+Build ID: v0_2_46_flick_swipe_downup_debug
+Date: 2026-02-08
 Notes:
+- Flick swipe mobile fix (no mechanics changes):
+  - Gesture resolution now uses ONLY pointerdown + pointerup (no pointermove dependency).
+  - Tap selection is resolved on pointerup only when the gesture does not qualify as a flick.
+  - Flick uses the touched wellId to resolve the correct well index (no reliance on a separate selectedWellIndex path).
+  - Safety: window pointerup/pointercancel listeners are attached during an active gesture.
+  - Added on-screen gesture debug (2nd line in the top notification bar) when EC.DEBUG is true.
+  - Hard-set canvas touch-action to 'none' in CSS (in addition to the JS style).
 - UI-only hotfix:
   - Enforced strict no-overlap safe zones by reserving the actual bottom drawer area (using drawerRect.top) during board layout.
   - Simplified bottom-bar telemetry updates to match the compact UI (Goal line + Energy under Spin only).

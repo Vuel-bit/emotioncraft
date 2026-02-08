@@ -219,22 +219,18 @@
     c.hitArea = new PIXI.Circle(0, 0, 140);
 
     // Mobile-first flick swipe controls (discrete ±5 steps).
-    // We replace pointertap with pointerdown/up so we can distinguish tap vs flick
-    // without double firing.
+    // IMPORTANT (mobile reliability): detect from pointerdown + pointerup only.
+    // Do NOT depend on pointermove firing.
     c.on('pointerdown', (e) => {
       const ne = e && e.nativeEvent;
-      // Prevent default scrolling only when gesture begins on a well.
-      try {
-        if (ne && typeof ne.preventDefault === 'function') ne.preventDefault();
-      } catch (_) {}
 
-      // Select immediately (same behavior as tap selection).
-      EC.onWellTap(w.id);
+      // Prevent default scrolling only when gesture begins on a well.
+      try { if (ne && typeof ne.preventDefault === 'function') ne.preventDefault(); } catch (_) {}
 
       const pid = (e && e.pointerId != null) ? e.pointerId : (e && e.data && e.data.pointerId != null ? e.data.pointerId : (ne && ne.pointerId != null ? ne.pointerId : -1));
-      const t0 = performance.now();
+      const t0 = (performance && performance.now) ? performance.now() : Date.now();
 
-      // Use client coords for gesture delta; reliable for native window listeners.
+      // Use client coords for delta. On Pixi pointer events, nativeEvent carries clientX/Y on mobile.
       const cx0 = (ne && ne.clientX != null) ? ne.clientX : (e && e.global ? e.global.x : 0);
       const cy0 = (ne && ne.clientY != null) ? ne.clientY : (e && e.global ? e.global.y : 0);
 
@@ -254,19 +250,11 @@
         }
       } catch (_) {}
 
-      // Fallback: listen on window until release (in case capture isn't supported).
-      // Keep these handlers stable and lightweight.
-      if (!EC.RENDER._flickWin) {
-        EC.RENDER._flickWin = { move: null, up: null, cancel: null };
-      }
+      // Safety: also listen on window for pointerup/pointercancel until release.
+      if (!EC.RENDER._flickWin) EC.RENDER._flickWin = { up: null, cancel: null };
       const win = window;
       const st = EC.RENDER._flick;
 
-      const onMove = (ev) => {
-        if (!EC.RENDER._flick || !EC.RENDER._flick.active) return;
-        if (st.pid != null && st.pid >= 0 && ev.pointerId != null && ev.pointerId !== st.pid) return;
-        try { if (typeof ev.preventDefault === 'function') ev.preventDefault(); } catch (_) {}
-      };
       const onUp = (ev) => {
         if (!EC.RENDER._flick || !EC.RENDER._flick.active) return;
         if (st.pid != null && st.pid >= 0 && ev.pointerId != null && ev.pointerId !== st.pid) return;
@@ -275,16 +263,14 @@
       const onCancel = (ev) => {
         if (!EC.RENDER._flick || !EC.RENDER._flick.active) return;
         if (st.pid != null && st.pid >= 0 && ev.pointerId != null && ev.pointerId !== st.pid) return;
-        // Abort cleanly
         EC.RENDER._flick = null;
-        if (EC.DEBUG) console.log('[flick] pointercancel');
         _detachWindowFlick();
+        _setGestureDebug('GEST: cancel');
+        if (EC.DEBUG) console.log('[flick] pointercancel');
       };
 
-      EC.RENDER._flickWin.move = onMove;
       EC.RENDER._flickWin.up = onUp;
       EC.RENDER._flickWin.cancel = onCancel;
-      win.addEventListener('pointermove', onMove, { passive: false });
       win.addEventListener('pointerup', onUp, { passive: false });
       win.addEventListener('pointercancel', onCancel, { passive: false });
 
@@ -297,10 +283,26 @@
       if (!fw) return;
       // Note: removeEventListener only keys on (type, listener, capture).
       // Do not pass a new options object here.
-      if (fw.move) win.removeEventListener('pointermove', fw.move);
       if (fw.up) win.removeEventListener('pointerup', fw.up);
       if (fw.cancel) win.removeEventListener('pointercancel', fw.cancel);
-      fw.move = fw.up = fw.cancel = null;
+      fw.up = fw.cancel = null;
+    }
+
+    // Debug-only on-screen gesture line (rendered in the top notification bar when EC.DEBUG is true).
+    function _setGestureDebug(s) {
+      if (!EC.DEBUG) return;
+      EC.UI_STATE = EC.UI_STATE || {};
+      EC.UI_STATE.gestureDebug = s;
+      try { console.log(s); } catch (_) {}
+    }
+
+    function _wellIndexById(wellId) {
+      const SIM = EC.SIM;
+      if (!SIM || !Array.isArray(SIM.wells)) return -1;
+      for (let k = 0; k < SIM.wells.length; k++) {
+        if (SIM.wells[k] && SIM.wells[k].id === wellId) return k;
+      }
+      return -1;
     }
 
     function _endFlick(e) {
@@ -314,13 +316,13 @@
       const ne = e && e.nativeEvent;
       const cx1 = (ne && ne.clientX != null) ? ne.clientX : (e && e.global ? e.global.x : 0);
       const cy1 = (ne && ne.clientY != null) ? ne.clientY : (e && e.global ? e.global.y : 0);
-      const t1 = performance.now();
+      const t1 = (performance && performance.now) ? performance.now() : Date.now();
       const dt = t1 - (st.t0 || t1);
       const dx = (cx1 - st.cx0);
       const dy = (cy1 - st.cy0);
 
-      const THRESH_MS = 300;
-      const THRESH_PX = 24;
+      const THRESH_MS = 350;
+      const THRESH_PX = 22;
 
       const adx = Math.abs(dx);
       const ady = Math.abs(dy);
@@ -328,8 +330,9 @@
 
       const isFlick = (dt <= THRESH_MS) && (dist >= THRESH_PX);
       if (!isFlick) {
-        // Treat as tap: selection already happened on pointerdown.
-        if (EC.DEBUG) console.log('[flick] tap', { dt, dx, dy });
+        // TAP selection resolves here (so tap can't swallow flick).
+        EC.onWellTap(st.wellId);
+        _setGestureDebug(`GEST: dt=${dt.toFixed(0)}ms dx=${dx.toFixed(0)} dy=${dy.toFixed(0)} → TAP (select)`);
         return;
       }
 
@@ -343,15 +346,22 @@
         dA = (dy < 0) ? +5 : -5;
       }
 
+      // Select the target well for UI consistency.
+      EC.onWellTap(st.wellId);
+
       // Auto-apply using the canonical Apply path.
       const SIM = EC.SIM;
-      const i = (SIM && typeof SIM.selectedWellIndex === 'number') ? SIM.selectedWellIndex : -1;
+      const i = _wellIndexById(st.wellId);
       const fn = EC.UI_CONTROLS && typeof EC.UI_CONTROLS.flickStep === 'function' ? EC.UI_CONTROLS.flickStep : null;
       const toast = EC.UI_CONTROLS && typeof EC.UI_CONTROLS.toast === 'function' ? EC.UI_CONTROLS.toast : null;
       if (!fn || i < 0) {
         if (toast) toast('Select a Well first.');
+        _setGestureDebug(`GEST: dt=${dt.toFixed(0)}ms dx=${dx.toFixed(0)} dy=${dy.toFixed(0)} → FLICK (no well index)`);
         return;
       }
+
+      // Keep SIM.selectedWellIndex in sync with the wellId-based selection.
+      try { SIM.selectedWellIndex = i; } catch (_) {}
 
       const res = fn(i, dA, dS) || { ok: false, reason: 'unknown', cost: 0 };
       if (!res.ok) {
@@ -364,11 +374,15 @@
         }
         // Subtle error feedback
         if (EC.SFX && typeof EC.SFX.error === 'function') EC.SFX.error();
+        _setGestureDebug(`GEST: dt=${dt.toFixed(0)}ms dx=${dx.toFixed(0)} dy=${dy.toFixed(0)} → FLICK (${dA||0}/${dS||0}) ❌`);
         return;
       }
 
       // Subtle success tick (if available)
       if (EC.SFX && typeof EC.SFX.tick === 'function') EC.SFX.tick();
+
+      const dirTxt = (dS !== 0) ? (dS > 0 ? 'RIGHT (spin +5)' : 'LEFT (spin -5)') : (dA > 0 ? 'UP (amt +5)' : 'DOWN (amt -5)');
+      _setGestureDebug(`GEST: dt=${dt.toFixed(0)}ms dx=${dx.toFixed(0)} dy=${dy.toFixed(0)} → FLICK ${dirTxt} ✅`);
 
       if (EC.DEBUG) console.log('[flick] ok', { dt, dx, dy, dA, dS });
     }

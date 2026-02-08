@@ -1,3 +1,31 @@
+CHANGELOG — v0_2_46_flick_swipe_downup_debug (2026-02-08)
+## v0.2.46 (2026-02-08) — Mobile flick swipe: down/up only + on-screen debug
+- Flick gesture resolution now uses ONLY pointerdown + pointerup (no pointermove dependency).
+- Tap selection is resolved on pointerup only when the gesture does not qualify as a flick (prevents tap from swallowing flick).
+- Flick uses the touched wellId to resolve the correct well index (no reliance on stale selectedWellIndex paths).
+- Added safety window pointerup/pointercancel listeners during an active gesture.
+- Added on-screen gesture debug (second line of the top notification bar) when EC.DEBUG is true.
+- CSS: canvas touch-action set to none (in addition to JS) + overscroll-behavior none on #app.
+
+CHANGELOG — v0_2_45_flick_swipe_mobilefix (2026-02-08)
+## v0.2.45 (2026-02-08) — Mobile flick swipe reliability hotfix
+- Set canvas touch-action: none to prevent browser gesture hijack on mobile.
+- Added pointer capture + window pointerup/move fallback so flick completes reliably when finger drifts.
+- Added debug-only flick logs under EC.DEBUG.
+
+CHANGELOG — v0_2_44_flick_swipe_input (2026-02-07)
+## v0.2.44 (2026-02-07) — Mobile-first flick swipe controls (UI-only input)
+- Added Pointer-Events flick swipe controls on wells (no tuning/mechanics changes):
+  - Tap selects as before.
+  - Flick Up/Down: Amount ±5 (single step)
+  - Flick Left/Right: Spin ±5 (single step)
+  - Flicks auto-apply immediately using the same preview/cost/energy logic as the Apply button.
+  - Insufficient energy → no change + existing toast (and optional SFX if present).
+
+- No gameplay/mechanics/tuning changes.
+
+---
+
 CHANGELOG — v0_2_43_boardfirst_safezone_ui_hotfix (2026-02-07)
 ## v0.2.43 (2026-02-07) — UI-only hotfix: safe-zone layout + A/S legibility
 - UI-only: enforced strict board no-overlap with top/bottom bars by reserving the bottom drawer’s actual on-screen footprint (uses `drawerRect.top`, not just height).

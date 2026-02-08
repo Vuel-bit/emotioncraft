@@ -1,6 +1,39 @@
+## v0_2_46_flick_swipe_downup_debug
+
+**Date:** 2026-02-08
+
+**Summary**
+- Mobile flick gesture now resolves from pointerdown + pointerup only (no pointermove dependency).
+- Tap selection is resolved on pointerup only when the gesture does not qualify as a flick (prevents tap swallowing).
+- Flick uses the touched wellId to resolve the correct well index (no reliance on stale selectedWellIndex).
+- Added safety window pointerup/pointercancel listeners during an active gesture.
+- Added on-screen gesture debug (second line in the top notification bar) when EC.DEBUG is true.
+- CSS: canvas `touch-action: none` (plus `overscroll-behavior: none` on #app).
+
+**Files touched**
+- index.html (canvas touch-action none + overscroll-behavior none)
+- render_wells.js (down/up-only gesture resolution; window pointerup safety; debug string)
+- ui_hud.js (renders gesture debug line when EC.DEBUG)
+- ui_controls.js (expose toast; add flickStep helper using existing apply logic)
+- BUILD_INFO.txt, CHANGELOG.txt, PROJECT_INDEX.md
+
+---
+
+## v0_2_45_flick_swipe_mobilefix
+
+**Date:** 2026-02-08
+
+**Summary**
+- Added mobile-first flick swipe controls on wells (Pointer Events): tap selects; flick applies a single ±5 step.
+- Flick mapping: Up/Down → Amount ±5; Left/Right → Spin ±5.
+- Flicks auto-apply using the same preview/cost/energy checks as the Apply button (no mechanic changes).
+- Mobile reliability hotfix: canvas `touch-action: none` + pointer capture/window fallback so pointerup is received on iOS/Android.
+
+---
+
 ## v0_2_43_boardfirst_safezone_ui_hotfix
 
-**Date:** 2026-02-07
+**Date:** 2026-02-08
 
 **Summary**
 - UI-only: enforced strict board no-overlap with top/bottom bars by reserving the bottom drawer’s actual on-screen footprint (uses `drawerRect.top`).
@@ -19,7 +52,7 @@
 
 ## v0_2_42_boardfirst_hotfix_boot_goalshade
 
-**Date:** 2026-02-07
+**Date:** 2026-02-08
 
 **Summary**
 - Hotfix: fixed boot crash in `render_wells_update.js` (undefined `wellView` reference) by using the in-scope per-well `view` reference and guarding missing views (warn only under `EC.DEBUG`).
@@ -35,7 +68,7 @@
 
 ## v0_2_41_boardfirst_space_reclaim
 
-**Date:** 2026-02-07
+**Date:** 2026-02-08
 
 **Summary**
 - UI-only: remove clutter + reclaim space for board.
@@ -57,7 +90,7 @@
 
 ## v0_2_40_boardfirst_portrait_ui
 
-**Date:** 2026-02-07
+**Date:** 2026-02-08
 
 **Summary**
 - UI-only: board-first portrait layout pass.
@@ -72,7 +105,7 @@
 
 ## v0_2_39_inkpool_crestline_aura_dirfix
 
-**Date:** 2026-02-07
+**Date:** 2026-02-08
 
 **Summary**
 - Visual-only: wave indicator is now a dark ink-like crest line (not a white cloud), stays fully inside the well (size/offset clamped) and remains visible at low spins.
@@ -89,7 +122,7 @@
 
 ## v0_2_37_inkpool_hand_nosquares
 
-**Date:** 2026-02-07
+**Date:** 2026-02-08
 
 **Summary**
 - Visual-only: remove square artifact sprites by eliminating tiling sprites in the well interior; use circular-clipped textures only.
@@ -107,7 +140,7 @@
 
 ## v0_2_36_inkpool_ripples_overboard_hotfix
 
-**Date:** 2026-02-07
+**Date:** 2026-02-08
 
 **Summary**
 - Hotfix: fix crash on load (TDZ) by defining spin-derived vars (including magEff) before ripple layer uses them.
@@ -125,7 +158,7 @@
 
 ## v0_2_34_liquid_wells_tracers_bloomfix
 
-**Date:** 2026-02-07
+**Date:** 2026-02-08
 
 **Summary**
 - Visual-only: add rotating curved tracer arcs inside wells so CW/CCW direction is readable at a glance (no arrow glyphs).

@@ -19,7 +19,9 @@
     }
     html, body { height: 100%; margin: 0; background: var(--bg); color: var(--text); font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; }
     #app { position: fixed; inset: 0; overflow: hidden; z-index: 0; }
-    canvas { display: block; width: 100vw; height: 100vh; touch-action: manipulation; position: relative; z-index: 0; }
+    /* Mobile gesture reliability: prevent browser from hijacking swipes over the game surface. */
+    canvas { display: block; width: 100vw; height: 100vh; touch-action: none; position: relative; z-index: 0; user-select: none; -webkit-user-select: none; }
+    #app { overscroll-behavior: none; }
 
     .hud {
       position: fixed; inset: 0; pointer-events: none;
