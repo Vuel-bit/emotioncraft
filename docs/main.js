@@ -119,7 +119,17 @@ try {
   const opts = { passive: false };
 
   // Touch events (some Android devices still emit these alongside Pointer Events)
-  view.addEventListener('touchstart', (e) => { _recordDomTouch(e,'ts'); try { e.preventDefault(); } catch (_) {} }, opts);
+  view.addEventListener('touchstart', (e) => {
+    _recordDomTouch(e,'ts');
+    try { e.preventDefault(); } catch (_) {}
+    // Arm gesture using Touch.identifier when touch starts over a well (DOM-level, independent of Pixi pointer events).
+    try {
+      if (EC.RENDER && typeof EC.RENDER._armGestureFromDomTouchStart === 'function') {
+        const armed = EC.RENDER._armGestureFromDomTouchStart(e, app);
+        _ilog('DOM touchstart arm=' + (armed ? 'Y' : 'n'));
+      }
+    } catch (_) {}
+  }, opts);
   view.addEventListener('touchmove', (e) => { _recordDomTouch(e,'tm'); try { e.preventDefault(); } catch (_) {} }, opts);
   view.addEventListener('touchend', (e) => {
     _recordDomTouch(e,'te');

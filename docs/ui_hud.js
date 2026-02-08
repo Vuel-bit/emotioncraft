@@ -358,6 +358,8 @@ const parts = [];
 try {
   const D = (EC.UI_STATE && EC.UI_STATE.inputDbg) || null;
   if (D) {
+    const qs = (typeof window !== 'undefined' && window.location && window.location.search) ? window.location.search : '';
+    const verbose = /(?:\?|&)inputdebug=1(?:&|$)/.test(qs);
     parts.push('INPUT');
     const dom = D.dom || {};
     parts.push(`DOM(canvas) counters: pd=${dom.pd||0} pm=${dom.pm||0} pu=${dom.pu||0} pc=${dom.pc||0}   ts=${dom.ts||0} tm=${dom.tm||0} te=${dom.te||0} tc=${dom.tc||0}`);
@@ -365,6 +367,8 @@ try {
     parts.push(`Pixi STAGE counters: pd=${st.pd||0} pm=${st.pm||0} pu=${st.pu||0} po=${st.po||0} pc=${st.pc||0}`);
     const wl = D.pixiWell || {};
     parts.push(`Pixi WELL counters:  pd=${wl.pd||0} pm=${wl.pm||0} pu=${wl.pu||0} po=${wl.po||0} pc=${wl.pc||0}`);
+    parts.push(`GESTURE: ${D.gestureLine || 'active=n key=? well=? x0=? y0=? t0=?'}`);
+    parts.push(`RESOLVE: ${D.resolveLine || 'hasGesture=? key=? dt=? dx=? dy=? classified=? dir=? applied=?'}`);
 
     const lp = D.lastDomPointer || null;
     if (lp) parts.push(`last DOM pointer: ${lp.type||'?'} pid=${lp.pid} pType=${lp.pointerType||'?'} primary=${lp.isPrimary?'Y':'n'} x=${lp.x} y=${lp.y} defPrev=${lp.defaultPrevented?'Y':'n'} cap=${lp.capture||''}`);
@@ -378,8 +382,8 @@ try {
 
     if (Array.isArray(D.log) && D.log.length) {
       parts.push('');
-      parts.push('INPUT LOG (tail)');
-      const tail = D.log.slice(Math.max(0, D.log.length - 20));
+      parts.push(`INPUT LOG (tail ${verbose ? '50' : '20'})`);
+      const tail = D.log.slice(Math.max(0, D.log.length - (verbose ? 50 : 20)));
       for (let i=0;i<tail.length;i++) parts.push(tail[i]);
     }
     parts.push('');
@@ -424,14 +428,28 @@ if (!UI_STATE._dbgBuilt && debugEl) {
       try {
         const dbg = (EC.UI_STATE && EC.UI_STATE.inputDbg) || {};
         const log = Array.isArray(dbg.log) ? dbg.log : [];
-        const tail = log.slice(Math.max(0, log.length - 50)).join('\n');
+        const tailLines = log.slice(Math.max(0, log.length - 50));
+        const dom = dbg.dom || {};
+        const st = dbg.pixiStage || {};
+        const wl = dbg.pixiWell || {};
+        const snap = [
+          '=== INPUT DEBUG SNAPSHOT ===',
+          `DOM(canvas) counters: pd=${dom.pd||0} pm=${dom.pm||0} pu=${dom.pu||0} pc=${dom.pc||0}   ts=${dom.ts||0} tm=${dom.tm||0} te=${dom.te||0} tc=${dom.tc||0}`,
+          `Pixi STAGE counters: pd=${st.pd||0} pm=${st.pm||0} pu=${st.pu||0} po=${st.po||0} pc=${st.pc||0}`,
+          `Pixi WELL counters:  pd=${wl.pd||0} pm=${wl.pm||0} pu=${wl.pu||0} po=${wl.po||0} pc=${wl.pc||0}`,
+          `GESTURE: ${dbg.gestureLine || 'active=0 key=? well=? x0/y0=?/? t0=?'}`,
+          `RESOLVE: ${dbg.resolveLine || 'hasGesture=0 key=? dt=? dx=? dy=? class=? dir=? applied=? reason=?'}`,
+          '--- LOG (last 50) ---',
+          ...tailLines,
+          '=== END SNAPSHOT ==='
+        ].join('\n');
         if (navigator.clipboard && navigator.clipboard.writeText) {
-          await navigator.clipboard.writeText(tail);
+          await navigator.clipboard.writeText(snap);
           UI_STATE.uiMsg = 'Copied input log.';
           UI_STATE.uiMsgT = 1.5;
         } else {
           const ta = document.createElement('textarea');
-          ta.value = tail;
+          ta.value = snap;
           ta.style.position = 'fixed';
           ta.style.left = '-9999px';
           document.body.appendChild(ta);

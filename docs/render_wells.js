@@ -257,6 +257,7 @@
     c.cursor = 'pointer';
     // Hit area is updated in updateWellView to match current radius; this is a safe default.
     c.hitArea = new PIXI.Circle(0, 0, 140);
+    view.hitR = 140;
 
     // ------------------------------------------------------------
     // Mobile-first flick swipe controls (discrete ±5 steps)
@@ -292,14 +293,42 @@ try {
       const t0 = (performance && performance.now) ? performance.now() : Date.now();
 
       EC.RENDER = EC.RENDER || {};
-      EC.RENDER._gesture = {
+      // Determine gesture key: touch uses Touch.identifier; pointer uses pointerId.
+let gKind = 'pointer';
+let gTouchId = null;
+let gKey = 'p:' + pid;
+try {
+  const oe2 = oe;
+  const t0ch = (oe2 && oe2.changedTouches && oe2.changedTouches.length) ? oe2.changedTouches[0]
+            : (oe2 && oe2.touches && oe2.touches.length) ? oe2.touches[0]
+            : null;
+  if (t0ch && t0ch.identifier != null) {
+    gKind = 'touch';
+    gTouchId = t0ch.identifier;
+    gKey = 't:' + gTouchId;
+  }
+} catch (_) {}
+
+EC.RENDER._gesture = {
         active: true,
+        kind: gKind,      // 'pointer' | 'touch'
+        key: gKey,        // 'p:<pid>' | 't:<touchId>'
+        touchId: gTouchId,
         wellId: w.id,
         pid,
         t0,
         x0: x,
         y0: y,
       };
+
+// Update always-visible gesture line in debug overlay
+try {
+  const D = EC.UI_STATE && EC.UI_STATE.inputDbg;
+  if (D) {
+    const wi = _wellIndexById(w.id);
+    D.gestureLine = `active=1 key=${gKey} well=${wi} x0/y0=${Math.round(x)}/${Math.round(y)} t0=${Math.floor(t0)}`;
+  }
+} catch (_) {}
 
       // Pointer capture: improves reliability when finger drifts.
 // Prefer capturing on the canvas element when available.
@@ -345,17 +374,62 @@ try {
       const st = EC.RENDER && EC.RENDER._gesture;
       if (!st || !st.active) return;
 
-      // Only accept matching pointer id if we have one.
+      // Keyed resolution: do not cross-resolve touch vs pointer.
       const pid = (ev && ev.pointerId != null) ? ev.pointerId : (ev && ev.data && ev.data.pointerId != null ? ev.data.pointerId : -1);
-      if (st.pid != null && st.pid >= 0 && pid != null && pid >= 0 && pid !== st.pid) return;
 
-      const { x, y, oe } = _getClientXY(ev);
+      // Prefer to read from originalEvent so we can detect Touch.identifier.
+      const oe0 = (ev && ev.data && ev.data.originalEvent) ? ev.data.originalEvent : (ev && ev.nativeEvent ? ev.nativeEvent : null);
+
+      // Determine event kind + key
+      let evKind = 'pointer';
+      let evKey = 'p:' + pid;
+      let touchObj = null;
+      try {
+        if (oe0 && (oe0.changedTouches || oe0.touches)) {
+          evKind = 'touch';
+          const list = (oe0.changedTouches && oe0.changedTouches.length) ? oe0.changedTouches : (oe0.touches || []);
+          const wantId = (st && st.kind === 'touch') ? st.touchId : null;
+          if (wantId != null) {
+            for (let k=0;k<list.length;k++) { if (list[k] && list[k].identifier === wantId) { touchObj = list[k]; break; } }
+          }
+          if (!touchObj && list && list.length) touchObj = list[0];
+          if (touchObj && touchObj.identifier != null) evKey = 't:' + touchObj.identifier;
+        }
+      } catch (_) {}
+
+      // Enforce same kind + key
+      if (st.kind === 'pointer') {
+        if (evKind !== 'pointer') return;
+        if (st.pid != null && st.pid >= 0 && pid != null && pid >= 0 && pid !== st.pid) return;
+        if (st.key && evKey && st.key !== evKey) return;
+      } else if (st.kind === 'touch') {
+        if (evKind !== 'touch') return;
+        if (st.key && evKey && st.key !== evKey) return;
+      }
+
+      // Coordinates
+      let x, y, oe;
+      if (evKind === 'touch' && touchObj && touchObj.clientX != null && touchObj.clientY != null) {
+        x = touchObj.clientX; y = touchObj.clientY; oe = oe0;
+      } else {
+        const xy = _getClientXY(ev);
+        x = xy.x; y = xy.y; oe = xy.oe;
+      }
       try { if (oe && typeof oe.preventDefault === 'function') oe.preventDefault(); } catch (_) {}
 
       const t1 = (performance && performance.now) ? performance.now() : Date.now();
       const dt = t1 - (st.t0 || t1);
       const dx = x - st.x0;
       const dy = y - st.y0;
+
+      // Update resolve line baseline (will be refined below)
+      try {
+        const D = EC.UI_STATE && EC.UI_STATE.inputDbg;
+        if (D) {
+          const wi = _wellIndexById(st.wellId);
+          D.resolveLine = `hasGesture=1 key=${st.key||'?'} well=${wi} dt=${dt.toFixed(0)} dx=${dx.toFixed(0)} dy=${dy.toFixed(0)} class=? dir=? applied=? reason=?`;
+        }
+      } catch (_) {}
 
       // Clear active gesture
       EC.RENDER._gesture = null;
@@ -369,6 +443,10 @@ try {
 
       if (!isFlick) {
         EC.onWellTap(st.wellId);
+        try {
+          const D = EC.UI_STATE && EC.UI_STATE.inputDbg;
+          if (D) D.resolveLine = `hasGesture=1 key=${st.key||'?'} well=${_wellIndexById(st.wellId)} dt=${dt.toFixed(0)} dx=${dx.toFixed(0)} dy=${dy.toFixed(0)} class=TAP dir=NONE applied=ok reason=`;
+        } catch (_) {}
         _setGestureDebug(`SWIPE: dt=${dt.toFixed(0)} dx=${dx.toFixed(0)} dy=${dy.toFixed(0)} => TAP`);
         return;
       }
@@ -389,6 +467,10 @@ try {
       const toast = EC.UI_CONTROLS && typeof EC.UI_CONTROLS.toast === 'function' ? EC.UI_CONTROLS.toast : null;
       if (!fn || i < 0) {
         if (toast) toast('Select a Well first.');
+        try {
+          const D = EC.UI_STATE && EC.UI_STATE.inputDbg;
+          if (D) D.resolveLine = `hasGesture=1 key=${st.key||'?'} kind=${st.kind||'?'} well=${_wellIndexById(st.wellId)} dt=${dt.toFixed(0)} dx=${dx.toFixed(0)} dy=${dy.toFixed(0)} class=FLICK dir=${(dS!==0?(dS>0?'RIGHT':'LEFT'):(dA>0?'UP':'DOWN'))} applied=fail reason=noindex`;
+        } catch (_) {}
         _setGestureDebug(`SWIPE: dt=${dt.toFixed(0)} dx=${dx.toFixed(0)} dy=${dy.toFixed(0)} => FLICK (no index)`);
         return;
       }
@@ -401,11 +483,19 @@ try {
           if (toast) toast('Not enough Energy.');
         }
         if (EC.SFX && typeof EC.SFX.error === 'function') EC.SFX.error();
+        try {
+          const D = EC.UI_STATE && EC.UI_STATE.inputDbg;
+          if (D) D.resolveLine = `hasGesture=1 key=${st.key||'?'} kind=${st.kind||'?'} well=${_wellIndexById(st.wellId)} dt=${dt.toFixed(0)} dx=${dx.toFixed(0)} dy=${dy.toFixed(0)} class=FLICK dir=${dirTxt} applied=FAIL(reason=${res.reason||'fail'})`;
+        } catch (_) {}
         _setGestureDebug(`SWIPE: dt=${dt.toFixed(0)} dx=${dx.toFixed(0)} dy=${dy.toFixed(0)} => ${dirTxt} ❌`);
         return;
       }
 
       if (EC.SFX && typeof EC.SFX.tick === 'function') EC.SFX.tick();
+      try {
+        const D = EC.UI_STATE && EC.UI_STATE.inputDbg;
+        if (D) D.resolveLine = `hasGesture=1 key=${st.key||'?'} kind=${st.kind||'?'} well=${_wellIndexById(st.wellId)} dt=${dt.toFixed(0)} dx=${dx.toFixed(0)} dy=${dy.toFixed(0)} class=FLICK dir=${dirTxt} applied=OK`;
+      } catch (_) {}
       _setGestureDebug(`SWIPE: dt=${dt.toFixed(0)} dx=${dx.toFixed(0)} dy=${dy.toFixed(0)} => ${dirTxt} APPLIED ✅${isOutside ? ' (upoutside)' : ''}`);
     }
 
@@ -423,23 +513,135 @@ c.on('pointermove', (ev) => {
   } catch (_) {}
 });
 
+// 
+// ------------------------------------------------------------
+// DOM touchstart arming (keys off Touch.identifier)
+// ------------------------------------------------------------
+// Called from main.js DOM listeners. Arms a gesture only if touchstart began on a well.
+EC.RENDER._armGestureFromDomTouchStart = function(domTouchEvent, app) {
+  try {
+    const oe = domTouchEvent;
+    if (!oe) return false;
+    // Do not override an active gesture.
+    const cur = EC.RENDER && EC.RENDER._gesture;
+    if (cur && cur.active) return false;
+
+    const ch = (oe.changedTouches && oe.changedTouches.length) ? oe.changedTouches[0] : null;
+    const t = ch || (oe.touches && oe.touches.length ? oe.touches[0] : null);
+    if (!t || t.identifier == null) return false;
+
+    const clientX = t.clientX, clientY = t.clientY;
+    const touchId = t.identifier;
+    const key = 't:' + touchId;
+    const t0 = (performance && performance.now) ? performance.now() : Date.now();
+
+    const appRef = app || (EC.RENDER && EC.RENDER.app);
+    if (!appRef || !appRef.view || !appRef.renderer) return false;
+
+    // Map client coords -> Pixi screen/global coords
+    const rect = appRef.view.getBoundingClientRect();
+    const rx = (clientX - rect.left) * (appRef.renderer.width / Math.max(1, rect.width));
+    const ry = (clientY - rect.top) * (appRef.renderer.height / Math.max(1, rect.height));
+
+    // Find a well under this point by distance to its global position.
+    const views = (EC.RENDER && EC.RENDER.wellViews) ? EC.RENDER.wellViews : null;
+    if (!views) return false;
+
+    let bestId = null;
+    let bestD = 1e9;
+
+    views.forEach((v, id) => {
+      if (!v || !v.c) return;
+      const gp = v.c.getGlobalPosition ? v.c.getGlobalPosition() : null;
+      if (!gp) return;
+      const dx = rx - gp.x;
+      const dy = ry - gp.y;
+      const d2 = dx*dx + dy*dy;
+      const r = (v.hitR != null) ? v.hitR : ((v.c.hitArea && v.c.hitArea.radius) ? v.c.hitArea.radius : 140);
+      if (d2 <= (r*r) && d2 < bestD) { bestD = d2; bestId = id; }
+    });
+
+    if (!bestId) return false;
+
+    EC.RENDER._gesture = {
+      active: true,
+      kind: 'touch',
+      key,
+      touchId,
+      wellId: bestId,
+      pid: -1,
+      t0,
+      x0: clientX,
+      y0: clientY,
+    };
+
+    // Update gesture line
+    try {
+      const D = EC.UI_STATE && EC.UI_STATE.inputDbg;
+      if (D) D.gestureLine = `active=1 key=${key} well=${_wellIndexById(bestId)} x0/y0=${Math.round(clientX)}/${Math.round(clientY)} t0=${Math.floor(t0)}`;
+    } catch (_) {}
+
+    try {
+      const D = EC.UI_STATE && EC.UI_STATE.inputDbg;
+      if (D && Array.isArray(D.log)) D.log.push(((performance && performance.now)?Math.floor(performance.now()):Date.now()) + ' ARM touch DOM key=' + key + ' well=' + _wellIndexById(bestId));
+    } catch (_) {}
+
+    return true;
+  } catch (_) { return false; }
+};
 // DOM fallback resolver (Android/iOS): resolve or cancel gesture end from raw DOM events on the canvas.
 // This calls the same internal resolve path used by the well pointerup handlers.
 EC.RENDER._resolveGestureFromDom = function(domEv, kind) {
   try {
     const st = EC.RENDER && EC.RENDER._gesture;
-    if (!st || !st.active) return;
-    // Wrap DOM event into a shape compatible with _getClientXY
-    const wrapped = { pointerId: (domEv && domEv.pointerId != null) ? domEv.pointerId : -1, data: { originalEvent: domEv } };
+
+    // Always update resolve line on end/cancel, even if no gesture.
+    const nowT = (performance && performance.now) ? performance.now() : Date.now();
+    if (!st || !st.active) {
+      try {
+        const D = EC.UI_STATE && EC.UI_STATE.inputDbg;
+        if (D) D.resolveLine = `hasGesture=0 key=? dt=? dx=? dy=? class=NONE dir=NONE applied=na reason=no_gesture end=${kind||'end'}`;
+      } catch (_) {}
+      return;
+    }
+
+    // Enforce kind/key matching (no cross resolve).
+    let ok = false;
+    let wrapped = { pointerId: (domEv && domEv.pointerId != null) ? domEv.pointerId : -1, data: { originalEvent: domEv } };
+
+    if (st.kind === 'touch') {
+      const oe = domEv;
+      const list = (oe && oe.changedTouches && oe.changedTouches.length) ? oe.changedTouches
+                : (oe && oe.touches && oe.touches.length) ? oe.touches
+                : [];
+      let found = null;
+      for (let i=0;i<list.length;i++) { if (list[i] && list[i].identifier === st.touchId) { found = list[i]; break; } }
+      if (!found) return; // not our touch
+      ok = true;
+      wrapped.pointerId = -1;
+      wrapped.data.originalEvent = domEv;
+    } else {
+      // pointer
+      const pid = (domEv && domEv.pointerId != null) ? domEv.pointerId : -1;
+      if (st.pid != null && st.pid >= 0 && pid != null && pid >= 0 && pid !== st.pid) return;
+      ok = true;
+      wrapped.pointerId = pid;
+      wrapped.data.originalEvent = domEv;
+    }
+
+    if (!ok) return;
+
     if (kind === 'cancel') {
       EC.RENDER._gesture = null;
       if (EC.RENDER && typeof EC.RENDER._setGestureDebug === 'function') EC.RENDER._setGestureDebug('SWIPE: cancel(DOM)');
       try {
         const D = EC.UI_STATE && EC.UI_STATE.inputDbg;
-        if (D && Array.isArray(D.log)) D.log.push(((performance && performance.now)?Math.floor(performance.now()):Date.now()) + ' DOM cancel -> cleared');
+        if (D) D.resolveLine = `hasGesture=1 key=${st.key||'?'} kind=${st.kind||'?'} well=${_wellIndexById(st.wellId)} dt=? dx=? dy=? classified=CANCEL dir=NONE applied=NA`;
+        if (D && Array.isArray(D.log)) D.log.push(((performance && performance.now)?Math.floor(performance.now()):Date.now()) + ' DOM cancel -> cleared key=' + (st.key||'?'));
       } catch (_) {}
       return;
     }
+
     _resolveGesture(wrapped, true);
   } catch (_) {}
 };
