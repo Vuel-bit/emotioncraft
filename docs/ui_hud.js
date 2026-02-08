@@ -226,8 +226,8 @@
       const tele = hud.telegraphText || '';
       const act = hud.activeText || '';
       const short = (act || tele) || ((UI_STATE.uiMsgT > 0 && UI_STATE.uiMsg) ? UI_STATE.uiMsg : '');
-      // Debug-only: show last gesture resolution on-device (no devtools needed).
-      const g = (EC.DEBUG && UI_STATE.gestureDebug) ? UI_STATE.gestureDebug : '';
+      // On-device gesture resolution line (required for this chunk; can be gated later).
+      const g = UI_STATE.gestureDebug || '';
       if (notifyTextEl) notifyTextEl.textContent = g ? (short ? (short + "\n" + g) : g) : short;
     } catch (_) { /* ignore */ }
 
