@@ -369,6 +369,8 @@ try {
     parts.push(`Pixi WELL counters:  pd=${wl.pd||0} pm=${wl.pm||0} pu=${wl.pu||0} po=${wl.po||0} pc=${wl.pc||0}`);
     parts.push(`GESTURE: ${D.gestureLine || 'active=n key=? well=? x0=? y0=? t0=?'}`);
     parts.push(`RESOLVE: ${D.resolveLine || 'hasGesture=? key=? dt=? dx=? dy=? classified=? dir=? applied=?'}`);
+    parts.push(`PICK: ${D.pickLine || 'idx=? cx/cy=? local=? dist=? r=? inside=?'}`);
+    parts.push(`ARM: ${D.armLine || 'ok=? key=? well=?'}`);
 
     const lp = D.lastDomPointer || null;
     if (lp) parts.push(`last DOM pointer: ${lp.type||'?'} pid=${lp.pid} pType=${lp.pointerType||'?'} primary=${lp.isPrimary?'Y':'n'} x=${lp.x} y=${lp.y} defPrev=${lp.defaultPrevented?'Y':'n'} cap=${lp.capture||''}`);

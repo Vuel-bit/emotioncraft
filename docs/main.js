@@ -139,6 +139,7 @@ try {
       if (EC.RENDER && EC.RENDER._gesture && EC.RENDER._gesture.active && typeof EC.RENDER._resolveGestureFromDom === 'function') {
         EC.RENDER._resolveGestureFromDom(e, 'end');
       }
+      try { if (view.releasePointerCapture && e.pointerId != null) view.releasePointerCapture(e.pointerId); } catch (_) {}
     } catch (_) {}
   }, opts);
   view.addEventListener('touchcancel', (e) => {
@@ -148,11 +149,31 @@ try {
       if (EC.RENDER && EC.RENDER._gesture && EC.RENDER._gesture.active && typeof EC.RENDER._resolveGestureFromDom === 'function') {
         EC.RENDER._resolveGestureFromDom(e, 'cancel');
       }
+      try { if (view.releasePointerCapture && e.pointerId != null) view.releasePointerCapture(e.pointerId); } catch (_) {}
     } catch (_) {}
   }, opts);
 
   // Pointer events on the canvas element (raw DOM instrumentation)
-  view.addEventListener('pointerdown', (e) => { _recordDomPointer(e,'pd'); try { e.preventDefault(); } catch (_) {} }, opts);
+  view.addEventListener('pointerdown', (e) => {
+    _recordDomPointer(e,'pd');
+    let armed = false;
+    try { e.preventDefault(); } catch (_) {}
+    // Arm gesture at DOM level (manual picker). Desktop remains pointer-keyed.
+    try {
+      if (EC.RENDER && typeof EC.RENDER._armGestureFromDomPointerDown === 'function') {
+        armed = EC.RENDER._armGestureFromDomPointerDown(e, app);
+        _ilog('DOM pointerdown arm=' + (armed ? 'Y' : 'n'));
+      }
+    } catch (_) {}
+
+    // Pointer capture (best-effort) so we get pointerup even if finger leaves canvas
+    try {
+      if (armed && view.setPointerCapture && e.pointerId != null) {
+        view.setPointerCapture(e.pointerId);
+        _ilog('DOM setPointerCapture pid=' + e.pointerId + ' ok=Y');
+      }
+    } catch (_) { try { _ilog('DOM setPointerCapture ok=n'); } catch(__){} }
+  }, opts);
   view.addEventListener('pointermove', (e) => { _recordDomPointer(e,'pm'); try { e.preventDefault(); } catch (_) {} }, opts);
 
   view.addEventListener('pointerup', (e) => {
@@ -162,6 +183,7 @@ try {
       if (EC.RENDER && EC.RENDER._gesture && EC.RENDER._gesture.active && typeof EC.RENDER._resolveGestureFromDom === 'function') {
         EC.RENDER._resolveGestureFromDom(e, 'end');
       }
+      try { if (view.releasePointerCapture && e.pointerId != null) view.releasePointerCapture(e.pointerId); } catch (_) {}
     } catch (_) {}
   }, opts);
 
@@ -172,6 +194,7 @@ try {
       if (EC.RENDER && EC.RENDER._gesture && EC.RENDER._gesture.active && typeof EC.RENDER._resolveGestureFromDom === 'function') {
         EC.RENDER._resolveGestureFromDom(e, 'cancel');
       }
+      try { if (view.releasePointerCapture && e.pointerId != null) view.releasePointerCapture(e.pointerId); } catch (_) {}
     } catch (_) {}
   }, opts);
 

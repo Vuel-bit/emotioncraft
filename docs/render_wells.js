@@ -268,6 +268,41 @@
     const _setGestureDebug = EC.RENDER._setGestureDebug;
     const _getClientXY = EC.RENDER._getClientXY;
 
+    // Manual well picking using DOM clientX/clientY (Android: Pixi WELL events may not fire)
+    // Returns { idx, wellId, rx, ry, dist, r, inside } or null if none.
+    EC.RENDER.pickWellIndexFromClientXY = function(clientX, clientY, appRef) {
+      try {
+        const app2 = appRef || (EC.RENDER && EC.RENDER.app);
+        if (!app2 || !app2.view || !app2.renderer) return null;
+        const rect = app2.view.getBoundingClientRect();
+        const sw = (app2.renderer && app2.renderer.screen && app2.renderer.screen.width) ? app2.renderer.screen.width : app2.renderer.width;
+        const sh = (app2.renderer && app2.renderer.screen && app2.renderer.screen.height) ? app2.renderer.screen.height : app2.renderer.height;
+        const rx = (clientX - rect.left) * (sw / Math.max(1, rect.width));
+        const ry = (clientY - rect.top)  * (sh / Math.max(1, rect.height));
+
+        const views = (EC.RENDER && EC.RENDER.wellViews) ? EC.RENDER.wellViews : null;
+        if (!views) return null;
+
+        let best = null;
+        let bestD2 = 1e18;
+
+        views.forEach((v, id) => {
+          if (!v || !v.c || !v.c.getGlobalPosition) return;
+          const gp = v.c.getGlobalPosition();
+          const dx = rx - gp.x;
+          const dy = ry - gp.y;
+          const d2 = dx*dx + dy*dy;
+          const r = (v.hitR != null) ? v.hitR : ((v.c.hitArea && v.c.hitArea.radius) ? v.c.hitArea.radius : 140);
+          const inside = d2 <= (r*r);
+          if (inside && d2 < bestD2) {
+            bestD2 = d2;
+            best = { idx: _wellIndexById(id), wellId: id, rx, ry, dist: Math.sqrt(d2), r, inside };
+          }
+        });
+        return best;
+      } catch (_) { return null; }
+    };
+
     // Per-pointer gesture state.
     c.on('pointerdown', (ev) => {
       const { x, y, oe } = _getClientXY(ev);
@@ -538,30 +573,29 @@ EC.RENDER._armGestureFromDomTouchStart = function(domTouchEvent, app) {
     const appRef = app || (EC.RENDER && EC.RENDER.app);
     if (!appRef || !appRef.view || !appRef.renderer) return false;
 
-    // Map client coords -> Pixi screen/global coords
-    const rect = appRef.view.getBoundingClientRect();
-    const rx = (clientX - rect.left) * (appRef.renderer.width / Math.max(1, rect.width));
-    const ry = (clientY - rect.top) * (appRef.renderer.height / Math.max(1, rect.height));
+    // Pick well under this client point (manual picker; matches tap-to-select feel)
+    const pick = (EC.RENDER && typeof EC.RENDER.pickWellIndexFromClientXY === 'function')
+      ? EC.RENDER.pickWellIndexFromClientXY(clientX, clientY, appRef)
+      : null;
 
-    // Find a well under this point by distance to its global position.
-    const views = (EC.RENDER && EC.RENDER.wellViews) ? EC.RENDER.wellViews : null;
-    if (!views) return false;
+    // Debug PICK line
+    try {
+      const D = EC.UI_STATE && EC.UI_STATE.inputDbg;
+      if (D) {
+        if (pick) {
+          D.pickLine = `idx=${pick.idx} cx/cy=${clientX.toFixed(1)},${clientY.toFixed(1)} local=${pick.rx.toFixed(1)},${pick.ry.toFixed(1)} dist=${pick.dist.toFixed(1)} r=${pick.r.toFixed(1)} inside=Y`;
+          if (Array.isArray(D.log)) D.log.push(((performance && performance.now)?Math.floor(performance.now()):Date.now()) + ' PICK touch idx=' + pick.idx + ' dist=' + pick.dist.toFixed(1));
+        } else {
+          D.pickLine = `idx=-1 cx/cy=${clientX.toFixed(1)},${clientY.toFixed(1)} local=? dist=? r=? inside=n`;
+          if (Array.isArray(D.log)) D.log.push(((performance && performance.now)?Math.floor(performance.now()):Date.now()) + ' PICK touch idx=-1');
+        }
+        if (D.log && D.log.length > 120) D.log.splice(0, D.log.length - 120);
+      }
+    } catch (_) {}
 
-    let bestId = null;
-    let bestD = 1e9;
+    if (!pick || !pick.wellId) return false;
+    const bestId = pick.wellId;
 
-    views.forEach((v, id) => {
-      if (!v || !v.c) return;
-      const gp = v.c.getGlobalPosition ? v.c.getGlobalPosition() : null;
-      if (!gp) return;
-      const dx = rx - gp.x;
-      const dy = ry - gp.y;
-      const d2 = dx*dx + dy*dy;
-      const r = (v.hitR != null) ? v.hitR : ((v.c.hitArea && v.c.hitArea.radius) ? v.c.hitArea.radius : 140);
-      if (d2 <= (r*r) && d2 < bestD) { bestD = d2; bestId = id; }
-    });
-
-    if (!bestId) return false;
 
     EC.RENDER._gesture = {
       active: true,
@@ -575,6 +609,16 @@ EC.RENDER._armGestureFromDomTouchStart = function(domTouchEvent, app) {
       y0: clientY,
     };
 
+    // Debug ARM line
+    try {
+      const D = EC.UI_STATE && EC.UI_STATE.inputDbg;
+      if (D) {
+        D.armLine = `ok=Y key=${key} well=${pick ? pick.idx : _wellIndexById(bestId)}`;
+        if (Array.isArray(D.log)) D.log.push(((performance && performance.now)?Math.floor(performance.now()):Date.now()) + ' ARM touch ok=Y key=' + key + ' w=' + (pick?pick.idx:_wellIndexById(bestId)));
+        if (D.log && D.log.length > 120) D.log.splice(0, D.log.length - 120);
+      }
+    } catch (_) {}
+
     // Update gesture line
     try {
       const D = EC.UI_STATE && EC.UI_STATE.inputDbg;
@@ -584,6 +628,77 @@ EC.RENDER._armGestureFromDomTouchStart = function(domTouchEvent, app) {
     try {
       const D = EC.UI_STATE && EC.UI_STATE.inputDbg;
       if (D && Array.isArray(D.log)) D.log.push(((performance && performance.now)?Math.floor(performance.now()):Date.now()) + ' ARM touch DOM key=' + key + ' well=' + _wellIndexById(bestId));
+    } catch (_) {}
+
+    return true;
+  } catch (_) { return false; }
+};
+
+
+// Called from main.js DOM listeners. Arms a gesture only if pointerdown began on a well (manual picker).
+EC.RENDER._armGestureFromDomPointerDown = function(domPointerEvent, app) {
+  try {
+    const oe = domPointerEvent;
+    if (!oe) return false;
+
+    // Do not override an active gesture.
+    const cur = EC.RENDER && EC.RENDER._gesture;
+    if (cur && cur.active) return false;
+
+    const pid = (oe.pointerId != null) ? oe.pointerId : -1;
+    const key = 'p:' + pid;
+    const clientX = oe.clientX, clientY = oe.clientY;
+    if (clientX == null || clientY == null) return false;
+
+    const appRef = app || (EC.RENDER && EC.RENDER.app);
+    const pick = (EC.RENDER && typeof EC.RENDER.pickWellIndexFromClientXY === 'function')
+      ? EC.RENDER.pickWellIndexFromClientXY(clientX, clientY, appRef)
+      : null;
+
+    // Debug PICK line (pointer)
+    try {
+      const D = EC.UI_STATE && EC.UI_STATE.inputDbg;
+      if (D) {
+        if (pick) {
+          D.pickLine = `idx=${pick.idx} cx/cy=${clientX.toFixed(1)},${clientY.toFixed(1)} local=${pick.rx.toFixed(1)},${pick.ry.toFixed(1)} dist=${pick.dist.toFixed(1)} r=${pick.r.toFixed(1)} inside=Y`;
+          if (Array.isArray(D.log)) D.log.push(((performance && performance.now)?Math.floor(performance.now()):Date.now()) + ' PICK pointer idx=' + pick.idx + ' dist=' + pick.dist.toFixed(1));
+        } else {
+          D.pickLine = `idx=-1 cx/cy=${clientX.toFixed(1)},${clientY.toFixed(1)} local=? dist=? r=? inside=n`;
+          if (Array.isArray(D.log)) D.log.push(((performance && performance.now)?Math.floor(performance.now()):Date.now()) + ' PICK pointer idx=-1');
+        }
+        if (D.log && D.log.length > 120) D.log.splice(0, D.log.length - 120);
+      }
+    } catch (_) {}
+
+    if (!pick || !pick.wellId) return false;
+
+    const t0 = (performance && performance.now) ? performance.now() : Date.now();
+    EC.RENDER._gesture = {
+      active: true,
+      kind: 'pointer',
+      key,
+      touchId: null,
+      wellId: pick.wellId,
+      pid,
+      t0,
+      x0: clientX,
+      y0: clientY,
+    };
+
+    // Debug ARM line
+    try {
+      const D = EC.UI_STATE && EC.UI_STATE.inputDbg;
+      if (D) {
+        D.armLine = `ok=Y key=${key} well=${pick.idx}`;
+        if (Array.isArray(D.log)) D.log.push(((performance && performance.now)?Math.floor(performance.now()):Date.now()) + ' ARM pointer ok=Y key=' + key + ' w=' + pick.idx);
+        if (D.log && D.log.length > 120) D.log.splice(0, D.log.length - 120);
+      }
+    } catch (_) {}
+
+    // Update gesture line
+    try {
+      const D = EC.UI_STATE && EC.UI_STATE.inputDbg;
+      if (D) D.gestureLine = `active=1 key=${key} well=${pick.idx} x0/y0=${clientX.toFixed(1)},${clientY.toFixed(1)} t0=${Math.floor(t0)}`;
     } catch (_) {}
 
     return true;
