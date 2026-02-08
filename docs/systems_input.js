@@ -75,13 +75,128 @@
 
   // Optional helpers: arm/resolve using existing EC.RENDER gesture pipeline
   EC.INPUT.armGestureFromPick = function(info) {
+    // Returns boolean; writes a detailed reason snapshot to EC.INPUT._lastArm
+    const nowT = (performance && performance.now) ? performance.now() : Date.now();
+    const res = {
+      ok: false,
+      reason: 'unknown_false',
+      active: 0,
+      storedKey: '?',
+      incomingKey: '?',
+      storedWell: '?',
+      incomingWell: '?',
+      now: Math.floor(nowT),
+    };
+
     try {
-      if (!EC.RENDER || typeof EC.RENDER._armGestureFromPick !== 'function') return false;
-      return !!EC.RENDER._armGestureFromPick(info, (EC.RENDER && EC.RENDER.app) ? EC.RENDER.app : null);
-    } catch (_) {
+      if (!info) {
+        res.reason = 'missing_state_container';
+        EC.INPUT._lastArm = res;
+        return false;
+      }
+
+      const R = (EC.RENDER = EC.RENDER || {});
+      const cur = R._gesture;
+      res.active = (cur && cur.active) ? 1 : 0;
+      res.storedKey = (cur && cur.key) ? String(cur.key) : '?';
+      res.storedWell = (cur && cur.wellId != null) ? String(cur.wellId) : '?';
+
+      const kind = info.kind || 'touch';
+      const incomingKey = (info.key != null) ? String(info.key) : '';
+      const idx = (info.idx != null) ? info.idx : -1;
+      res.incomingKey = incomingKey || '?';
+      res.incomingWell = (idx != null) ? String(idx) : '?';
+
+      // If a gesture is already active, block.
+      if (cur && cur.active) {
+        res.reason = 'already_active';
+        EC.INPUT._lastArm = res;
+        _writeArmLine(res);
+        return false;
+      }
+
+      // Validate idx
+      if (typeof idx !== 'number' || idx < 0 || idx > 5) {
+        res.reason = 'invalid_idx';
+        EC.INPUT._lastArm = res;
+        _writeArmLine(res);
+        return false;
+      }
+
+      // Validate key by kind
+      if (kind === 'touch') {
+        if (!incomingKey || !incomingKey.startsWith('t:')) {
+          res.reason = 'key_mismatch_or_missing_key';
+          EC.INPUT._lastArm = res;
+          _writeArmLine(res);
+          return false;
+        }
+      } else {
+        if (!incomingKey || !incomingKey.startsWith('p:')) {
+          res.reason = 'key_mismatch_or_missing_key';
+          EC.INPUT._lastArm = res;
+          _writeArmLine(res);
+          return false;
+        }
+      }
+
+      // Arm succeeds: store state used by resolve.
+      const t0 = (info.t0 != null) ? info.t0 : nowT;
+      const x0 = (info.clientX != null) ? info.clientX : 0;
+      const y0 = (info.clientY != null) ? info.clientY : 0;
+      const touchId = (kind === 'touch') ? (info.touchId != null ? info.touchId : (incomingKey.startsWith('t:') ? parseInt(incomingKey.slice(2), 10) : null)) : null;
+      const pid = (kind === 'pointer') ? (info.pid != null ? info.pid : (incomingKey.startsWith('p:') ? parseInt(incomingKey.slice(2), 10) : -1)) : -1;
+
+      R._gesture = {
+        active: true,
+        kind,
+        key: incomingKey,
+        touchId,
+        pid,
+        wellId: idx,
+        t0,
+        x0,
+        y0,
+      };
+
+      res.ok = true;
+      res.reason = 'ok';
+      res.active = 1;
+      res.storedKey = incomingKey;
+      res.storedWell = String(idx);
+      EC.INPUT._lastArm = res;
+
+      // Update always-visible gesture line
+      try {
+        const D = EC.UI_STATE && EC.UI_STATE.inputDbg;
+        if (D) D.gestureLine = `active=1 key=${incomingKey||'?'} well=${idx} x0/y0=${Math.round(x0)}/${Math.round(y0)} t0=${Math.round(t0)}`;
+      } catch (_) {}
+
+      _writeArmLine(res);
+      return true;
+    } catch (err) {
+      const msg = (err && err.message) ? err.message : String(err);
+      res.ok = false;
+      res.reason = 'missing_state_container';
+      res.err = msg;
+      EC.INPUT._lastArm = res;
+      _writeArmLine(res);
       return false;
     }
   };
+
+  function _writeArmLine(res) {
+    try {
+      const D = EC.UI_STATE && EC.UI_STATE.inputDbg;
+      if (!D) return;
+      const ok = res.ok ? 'Y' : 'N';
+      D.armLine = `ok=${ok} reason=${res.reason||'unknown_false'} active=${res.active||0} storedKey=${res.storedKey||'?'} incomingKey=${res.incomingKey||'?'} storedWell=${res.storedWell||'?'} incomingWell=${res.incomingWell||'?'}${res.err ? (' err=' + res.err) : ''}`;
+      if (Array.isArray(D.log)) {
+        D.log.push(`${res.now||0} ARM ok=${ok} reason=${res.reason||'unknown_false'} active=${res.active||0} storedKey=${res.storedKey||'?'} incomingKey=${res.incomingKey||'?'} storedWell=${res.storedWell||'?'} incomingWell=${res.incomingWell||'?'}${res.err ? (' err=' + res.err) : ''}`);
+        if (D.log.length > 180) D.log.splice(0, D.log.length - 180);
+      }
+    } catch (_) {}
+  }
 
   EC.INPUT.resolveGestureFromKey = function(kind, key, clientX, clientY, tMs) {
     try {

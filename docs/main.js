@@ -181,6 +181,16 @@ function _domArmHookLog(e, label) {
     _setLast('lastTouchstartStatus','BEFORE_PICK');
 
     const oe = e;
+    // Multi-touch rule: only the first finger can arm. If a second finger is present at start, ignore.
+    const touchesN0 = (oe && oe.touches) ? oe.touches.length : 0;
+    if (touchesN0 > 1) {
+      _ilog('TOUCHSTART_RETURN: reason=multitouch_block');
+      _setLast('lastTouchstartStatus','RETURN(multitouch_block)');
+      // Also snapshot ARM failure explicitly.
+      _ilog('ARM: ok=n key=t:? well=-1 reason=multitouch_block');
+      _setLast('lastArm', 'ok=n key=t:? well=-1 reason=multitouch_block');
+      return;
+    }
     const ch = (oe && oe.changedTouches && oe.changedTouches.length) ? oe.changedTouches[0] : null;
     const t = ch || ((oe && oe.touches && oe.touches.length) ? oe.touches[0] : null);
     if (!t || t.identifier == null) {
@@ -247,8 +257,15 @@ function _domArmHookLog(e, label) {
       if (EC.INPUT && typeof EC.INPUT.armGestureFromPick === 'function') {
         armed = !!EC.INPUT.armGestureFromPick({ kind:'touch', key, idx: pick.idx, clientX, clientY, t0: nowMs, touchId: touchId });
       }
-      _ilog(`ARM: ok=${armed?'y':'n'} key=${key} well=${pick.idx} reason=${armed?'ok':'arm_fn_returned_false'}`);
-      _setLast('lastArm', `ok=${armed?'y':'n'} key=${key} well=${pick.idx} reason=${armed?'ok':'arm_fn_returned_false'}`);
+      // Use detailed reason from EC.INPUT._lastArm if available.
+      const lastArm = (EC.INPUT && EC.INPUT._lastArm) ? EC.INPUT._lastArm : null;
+      const reason = armed ? 'ok' : ((lastArm && lastArm.reason) ? lastArm.reason : 'unknown_false');
+      const storedKey = lastArm && lastArm.storedKey ? lastArm.storedKey : '?';
+      const incomingKey = lastArm && lastArm.incomingKey ? lastArm.incomingKey : key;
+      const storedWell = (lastArm && lastArm.storedWell != null) ? lastArm.storedWell : '?';
+      const incomingWell = (lastArm && lastArm.incomingWell != null) ? lastArm.incomingWell : String(pick.idx);
+      _ilog(`ARM: ok=${armed?'y':'n'} key=${key} well=${pick.idx} reason=${reason} active=${lastArm?lastArm.active:0} storedKey=${storedKey} incomingKey=${incomingKey} storedWell=${storedWell} incomingWell=${incomingWell}`);
+      _setLast('lastArm', `ok=${armed?'y':'n'} key=${key} well=${pick.idx} reason=${reason}`);
     } catch (err) {
       const msg = (err && err.message) ? err.message : String(err);
       _ilog('ARM_ERR: ' + msg);
