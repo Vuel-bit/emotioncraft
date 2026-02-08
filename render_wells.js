@@ -261,7 +261,11 @@
 
     const col = mixWellColor(w);
     fill.clear();
-    fill.beginFill(rgbToHex(col), 0.88);
+    // Debug-only: allow isolating the MVP liquid interior by hiding the legacy base fill.
+    // (No gameplay impact; only affects visuals when EC.DEBUG is true.)
+    const dbgLay = (EC.DEBUG && EC.DEBUG_LIQUID_LAYERS) ? EC.DEBUG_LIQUID_LAYERS : null;
+    const fillA = (!dbgLay || dbgLay.baseFill !== false) ? 0.88 : 0.0;
+    fill.beginFill(rgbToHex(col), fillA);
     fill.drawCircle(0, 0, w.radius);
     fill.endFill();
 
@@ -568,11 +572,48 @@ function ensurePsycheView() {
     EC.RENDER.psycheLayer.addChild(EC.RENDER.psycheG);
   }
 
+  // Goal shading overlay (visualizes current per-hue objective ranges)
+  // Rendered above wedges but below gold satisfied rings + numbers.
+  if (!EC.RENDER.psycheGoalShadeG) {
+    const gs = new Graphics();
+    gs.eventMode = 'none';
+    EC.RENDER.psycheGoalShadeG = gs;
+    EC.RENDER.psycheLayer.addChild(gs);
+  }
+
   if (!EC.RENDER.psycheTextLayer) {
     const tl = new Container();
     tl.eventMode = 'none';
     EC.RENDER.psycheTextLayer = tl;
     EC.RENDER.psycheLayer.addChild(tl);
+  }
+
+  // Gold satisfied ring overlay (per-wedge)
+  if (!EC.RENDER.psycheGoalRingG) {
+    const gg = new Graphics();
+    gg.eventMode = 'none';
+    EC.RENDER.psycheGoalRingG = gg;
+    EC.RENDER.psycheLayer.addChild(gg);
+  }
+
+  // Per-wedge numeric readouts (psyche values)
+  if (!EC.RENDER.psycheWedgeValueTexts) {
+    const arr = [];
+    for (let i = 0; i < 6; i++) {
+      const t = new Text('0', {
+        fontFamily: 'system-ui, -apple-system, Segoe UI, Roboto, Arial',
+        fontSize: 14,
+        fill: 0xffffff,
+        stroke: 0x000000,
+        strokeThickness: 4,
+        align: 'center',
+      });
+      t.anchor && t.anchor.set(0.5, 0.5);
+      t.eventMode = 'none';
+      arr.push(t);
+      EC.RENDER.psycheTextLayer.addChild(t);
+    }
+    EC.RENDER.psycheWedgeValueTexts = arr;
   }
 
   // Remove legacy bar-chart text objects if they exist (donut wedge UI uses center-only text).
@@ -724,110 +765,136 @@ function renderPsyche() {
     }
   }
 
-
-  // Goal visualization overlays (per-hue targets drawn in-context on the wedges)
-  // Supports: OVER (value >= target), UNDER (value <= target), BAND (low <= value <= high).
+  // Goal shading overlay (restored): show target/range regions per hue using SIM.goalViz.perHue.
+  // This is purely presentational and uses existing objective evaluation logic & data.
   const goalPerHue = (SIM.goalViz && Array.isArray(SIM.goalViz.perHue)) ? SIM.goalViz.perHue : null;
+  const shadeG = EC.RENDER.psycheGoalShadeG;
+  if (shadeG) shadeG.clear();
+  if (goalPerHue && shadeG) {
+    const shadeAlpha = 0.18;
+    const lineAlpha = 0.26;
+    const lineW = Math.max(1, Math.min(4, safeR * 0.022));
 
-  function radiusForValue(v) {
-    const vv = (typeof v === 'number' && isFinite(v)) ? v : 0;
-    const A = clamp(vv, 0, HUE_CAP);
-    const t = (HUE_CAP > 0) ? (A / HUE_CAP) : 0;
-    return Math.sqrt(r0 * r0 + t * (r1 * r1 - r0 * r0));
-  }
-
-  if (goalPerHue) {
-    const aSuccess = 0.07;
-    const aDim = 0.04;
-    const aArc = 0.20;
+    const radiusAt = (val) => {
+      const v = clamp(val || 0, 0, HUE_CAP);
+      const tt = (HUE_CAP > 0) ? (v / HUE_CAP) : 0;
+      return Math.sqrt(r0 * r0 + tt * (r1 * r1 - r0 * r0));
+    };
 
     for (let i = 0; i < N; i++) {
       const goal = goalPerHue[i] || null;
       if (!goal || !goal.type) continue;
-
+      const type = String(goal.type).toUpperCase();
       const start = base + i * slice + gap / 2;
       const end = start + span;
-      const type = String(goal.type).toUpperCase();
+      const hue = hues[i];
+      const col = PSYCHE_COLORS[hue] || 0xffffff;
 
-      // Success-zone shading (very subtle)
+      let rin = null;
+      let rout = null;
+      let b0 = null;
+      let b1 = null;
+
       if (type === 'OVER') {
-        const rg0 = radiusForValue(goal.target);
-        const rg = Math.max(r0, Math.min(r1, rg0));
-
-        // Success zone: outside the target arc
-        if (rg < r1 - 0.5) {
-          g.beginFill(0xffffff, aSuccess);
-          drawAnnularWedge(g, 0, 0, rg, r1, start, end);
-          g.endFill();
-        }
-        // Lightly dim inside (optional)
-        if (rg > r0 + 0.5) {
-          g.beginFill(0x000000, aDim);
-          drawAnnularWedge(g, 0, 0, r0, rg, start, end);
-          g.endFill();
-        }
+        const thr = (typeof goal.target === 'number') ? goal.target : 0;
+        rin = radiusAt(thr);
+        rout = r1;
+        b0 = rin;
       } else if (type === 'UNDER') {
-        const rg0 = radiusForValue(goal.target);
-        const rg = Math.max(r0, Math.min(r1, rg0));
-
-        // Success zone: inside the target arc
-        if (rg > r0 + 0.5) {
-          g.beginFill(0xffffff, aSuccess);
-          drawAnnularWedge(g, 0, 0, r0, rg, start, end);
-          g.endFill();
-        }
-        // Lightly dim outside (optional)
-        if (rg < r1 - 0.5) {
-          g.beginFill(0x000000, aDim);
-          drawAnnularWedge(g, 0, 0, rg, r1, start, end);
-          g.endFill();
-        }
+        const thr = (typeof goal.target === 'number') ? goal.target : 0;
+        rin = r0;
+        rout = radiusAt(thr);
+        b0 = rout;
       } else if (type === 'BAND') {
         const lowV = (typeof goal.low === 'number') ? goal.low : (typeof goal.min === 'number' ? goal.min : 0);
         const highV = (typeof goal.high === 'number') ? goal.high : (typeof goal.max === 'number' ? goal.max : lowV);
-
-        let rL = Math.max(r0, Math.min(r1, radiusForValue(lowV)));
-        let rH = Math.max(r0, Math.min(r1, radiusForValue(highV)));
-        if (rH < rL) { const tmp = rL; rL = rH; rH = tmp; }
-
-        // Success zone: the band
-        if (rH > rL + 0.5) {
-          g.beginFill(0xffffff, aSuccess);
-          drawAnnularWedge(g, 0, 0, rL, rH, start, end);
-          g.endFill();
-        }
-        // Dim inside/outside (optional)
-        if (rL > r0 + 0.5) {
-          g.beginFill(0x000000, aDim);
-          drawAnnularWedge(g, 0, 0, r0, rL, start, end);
-          g.endFill();
-        }
-        if (rH < r1 - 0.5) {
-          g.beginFill(0x000000, aDim);
-          drawAnnularWedge(g, 0, 0, rH, r1, start, end);
-          g.endFill();
-        }
+        const lo = Math.min(lowV, highV);
+        const hi = Math.max(lowV, highV);
+        rin = radiusAt(lo);
+        rout = radiusAt(hi);
+        b0 = rin;
+        b1 = rout;
       }
 
-      // Goal arcs on top (aligns exactly with the same radius mapping as wedge fill)
-      g.lineStyle(1, 0xffffff, aArc);
-      function drawGoalArc(rr) {
-        const r = rr;
-        if (!(r > r0 + 0.25 && r < r1 + 0.25)) return;
-        g.moveTo(r * Math.cos(start), r * Math.sin(start));
-        g.arc(0, 0, r, start, end, false);
-      }
+      if (rin == null || rout == null) continue;
+      rin = Math.max(r0, Math.min(r1, rin));
+      rout = Math.max(r0, Math.min(r1, rout));
+      if (rout <= rin + 0.5) continue;
 
-      if (type === 'OVER' || type === 'UNDER') {
-        drawGoalArc(radiusForValue(goal.target));
-      } else if (type === 'BAND') {
-        const lowV = (typeof goal.low === 'number') ? goal.low : (typeof goal.min === 'number' ? goal.min : 0);
-        const highV = (typeof goal.high === 'number') ? goal.high : (typeof goal.max === 'number' ? goal.max : lowV);
-        drawGoalArc(radiusForValue(lowV));
-        drawGoalArc(radiusForValue(highV));
-      }
+      // Soft shaded band
+      shadeG.beginFill(col, shadeAlpha);
+      drawAnnularWedge(shadeG, 0, 0, rin, rout, start, end);
+      shadeG.endFill();
 
-      g.lineStyle(0, 0, 0);
+      // Boundary lines for readability
+      shadeG.lineStyle({ width: lineW, color: col, alpha: lineAlpha });
+      if (typeof b0 === 'number') {
+        drawAnnularWedge(shadeG, 0, 0, b0, b0 + 0.01, start, end);
+      }
+      if (typeof b1 === 'number') {
+        drawAnnularWedge(shadeG, 0, 0, b1, b1 + 0.01, start, end);
+      }
+      shadeG.lineStyle();
+    }
+  }
+
+
+  // Per-wedge satisfied indicator (gold ring) + numeric readouts.
+  // Uses the same per-hue objective evaluation logic already present in SIM.goalViz.
+  // (goalPerHue already resolved above)
+  const ringG = EC.RENDER.psycheGoalRingG;
+  if (ringG) ringG.clear();
+
+  const wedgeTexts = EC.RENDER.psycheWedgeValueTexts || null;
+
+  function goalOk(goal, value) {
+    if (!goal || !goal.type) return false;
+    const type = String(goal.type).toUpperCase();
+    const v = (typeof value === 'number' && isFinite(value)) ? value : 0;
+    if (type === 'OVER') return v >= (goal.target || 0);
+    if (type === 'UNDER') return v <= (goal.target || 0);
+    if (type === 'BAND') {
+      const lowV = (typeof goal.low === 'number') ? goal.low : (typeof goal.min === 'number' ? goal.min : 0);
+      const highV = (typeof goal.high === 'number') ? goal.high : (typeof goal.max === 'number' ? goal.max : lowV);
+      const lo = Math.min(lowV, highV);
+      const hi = Math.max(lowV, highV);
+      return v >= lo && v <= hi;
+    }
+    return false;
+  }
+
+  // Position text and draw satisfied rings in the same wedge geometry.
+  const gold = 0xffd166;
+  const ringW = Math.max(2, Math.min(6, safeR * 0.03));
+  const textR = r0 + (r1 - r0) * 0.62;
+  const fontSize = Math.max(12, Math.min(22, safeR * 0.16));
+
+  for (let i = 0; i < N; i++) {
+    const start = base + i * slice + gap / 2;
+    const end = start + span;
+    const mid = (start + end) * 0.5;
+
+    // Numeric psyche value inside wedge
+    if (wedgeTexts && wedgeTexts[i]) {
+      const t = wedgeTexts[i];
+      const vv = Math.round((P[i] || 0));
+      if (t.text !== String(vv)) t.text = String(vv);
+      if (t.style && t.style.fontSize !== fontSize) {
+        // Pixi Text style assignment can be expensive; only change when needed.
+        t.style = { ...t.style, fontSize: fontSize };
+      }
+      t.position.set(Math.cos(mid) * textR, Math.sin(mid) * textR);
+      t.visible = true;
+    }
+
+    // Gold ring if this wedge currently satisfies its objective condition
+    const ok = goalPerHue ? goalOk(goalPerHue[i], P[i]) : false;
+    if (ok && ringG) {
+      ringG.lineStyle({ width: ringW, color: gold, alpha: 0.92 });
+      drawAnnularWedge(ringG, 0, 0, r0, r1, start, end);
+      ringG.closePath();
+      ringG.endFill && ringG.endFill();
+      ringG.lineStyle();
     }
   }
   // Center core (total fill 0..TOTAL_CAP): background disc + radial fill sector + centered total number
@@ -902,18 +969,19 @@ function layout() {
   // Keep pointer hit testing aligned after resizes.
   app.stage.hitArea = app.screen;
 
-  // Measure HUD so wells never sit under the drawer/topbar.
-  const topbar = document.querySelector('.topbar');
+  // Measure HUD so wells never sit under the drawer/top notification bar.
+  const notify = document.getElementById('notifyBar');
   const drawer = document.getElementById('drawer');
-  const topbarRect = topbar ? topbar.getBoundingClientRect() : { bottom: 0, height: 0 };
-  const drawerRect = drawer ? drawer.getBoundingClientRect() : { height: 0 };
-  const objectivePanel = document.getElementById('objectivePanel');
-  const objRect = objectivePanel ? objectivePanel.getBoundingClientRect() : { width: 0, height: 0 };
-  // Reserve horizontal space so the left info panel never overlaps wells.
-  const leftReserved = (objRect && objRect.width) ? Math.min(Math.max(0, objRect.width + 16), Math.max(0, w * 0.45)) : 0;
+  const notifyRect = notify ? notify.getBoundingClientRect() : { bottom: 0, height: 0 };
+  const drawerRect = drawer ? drawer.getBoundingClientRect() : { height: 0, top: h };
+  // Board-first portrait UI: do not reserve horizontal space for side panels.
+  // The board should be constrained primarily by screen width.
+  const leftReserved = 0;
 
-  const topReserved = Math.max(0, topbarRect.bottom + 10);
-  const bottomReserved = Math.max(0, drawerRect.height + 22);
+  const topReserved = Math.max(0, notifyRect.bottom + 8);
+  // Reserve the *actual* on-screen area occupied by the bottom drawer so the board never overlaps.
+  // Using height alone can be wrong when CSS/viewport changes cause the drawer to float.
+  const bottomReserved = Math.max(0, (h - (drawerRect.top || h)) + 8);
 
   const availableH = Math.max(120, h - topReserved - bottomReserved);
 
@@ -929,10 +997,12 @@ if (SIM && SIM.wellsA && Array.isArray(SIM.wellsA) && SIM.wellsA.length === 6) {
   const cx = (leftX + rightX) / 2;
   const cy = clamp(topReserved + availableH * 0.50, topReserved + boardSize * 0.20, h - bottomReserved - boardSize * 0.20);
 
-  const psycheR = clamp(boardSize * 0.14, 32, 82);
-  const ringR = clamp(boardSize * 0.33, psycheR + 40, boardSize * 0.36);
-  const wellMinR = clamp(boardSize * 0.055, 16, 44);
-  const wellMaxR = clamp(boardSize * 0.085, wellMinR + 6, 64);
+  // Prioritize much larger wells (tap targets) while keeping no-overlap.
+  // Psyche stays readable; ring radius expands to accommodate bigger wells.
+  const psycheR = clamp(boardSize * 0.13, 30, 78);
+  const wellMinR = clamp(boardSize * 0.095, 22, 78);
+  const wellMaxR = clamp(boardSize * 0.145, wellMinR + 8, 110);
+  const ringR = clamp(boardSize * 0.43, psycheR + wellMaxR + 18, boardSize * 0.49);
 
   SIM.mvpGeom = {
     cx, cy,

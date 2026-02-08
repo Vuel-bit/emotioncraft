@@ -26,6 +26,57 @@
       z-index: 5;
       padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
     }
+
+    /* Board-first: always-available top notification bar (lightweight) */
+    .notifyBar{
+      position:absolute;
+      top: 8px;
+      left: 12px;
+      right: 12px;
+      padding: 8px 10px;
+      border-radius: 14px;
+      background: rgba(12, 16, 26, 0.55);
+      border: 1px solid rgba(255,255,255,0.06);
+      backdrop-filter: blur(8px);
+      pointer-events: none;
+      display: grid;
+      grid-template-columns: 1fr auto;
+      grid-template-rows: auto auto;
+      gap: 4px 8px;
+    }
+    .patientInfo{
+      grid-column: 1;
+      grid-row: 1;
+      font-size: 12px;
+      color: rgba(232,238,252,0.92);
+      line-height: 1.15;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .notifyText{
+      grid-column: 1;
+      grid-row: 2;
+      font-size: 12px;
+      color: rgba(232,238,252,0.78);
+      line-height: 1.2;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+
+    .notifyControls{
+      grid-column: 2;
+      grid-row: 1 / span 2;
+      display:flex;
+      align-items:center;
+      justify-content:flex-end;
+      gap: 8px;
+      pointer-events: auto;
+    }
+    .notifyControls .btn{ padding: 6px 10px; font-size: 12px; }
+    /* Level selector removed in this pass (Reset returns to lobby). */
     .topbar {
       position: absolute; top: 12px; left: 12px; right: 12px;
       background: var(--panel2);
@@ -39,6 +90,15 @@
       pointer-events: auto;
       backdrop-filter: blur(8px);
     }
+
+    /* This pass: consolidate all top controls into the notification bar. */
+    .topbar{ display:none; }
+
+    /* Remove the upper-left objective panel from the main play screen. */
+    #objectivePanel{ display:none !important; }
+
+    /* This pass: only ONE top bar. Keep legacy topbar in DOM for compatibility but hide it. */
+    .topbar{ display:none; }
     .mvpHud{
       font-size: 13px;
       color: var(--text);
@@ -85,10 +145,7 @@
     .bar > div { height: 100%; width: 0%; background: var(--accent); transition: width 160ms linear, background 160ms linear; }
 
     .buttons { display: flex; gap: 8px; }
-    .levelCtl { display:flex; align-items:center; gap:6px; padding:4px 8px; border-radius:12px; background: rgba(10, 12, 18, 0.45); border: 1px solid rgba(255,255,255,0.08); }
-    .levelCtl .lvlLabel { font-size: 12px; color: rgba(232, 238, 252, 0.75); }
-    .levelCtl .lvlSelect { background: rgba(0,0,0,0.25); color: rgba(232, 238, 252, 0.92); border: 1px solid rgba(255,255,255,0.10); border-radius: 10px; padding: 4px 8px; font-size: 12px; outline: none; }
-    .levelCtl .lvlSelect:focus { border-color: rgba(255,255,255,0.25); }
+    /* Legacy level control styling kept unused (selector removed). */
     .btn {
       pointer-events: auto;
       background: rgba(255,255,255,0.07);
@@ -398,6 +455,7 @@
     font-size: 12px;
     line-height: 1.25;
   }
+  #objectivePanel{ display:none; }
   #objectivePanel .title{font-weight:700; font-size:12px; margin-bottom:4px;}
   #objectivePanel .obj{opacity:0.92; margin-bottom:6px;}
   #objectivePanel .hold{opacity:0.92; margin-bottom:6px;}
@@ -448,6 +506,17 @@
     .drawerRight{ align-items:flex-start; }
     .miniBar{ width: 160px; }
   }
+
+  /* This pass: bottom controls compression (reclaim board space). */
+  .drawer{ padding: 8px 10px; border-radius: 16px; }
+  .drawerTop{ gap: 8px; margin-bottom: 6px; }
+  .drawerTitleRow, #drawerSub, #objectiveSummary, #selectedWellPill, #previewPill{ display:none !important; }
+  .drawerRight{ gap: 6px; }
+  #energyCostPill{ font-size: 12px; padding: 6px 10px; }
+  .pill{ padding: 6px 10px; }
+  .ctrl{ margin-top: 6px; padding: 8px; }
+  .ctrlRow{ gap: 8px; }
+  .ctrlRow label{ gap: 6px; }
 </style>
 </head>
 <body>
@@ -471,7 +540,15 @@
   </div>
 
 <div class="hud">
-  <div class="topbar">
+  <div class="notifyBar" id="notifyBar" aria-live="polite">
+    <div class="patientInfo" id="patientInfo"></div>
+    <div class="notifyText" id="notifyText"></div>
+    <div class="notifyControls" id="notifyControls">
+      <button class="btn" id="btnReset">Reset</button>
+      <button class="btn" id="btnDebug">Debug</button>
+    </div>
+  </div>
+  <div class="topbar" id="topbar">
     <div class="meter" id="legacyMeters">
       <div class="label" id="collapseLabel">Collapse</div>
       <div class="bar"><div id="loseFill"></div></div>
@@ -479,41 +556,20 @@
       <div class="bar"><div id="winFill"></div></div>
     </div>
     <div class="mvpHud" id="mvpHud"></div>
-    <div class="buttons">
-      <button class="btn" id="btnReset">Reset</button>
-      <div class="levelCtl">
-        <span class="lvlLabel">Level</span>
-        <select id="levelSelect" class="lvlSelect">
-          <option value="1">Level 1</option>
-          <option value="2">Level 2</option>
-        </select>
-      </div>
-      <button class="btn" id="btnDebug">Debug</button>
-    </div>
+    <div class="buttons" aria-hidden="true"></div>
   </div>
 
   <!-- action line removed for MVP redesign (Chunk 5) -->
 
   <div class="debug" id="debug"></div>
 
-  <div id="objectivePanel"></div>
+  <div id="objectivePanel" aria-hidden="true"></div>
 
   <div class="drawer" id="drawer">
-    <div class="drawerTop">
-      <div class="drawerLeft">
-        <div class="drawerTitleRow">
-          <h3 id="drawerTitle">Controls</h3>
-          <div class="sub" id="drawerSub">Select a Well, set targets, preview Cost, then Apply.</div>
-        </div>
-        <div class="sub" id="objectiveSummary">Level — Objective</div>
-      </div>
-
-      <div class="drawerRight">
-        <div class="pill" id="selectedWellPill">Selected: None</div>
-        <div class="pill big" id="energyCostPill">Energy: 0 / 0 (+0.00/s) | Cost: 0.0</div>
-        <div class="miniBar" aria-hidden="true"><div id="energyMiniFill"></div></div>
-      </div>
-    </div><div class="ctrl" id="ctrlPanel">
+    <div class="drawerTop" style="margin-bottom:6px;">
+      <div class="sub" id="goalLine">Goal: —</div>
+    </div>
+    <div class="ctrl" id="ctrlPanel">
       <div class="ctrlRow">
         <label>Amount
           <input type="range" id="deltaA" min="25" max="100" step="5" value="25" />
@@ -525,16 +581,16 @@
           <span class="val" id="deltaSVal">0</span>
         </label>
 
+        <div class="sub" id="energyUnderSpin">Energy: 0/200</div>
+
         <button class="btn" id="btnSpinZero">Set Spin 0</button>
         <button class="btn" id="btnZeroPair">Zero Pair</button>
 
         <div class="pill" id="costPill">Cost: 0</div>
         <button class="btn primary" id="btnApply">Apply</button>
       </div>
-      <div style="display:flex; gap:8px; flex-wrap:wrap; margin-top:6px;">
-        <div class="pill" id="previewPill">Current: - | Target: - | Cost: 0 | Opp: 0</div>
       </div>
-          </div>
+    </div>
   </div>
 
   <div class="toast" id="toast"></div>

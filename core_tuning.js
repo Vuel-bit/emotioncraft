@@ -226,12 +226,21 @@
       orange: 0xff8f3d,
     },
     MVP_WELL_NAME: {
-      red: 'Vitality',
-      yellow: 'Clarity',
-      blue: 'Calm',
-      purple: 'Resolve',
-      green: 'Insight',
-      orange: 'Direction',
+      // Theme pass (v0.2.28): presentation-only well names.
+      // NOTE: Indices / mechanics stay identical.
+      // Locked mapping:
+      //   Blue   = Chill
+      //   Orange = Pep
+      //   Red    = Grit
+      //   Green  = Nerves
+      //   Yellow = Focus
+      //   Purple = Ego
+      red:    'Grit',
+      yellow: 'Focus',
+      blue:   'Chill',
+      purple: 'Ego',
+      green:  'Nerves',
+      orange: 'Pep',
     },
 
     // Spin anim + preview
@@ -258,8 +267,9 @@
     PLANE_GAP_SCALE: 0.10,
     PLANE_XOFF_MIN: 24,
 
-    SPIN_POS_COLOR: 0x54d18d,
-    SPIN_NEG_COLOR: 0xff6b6b,
+    // More saturated sign colors for in-well A/S readability over liquid textures (visual-only).
+    SPIN_POS_COLOR: 0x2dff7a,
+    SPIN_NEG_COLOR: 0xff3b3b,
     SPIN_ZERO_COLOR: 0xffffff,
 
     // Ghost ring preview
@@ -278,7 +288,7 @@
     DISP_ACTIVE_ALPHA_GAIN: 0.65,
 
     // Disposition halo colors + active fill meter
-    // (warning halo is a magenta-red distinct from Vitality red and selection highlight)
+    // (warning halo is a magenta-red distinct from the red well (Grit) and selection highlight)
     DISP_WARN_HALO_COLOR: 0xff3d7f,
     DISP_ACTIVE_HALO_COLOR: 0xf5f5ff,
     DISP_ACTIVE_FILL_MAX_FRACTION: 1.00,
@@ -305,6 +315,19 @@
     // Optional subtle brightening of affected well during ACTIVE (secondary to halo)
     DISP_ACTIVE_BRIGHT_GAIN: 0.20,
 
+  };
+
+  // Shared hue display helper (presentation-only)
+  // Used by lobby/objective UI to show consistent well names without touching mechanics.
+  EC.hueLabel = EC.hueLabel || function hueLabel(i) {
+    try {
+      const hues = (EC.CONST && EC.CONST.HUES) || EC.HUES || ['red','purple','blue','green','yellow','orange'];
+      const h = hues[i];
+      const names = EC.TUNE && EC.TUNE.RENDER && EC.TUNE.RENDER.MVP_WELL_NAME;
+      return (names && h && names[h]) ? names[h] : (h ? (h.charAt(0).toUpperCase() + h.slice(1)) : `Hue ${i}`);
+    } catch (e) {
+      return `Hue ${i}`;
+    }
   };
 
 

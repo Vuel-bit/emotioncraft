@@ -1,3 +1,205 @@
+## v0_2_43_boardfirst_safezone_ui_hotfix
+
+**Date:** 2026-02-07
+
+**Summary**
+- UI-only: enforced strict board no-overlap with top/bottom bars by reserving the bottom drawer’s actual on-screen footprint (uses `drawerRect.top`).
+- UI-only: bottom bar now updates only Goal line + Energy under Spin, aligning UI updates with the compact layout.
+- UI-only: improved in-well A/S readability (darker backing plate; more saturated +/- sign colors).
+- No gameplay/mechanics changes.
+
+**Files touched**
+- render_wells.js (safe-zone bottom reservation)
+- ui_controls.js (goal + energy compact updates)
+- render_wells_update.js (stronger A/S backing plate)
+- core_tuning.js (more saturated spin sign colors)
+- BUILD_INFO.txt, CHANGELOG.txt, PROJECT_INDEX.md
+
+---
+
+## v0_2_42_boardfirst_hotfix_boot_goalshade
+
+**Date:** 2026-02-07
+
+**Summary**
+- Hotfix: fixed boot crash in `render_wells_update.js` (undefined `wellView` reference) by using the in-scope per-well `view` reference and guarding missing views (warn only under `EC.DEBUG`).
+- Hotfix: restored psyche goal shading overlay (target/range bands) using existing `SIM.goalViz.perHue`, keeping gold satisfied rings + wedge numbers intact.
+- No gameplay/mechanics changes.
+
+**Files touched**
+- render_wells_update.js (fix undefined `wellView` reference)
+- render_wells.js (restore goal shading overlay layer)
+- BUILD_INFO.txt, CHANGELOG.txt, PROJECT_INDEX.md
+
+---
+
+## v0_2_41_boardfirst_space_reclaim
+
+**Date:** 2026-02-07
+
+**Summary**
+- UI-only: remove clutter + reclaim space for board.
+  - Removed the upper-left objective/text panel from the main play screen.
+  - Consolidated Reset / Level / Debug into the top notification bar; removed the extra top row.
+  - Compressed bottom controls panel (removed redundant text; reduced padding/margins).
+  - Increased MVP well radii substantially while maintaining no-overlap.
+  - Added a subtle dark backing plate behind the in-well A/S readout for legibility.
+- No gameplay/mechanics changes.
+
+**Files touched**
+- index.html (topbar consolidation; hide objective panel; drawer compression styles)
+- ui_hud.js (notification/patient content + topbar positioning)
+- render_wells.js (board-first layout sizing; psyche wedge numbers + satisfied gold ring)
+- render_wells_init.js, render_wells_update.js (A/S backing plate for readability)
+- BUILD_INFO.txt, CHANGELOG.txt, PROJECT_INDEX.md
+
+---
+
+## v0_2_40_boardfirst_portrait_ui
+
+**Date:** 2026-02-07
+
+**Summary**
+- UI-only: board-first portrait layout pass.
+  - Added top notification bar for dispositions/short system messages.
+  - Moved patient + step to top-left within the notification area.
+  - Board sizing now prioritizes screen width (no horizontal reservation for side panels).
+- UI-only: psyche wedges now show live value numbers; satisfied wedges render a bright gold ring (uses existing goalViz logic).
+- UI-only: wells now show in-well A/S readout under their name; spin is sign-colored.
+- No gameplay/mechanics changes.
+
+---
+
+## v0_2_39_inkpool_crestline_aura_dirfix
+
+**Date:** 2026-02-07
+
+**Summary**
+- Visual-only: wave indicator is now a dark ink-like crest line (not a white cloud), stays fully inside the well (size/offset clamped) and remains visible at low spins.
+- Visual-only: ripple "mist/aura" rotation no longer contradicts spin direction (both ripple layers follow spin sign; wobble-only at rest).
+- Visual-only: black interior line/streak contrast has a clearer baseline at spin=0 (still inert, optional tiny drift), while still darkening with higher |spin|.
+- No gameplay/mechanics changes.
+
+**Files touched**
+- render_wells_init.js (wave-hand blend mode is NORMAL for dark crest line)
+- render_wells_update.js (dark crest line visuals + low-spin floor + aura direction fix + rest readability)
+- BUILD_INFO.txt, CHANGELOG.txt, PROJECT_INDEX.md
+
+---
+
+## v0_2_37_inkpool_hand_nosquares
+
+**Date:** 2026-02-07
+
+**Summary**
+- Visual-only: remove square artifact sprites by eliminating tiling sprites in the well interior; use circular-clipped textures only.
+- Visual-only: direction cue is now a single dominant "wave hand" that sweeps CW/CCW with spin sign (no confusing spirals).
+- Visual-only: motion speed maps to actual |spin| with a readable curve (8 looks mild, 90 looks intense).
+- Visual-only: deepen pigment saturation and reduce chalky overlays (less pastel/muted).
+- No gameplay/mechanics changes.
+
+**Files touched**
+- render_wells_init.js (switch interior to circular sprites; add circular-clipped ink textures; add wave-hand sprite)
+- render_wells_update.js (readable speed mapping; wave-hand update; reduce spiral dominance; deepen color)
+- BUILD_INFO.txt, CHANGELOG.txt, PROJECT_INDEX.md
+
+---
+
+## v0_2_36_inkpool_ripples_overboard_hotfix
+
+**Date:** 2026-02-07
+
+**Summary**
+- Hotfix: fix crash on load (TDZ) by defining spin-derived vars (including magEff) before ripple layer uses them.
+- Visual-only: upgrade wells toward a deep, rich "ink pool" look with living ripples even at spin=0.
+- Visual-only: stronger flow readability via dragged ink streak turbulence + a bold direction cue.
+- Visual-only: reduce muted/filtered appearance by keeping pigment dominant and tinting highlights toward the hue.
+- No gameplay/mechanics changes.
+
+**Files touched**
+- render_wells_init.js
+- render_wells_update.js
+- BUILD_INFO.txt, CHANGELOG.txt, PROJECT_INDEX.md
+
+---
+
+## v0_2_34_liquid_wells_tracers_bloomfix
+
+**Date:** 2026-02-07
+
+**Summary**
+- Visual-only: add rotating curved tracer arcs inside wells so CW/CCW direction is readable at a glance (no arrow glyphs).
+- Visual-only: flip radial "bloom vs tighten" feel so +spin (CW) blooms outward and -spin (CCW) tightens inward.
+- Visual-only: subtle rim specular arc + inner edge shading to reduce flat/"blob" feel while keeping a perfect circle.
+
+**Files touched**
+- render_wells_init.js (added tracer + inner-edge textures; created tracer/edge sprites per well)
+- render_wells_update.js (drive tracers by spin; strengthened bloom/tighten mapping; add subtle rim specular)
+
+---
+
+## v0_2_33_liquid_wells_swirl_visible
+Date: 2026-02-07
+
+Summary:
+- Visual-only: make liquid wells unmistakably different from the legacy flat blob by adding a spiral swirl texture and dual-layer motion.
+- Direction readability: interior rotation shows CW/CCW at a glance (no arrow glyphs).
+- Magnitude readability: |spin| increases rotation speed and tightens the swirl.
+- No gameplay/mechanics changes.
+
+Files touched:
+- render_wells_init.js, render_wells_update.js
+- BUILD_INFO.txt, CHANGELOG.txt, PROJECT_INDEX.md
+
+---
+
+## v0_2_32_liquid_wells_maskless_circular_textures
+Date: 2026-02-07
+
+Summary:
+- Fix (visual): avoid default PIXI masking for the liquid interior (mobile-safe). Highlight + marbling textures are now circular (alpha-clipped) so the interior renders correctly without masking.
+- Fix (visual): mask alpha is no longer fully 0 (0.001) and remains renderable for debug toggling.
+- Debug-only: init log + throttled 1Hz liquid inspector under EC.DEBUG; added legacy baseFill toggle.
+- No gameplay/mechanics changes.
+
+Files touched:
+- render_wells_init.js, render_wells_update.js, render_wells.js
+- BUILD_INFO.txt, CHANGELOG.txt, PROJECT_INDEX.md
+
+---
+
+## v0_2_31_liquid_wells_selection_mask_fix
+Date: 2026-02-07
+
+Summary:
+- Fix (visual): MVP well interior masks kept renderable on some platforms (visible=true, alpha=0, renderable=true) so pigment/marble/highlight layers can draw.
+- Fix (input): MVP wells tappable again via stable hitArea synced to radius.
+
+Files touched:
+- render_wells_init.js, render_wells_update.js
+
+---
+
+## v0_2_30_liquid_wells_mobilefix
+Date: 2026-02-07
+
+Summary:
+- Visual-only well pass: upgraded the 6 wells to a liquid pigment interior with organic swirl motion.
+  Spin direction and magnitude are readable via the liquid rotation (no arrow glyphs).
+  Crisp circular rim (separate from outer halo) keeps wells reading as containers; selection uses rim/outer ring emphasis.
+  Mobile/WebGL safety: removed dark full-field shading and clamped marbling tint so interiors stay vivid (no black orbs).
+- Fix: mobile/WebGL safety — marbling no longer uses dark MULTIPLY-style full-field shading; tint is clamped above near-black.
+- Debug: under EC.DEBUG, `EC.DEBUG_LIQUID_LAYERS` toggles pigment/marbles/highlight/coreGlow for diagnosis.
+- Presentation-only theme pass: renamed the 6 wells/hues across UI/render/objective text.
+  Blue=Chill, Orange=Pep, Red=Grit, Green=Nerves, Yellow=Focus, Purple=Ego.
+- Opposite pairs unchanged (Red↔Green, Yellow↔Purple, Blue↔Orange). No mechanics changes.
+
+Files touched:
+- render_wells_init.js, render_wells_update.js
+- BUILD_INFO.txt, CHANGELOG.txt, PROJECT_INDEX.md
+
+---
+
 ## v0_2_13_zen_objectives_fix
 Date: 2026-02-06
 
@@ -133,7 +335,7 @@ Files (high level)
 Date: 2026-02-06
 
 Summary
-- Completed disposition types and added L4–L6 test levels (Calm target).
+- Completed disposition types and added L4–L6 test levels (Chill target).
 
 Files
 - core_model.js, ec_bootstrap.js, systems_dispositions.js
@@ -151,7 +353,7 @@ Files (high level)
 Date: 2026-02-06
 
 Summary
-- Added Levels 4-6 for Affinity/Aversion/Damping disposition testing on Calm (waves at ~10s).
+- Added Levels 4-6 for Affinity/Aversion/Damping disposition testing on Chill (waves at ~10s).
 
 Files
 - core_model.js, ec_bootstrap.js, BUILD_INFO.txt
@@ -170,7 +372,7 @@ Files (high level)
 Date: 2026-02-06
 
 Summary
-- Completed Disposition types (Affinity/Aversion/Damping) and added Levels 4–6 for isolated testing on Calm.
+- Completed Disposition types (Affinity/Aversion/Damping) and added Levels 4–6 for isolated testing on Chill.
 - Adjusted disposition wave start time to ~10s on Levels 3–6.
 
 Files (high level)
@@ -405,3 +607,5 @@ Summary:
 
 Action:
 - Revert base to v0_2_23_halo_invert_noghost before retrying concurrency.
+
+- v0.2.34 — Liquid Wells: tracer arcs + corrected bloom/contract visual mapping (+spin blooms, -spin tightens)

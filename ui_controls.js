@@ -369,29 +369,20 @@
       }
     }
 
-    // Keep objective summary fresh (text only; layout unchanged)
-    const objectiveSummaryEl = dom.objectiveSummaryEl || document.getElementById('objectiveSummary');
-    if (objectiveSummaryEl && EC.UI_HUD && typeof EC.UI_HUD.getObjectiveSummaryText === 'function') {
-      objectiveSummaryEl.textContent = String(EC.UI_HUD.getObjectiveSummaryText());
-    }
-
-    // Selected pill + energy/cost pill + mini bar
-    const i = (typeof SIM.selectedWellIndex === 'number') ? SIM.selectedWellIndex : -1;
-    const selectedWellPillEl = dom.selectedWellPillEl || document.getElementById('selectedWellPill');
-    if (selectedWellPillEl) selectedWellPillEl.textContent = (i >= 0) ? `Selected: ${ctx.wellTitle ? ctx.wellTitle(i) : i}` : 'Selected: None';
-
+    // Bottom-bar compact info: Goal line + Energy under Spin
     const T = EC.TUNE || {};
     const E_CAP = T.ENERGY_CAP;
-    const regen = (typeof SIM.energyRegenPerSec === 'number') ? SIM.energyRegenPerSec : 0;
+    const energyUnderSpinEl = dom.energyUnderSpinEl || document.getElementById('energyUnderSpin');
+    if (energyUnderSpinEl) {
+      energyUnderSpinEl.textContent = `Energy: ${Math.round(SIM.energy || 0)}/${E_CAP}`;
+    }
 
-    const _p = (UI_STATE && UI_STATE.lastPreview) ? UI_STATE.lastPreview : { cost: 0 };
-    const energyCostPillEl = dom.energyCostPillEl || document.getElementById('energyCostPill');
-    if (energyCostPillEl) energyCostPillEl.textContent = `Energy: ${(SIM.energy||0).toFixed(1)} / ${E_CAP} (+${regen.toFixed(2)}/s) | Cost: ${((_p && _p.cost) ? _p.cost : 0).toFixed(2)}`;
-
-    const energyMiniFillEl = dom.energyMiniFillEl || document.getElementById('energyMiniFill');
-    if (energyMiniFillEl) {
-      const pct = E_CAP > 0 ? Math.max(0, Math.min(1, (SIM.energy||0) / E_CAP)) : 0;
-      energyMiniFillEl.style.width = (pct * 100).toFixed(1) + '%';
+    const goalLineEl = dom.goalLineEl || document.getElementById('goalLine');
+    if (goalLineEl && EC.UI_HUD && typeof EC.UI_HUD.getObjectiveSummaryText === 'function') {
+      const raw = String(EC.UI_HUD.getObjectiveSummaryText() || '').replace(/^\s*Goal:\s*/i, '');
+      const maxLen = 72;
+      const txt = raw.length > maxLen ? (raw.slice(0, maxLen - 1) + '…') : raw;
+      goalLineEl.textContent = 'Goal: ' + txt;
     }
 
     // Keep apply validity fresh

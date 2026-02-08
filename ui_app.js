@@ -53,19 +53,19 @@ if (topbarEl) topbarEl.classList.add('compact');
 if (legacyMetersEl) legacyMetersEl.style.display = 'none';
 if (mvpHudEl) mvpHudEl.style.display = 'block';
 
-// Hue naming helpers (kept identical)
+// Hue naming helpers (presentation-only)
 const HUES = (EC.CONST && EC.CONST.HUES) || EC.HUES || ['red','purple','blue','green','yellow','orange'];
 const hueName = (i) => {
   const h = HUES[i] || '??';
   return h.charAt(0).toUpperCase() + h.slice(1);
 };
-const WELL_NAME = {
-  red: 'Vitality',
-  yellow: 'Clarity',
-  blue: 'Calm',
-  purple: 'Resolve',
-  green: 'Insight',
-  orange: 'Direction',
+const WELL_NAME = (EC.TUNE && EC.TUNE.RENDER && EC.TUNE.RENDER.MVP_WELL_NAME) || {
+  red: 'Grit',
+  yellow: 'Focus',
+  blue: 'Chill',
+  purple: 'Ego',
+  green: 'Nerves',
+  orange: 'Pep',
 };
 const wellTitle = (i) => {
   const h = HUES[i] || '';

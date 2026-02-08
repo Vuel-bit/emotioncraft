@@ -1,3 +1,153 @@
+CHANGELOG — v0_2_43_boardfirst_safezone_ui_hotfix (2026-02-07)
+## v0.2.43 (2026-02-07) — UI-only hotfix: safe-zone layout + A/S legibility
+- UI-only: enforced strict board no-overlap with top/bottom bars by reserving the bottom drawer’s actual on-screen footprint (uses `drawerRect.top`, not just height).
+- UI-only: bottom-bar compact info now updates Goal line + Energy under Spin only (removes stale references to removed telemetry strip).
+- UI-only: improved in-well A/S readability (darker backing plate + more saturated +/- sign colors).
+- No gameplay/mechanics/tuning changes.
+
+---
+
+CHANGELOG — v0_2_42_boardfirst_hotfix_boot_goalshade (2026-02-07)
+## v0.2.42 (2026-02-07) — Hotfix: boot crash + goal shading overlay
+- Hotfix: fixed boot crash in `render_wells_update.js` caused by an undefined `wellView` reference; now uses the in-scope per-well `view` and guards missing views (warn only under `EC.DEBUG`).
+- Hotfix: restored psyche goal shading overlay (target/range bands) using existing `SIM.goalViz.perHue` data. Gold satisfied rings + wedge numbers remain.
+- No gameplay/mechanics/tuning changes.
+
+---
+
+CHANGELOG — v0_2_41_boardfirst_space_reclaim (2026-02-07)
+## v0.2.41 (2026-02-07) — Board-first space reclaim (UI-only)
+- UI-only: removed the upper-left objective/text panel from the main play screen.
+- UI-only: consolidated Reset / Level / Debug into the top notification bar; removed the extra top row.
+- UI-only: compressed the bottom controls panel (removed redundant titles/instructions/"Selected" label; reduced padding/margins).
+- UI-only: increased well sizes substantially while maintaining no-overlap.
+- UI-only: added a subtle dark backing plate behind the in-well A/S readout for legibility over liquid textures.
+- No gameplay/mechanics/tuning changes.
+
+---
+
+CHANGELOG — v0_2_40_boardfirst_portrait_ui (2026-02-07)
+## v0.2.40 (2026-02-07) — Board-first portrait UI
+- UI-only: added a lightweight top notification bar (1–2 lines) for dispositions + short system messages.
+- UI-only: patient name + step moved to the top-left within the notification area.
+- UI-only: board layout now prioritizes screen width (no horizontal reservation for the side objective panel).
+- UI-only: psyche wedges now show current values inside each wedge.
+- UI-only: wedges that satisfy the current objective condition render a bright gold ring around the full wedge (uses existing goalViz logic).
+- UI-only: wells now show A/S readout inside each well under its name; spin number is sign-colored.
+- No gameplay/mechanics/tuning changes.
+
+---
+
+CHANGELOG — v0_2_39_inkpool_crestline_aura_dirfix (2026-02-07)
+## v0.2.39 (2026-02-07) — Dark crest line + aura direction + rest readability
+- Visual-only: wave indicator is now a dark ink-like crest line (NORMAL blend), with a low-spin visibility floor and size/offset clamps so it can never escape the circular well.
+- Visual-only: ripple/mist rotation no longer contradicts spin direction (both ripple layers follow the same sign; wobble-only at rest).
+- Visual-only: black interior line/streak contrast is clearer at spin=0 while preserving "darker at higher spin".
+- No gameplay/mechanics/tuning changes.
+
+---
+
+CHANGELOG — v0_2_38_inkpool_spinmap_rimsoft_wavecrest (2026-02-07)
+## v0.2.38 (2026-02-07) — Spin mapping + softer rim + wave crest
+- Visual-only: canonical spin→motion mapping now uses SIM.wellsS (-100..100) for all directional layers (spin=0 inert; ±100 max; readable range for 10/50/80/100).
+- Visual-only: remove/soften the hard white rim so wells don't look pre-selected; keep only a subtle lens edge and tiny specular hint.
+- Visual-only: wave-hand texture now reads as an amorphous liquid crest/band rather than a flashlight cone.
+- Visual-only: deepen pigment saturation and reduce chalky ripple tints to avoid pastel wash.
+- No gameplay/mechanics/tuning changes.
+
+---
+
+CHANGELOG — v0_2_37_inkpool_hand_nosquares (2026-02-07)
+## v0.2.37 (2026-02-07) — Ink Pools: wave-hand direction + no square artifacts
+- Visual-only: eliminate square artifact layers by removing tiling sprites from well interiors; use circular-clipped textures only.
+- Visual-only: direction cue now uses a single dominant sweeping "wave hand" (clock-hand band) that rotates CW/CCW with spin sign.
+- Visual-only: motion speed maps to actual |spin| with a readable non-linear curve (low values remain mild; high values are fastest without blur).
+- Visual-only: deepen pigment saturation and reduce chalky white overlays (less pastel/muted).
+- No gameplay/mechanics/tuning changes.
+
+---
+
+CHANGELOG — v0_2_36_inkpool_ripples_overboard_hotfix (2026-02-07)
+## v0.2.36 (2026-02-07) — Hotfix: crash on load
+- Fix: crash on load caused by TDZ ("Cannot access 'magEff' before initialization") by moving spin-derived var declarations above ripple layer usage.
+- No gameplay/mechanics/tuning changes.
+
+---
+
+CHANGELOG — v0_2_35_inkpool_ripples_overboard (2026-02-07)
+## v0.2.35 (2026-02-07) — Ink Pools: living ripples + over-obvious flow
+- Visual-only: add "living pool" ripple motion even at spin=0 via tiling noise drift + wobble (non-repeating feel).
+- Visual-only: add high-contrast dragged ink streak tiles (dark + light) and a bold directional band layer to make CW/CCW instantly readable.
+- Visual-only: reduce muted/filtered look by keeping pigment dominant, tinting highlights toward the hue, and dialing down low-contrast marbling.
+- Visual-only: add organic turbulence (wobble + phase differences) so motion is less "perfect spiral" and more ink-in-water.
+- No gameplay/mechanics/tuning changes.
+
+Well visuals (presentation-only)
+- Fix: liquid interior now renders as an obvious "swirling pigment" instead of a legacy flat blob by adding a spiral swirl texture and dual-layer motion.
+- Motion: swirl direction is readable at a glance (CW/CCW) and |spin| increases both rotation speed and whirlpool tightness.
+- No gameplay/mechanics/tuning changes.
+
+---
+
+CHANGELOG — v0_2_34_liquid_wells_tracers_bloomfix (2026-02-07)
+## v0.2.34 (2026-02-07) — Liquid Wells: tracers + bloom/contract flip
+- Visual-only: added faint rotating curved tracers inside wells for at-a-glance CW/CCW readability (no arrows).
+- Visual-only: flipped radial feel mapping so positive spin (CW) blooms outward and negative spin (CCW) tightens inward; increased contrast at moderate spin.
+- Visual-only: subtle rim specular arc and inner edge shading to reduce blob feel while keeping perfect circular boundary.
+
+CHANGELOG — v0_2_32_liquid_wells_maskless_circular_textures (2026-02-07)
+
+Well visuals (presentation-only)
+- Fix: resolved persistent "black orb" liquid wells on some mobile/WebGL paths by removing default reliance on PIXI masking for the liquid interior.
+- Fix: highlight and marbling textures are now circular (alpha-clipped) so the interior remains perfectly circular without masking.
+- Debug-only: added init log + throttled 1Hz log under EC.DEBUG to confirm interior layer visibility/alpha/tint/mask state.
+- Debug-only: added a legacy base fill toggle (EC.DEBUG_LIQUID_LAYERS.baseFill=false) to isolate the liquid interior when diagnosing.
+- No gameplay/mechanics/tuning changes.
+
+---
+
+CHANGELOG — v0_2_31_liquid_wells_selection_mask_fix (2026-02-07)
+
+Well visuals + input (no mechanics changes)
+- Fix: MVP well interior mask now remains renderable on mobile (mask visible=true, alpha=0, renderable=true) so pigment/marble/highlight layers draw correctly.
+- Fix: MVP wells are tappable again by assigning a stable hitArea per well and syncing it to the current radius each frame.
+- Debug-only: on tap, logs selectedWellIndex when EC.DEBUG is true.
+
+---
+
+CHANGELOG — v0_2_30_liquid_wells_mobilefix (2026-02-07)
+
+Well visuals (presentation-only)
+- Fix: prevent liquid interiors from rendering as black/dark orbs on mobile/WebGL.
+  - Removed dark MULTIPLY-style full-field shading from marbling.
+  - Marbling tint is now derived from the pigment color with a per-channel floor (no near-black).
+  - Added debug-only layer toggles (EC.DEBUG_LIQUID_LAYERS) for diagnosis.
+- No gameplay/mechanics/tuning changes.
+
+---
+
+CHANGELOG — v0_2_29_liquid_wells_vibe (2026-02-07)
+
+Well visuals (presentation-only)
+- Replaced flat "blob" wells with a liquid pigment interior: layered marbling + highlight + subtle core glow.
+- Spin direction is now readable via interior rotation (CW/CCW) without arrow glyphs.
+- Spin magnitude increases swirl speed and "tightness" (no black muting; colors stay vivid).
+- Added crisp circular rim (container/lens edge) separate from the outer disposition halo.
+- Selection emphasizes rim/outer ring without distorting the well circle.
+- No gameplay/mechanics/tuning changes.
+
+---
+
+CHANGELOG — v0_2_28_theme_wellnames (2026-02-07)
+
+Theme (presentation-only)
+- Updated well/hue display names across UI/render/objectives to match the new theme:
+  Blue=Chill, Orange=Pep, Red=Grit, Green=Nerves, Yellow=Focus, Purple=Ego.
+- Opposite-pair mechanics unchanged (Red↔Green, Yellow↔Purple, Blue↔Orange).
+- No gameplay or tuning changes.
+
+---
+
 CHANGELOG — v0_2_27_disp_telegraph_timeslice_peakfix (2026-02-07)
 
 Dispositions

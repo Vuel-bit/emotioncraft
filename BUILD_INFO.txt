@@ -1,6 +1,54 @@
-Build ID: v0_2_27_disp_telegraph_timeslice_peakfix
+Build ID: v0_2_43_boardfirst_safezone_ui_hotfix
 Date: 2026-02-07
 Notes:
+- UI-only hotfix:
+  - Enforced strict no-overlap safe zones by reserving the actual bottom drawer area (using drawerRect.top) during board layout.
+  - Simplified bottom-bar telemetry updates to match the compact UI (Goal line + Energy under Spin only).
+  - Improved in-well A/S readability (darker backing plate; more saturated +/- spin colors).
+- Hotfix:
+  - Fix boot crash: render_wells_update referenced an undefined `wellView`; now uses the in-scope per-well view and guards missing views (warn only under EC.DEBUG).
+  - Restore psyche goal shading overlay using existing SIM.goalViz per-hue data (renders shaded target/range bands on wedges). Gold satisfied rings + wedge numbers remain intact.
+- UI-only: board-first portrait layout pass (space reclaim).
+  - Removed the upper-left objective/text panel from the main play screen.
+  - Consolidated Reset / Level / Debug controls into the right side of the top notification bar; removed the extra top row.
+  - Compressed bottom controls panel (removed redundant titles/instructions/"Selected" label; reduced padding).
+  - Increased MVP well radii substantially while maintaining no-overlap with psyche, neighbors, top bar, or drawer.
+  - Added a subtle dark backing plate behind the in-well A/S readout for legibility over the liquid texture.
+  - Added a lightweight top notification bar (1–2 lines) for dispositions/system messages.
+  - Moved patient + step info into the top-left within the notification area.
+  - Board sizing now prioritizes screen width (no side-panel horizontal reservation); board shifts down under the top bar instead of shrinking.
+  - Psyche wedges now show live value numbers, and satisfying wedges get a bright gold ring (uses existing objective evaluation).
+  - Wells now show an in-well A/S readout (amount/spin) under the name with sign coloring for spin.
+- Visual-only: replaced the white cloud "wave hand" with a dark ink-like crest line that stays fully inside the well (size/offset clamped; NORMAL blend).
+- Visual-only: added a low-spin visibility floor for the crest so it remains visible at spin=0 and clearly readable at |spin| 5–15.
+- Visual-only: ensured the faint ripple/mist layers rotate in the same direction as spin (no contradictory counter-rotation).
+- Visual-only: increased baseline visibility of the interior black line/streak cues at spin=0 while preserving "darker at higher spin" behavior.
+- Visual-only: fixed canonical spin→motion mapping using SIM.wellsS (-100..100). Spin=0 is inert (no directional CW/CCW), +100 is max CW, -100 max CCW; speed scales nonlinearly to preserve low-end readability (10≪80≪100).
+- Visual-only: reduced the hard white rim so wells no longer read "all selected"; selection/halo now do the primary emphasis.
+- Visual-only: replaced the wave-hand texture with an amorphous crest/band (less flashlight/beam, more liquid wave) while keeping the same direction-indicator concept.
+- Visual-only: deepened pigment saturation and reduced chalky ripple tint to avoid pastel/washed wells.
+- Visual-only: removed square artifact sprites by eliminating tiling sprites in the well interior and using only circular-clipped textures.
+- Visual-only: replaced spiral-based direction cue with a single dominant "wave hand" band that sweeps CW/CCW with spin sign.
+- Visual-only: restored readable speed mapping tied to actual |spin| (non-linear curve; 8 looks mild, 90 looks intense).
+- Visual-only: deepened pigment saturation (less pastel/filtered) and reduced chalky white overlays in ripples/highlights.
+- Visual-only: reduced muted/filtered look by keeping pigment dominant and tinting highlights toward the hue (not grey).
+- Visual-only: added organic wobble/turbulence so motion is not a perfect geometric spiral; direction remains consistent with spin sign.
+- Visual-only: strengthen lens/container feel (subtle specular rim arc + inner edge shading) while keeping a perfect circle.
+- Visual-only: make the liquid well interior unmistakable (spiral swirl texture + dual-layer motion) so wells no longer read as legacy flat blobs.
+- Hotfix (visual-only): remove default reliance on PIXI masking for the liquid interior (mobile-safe). Liquid textures are now authored with circular alpha so the interior remains perfectly circular without a mask.
+- Hotfix (visual-only): mask Graphics alpha is no longer fully 0 (set to 0.001) and remains renderable for debug toggling.
+- Debug-only: init log + throttled 1Hz log under EC.DEBUG to confirm interior layer visibility/alpha/tint/mask state.
+- Hotfix (input only): ensure MVP wells remain tappable by giving each well a stable hitArea and keeping it synced to the well radius.
+- Visual-only pass: upgraded the 6 wells to a "liquid pigment" interior with organic swirl motion.
+  - Direction readability: CW/CCW is shown via interior rotation (no arrow glyphs).
+  - Magnitude readability: |spin| increases swirl speed + tightness + subtle core glow (no black muting).
+  - Crisp circular rim (separate from outer halo) keeps wells reading as containers/lenses.
+  - Selection uses rim/outer ring emphasis without distorting the circle.
+  - Mobile safety fix: removed dark MULTIPLY-style full-field shading and clamped marbling tint so interiors never render as black orbs.
+  - Debug: under EC.DEBUG, `EC.DEBUG_LIQUID_LAYERS` can toggle interior layers (pigment/marbles/highlight/coreGlow) for diagnosis.
+- Presentation-only theme pass: updated hue/well display names and label mapping:
+  Blue=Chill, Orange=Pep, Red=Grit, Green=Nerves, Yellow=Focus, Purple=Ego.
+  Opposite pairs unchanged (Red↔Green, Yellow↔Purple, Blue↔Orange).
 - Dispositions: allow multiple concurrent dispositions across different wells (telegraph+active are per-well exclusive).
 - Dispositions: fix halo direction mapping (Aversion CCW, Damping CW) while keeping start positions.
 - Dispositions: per-instance duration + 5-phase envelope timing plan (low→med→high→med→low) affects BOTH mechanics + halo timing.
@@ -10,3 +58,7 @@ Notes:
 - Dispositions: continuous envelopes now define peakTime as the true argmax (not a phase boundary midpoint), so peak maps to 180°.
 - Dispositions: painted halo is time-sliced (segments are laid down using per-slice intensity/progress) preventing "peak too early" artifacts.
 - Mental Break: cancels all telegraph/active dispositions and clears delayed arrivals; scheduler continues.
+
+Mobile rendering fix (visual-only):
+- Prevent "black orb" wells on some mobile/WebGL paths by removing dark MULTIPLY marbling and enforcing mobile-safe tints.
+- Added debug-only layer toggles under EC.DEBUG_LIQUID_LAYERS to quickly isolate pigment/marble/highlight/core layers.

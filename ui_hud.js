@@ -178,6 +178,10 @@
     const UI_STATE = ctx.UI_STATE || EC.UI_STATE || {};
     const dom = ctx.dom || {};
     const mvpHudEl = dom.mvpHudEl || document.getElementById('mvpHud');
+    const notifyBarEl = document.getElementById('notifyBar');
+    const notifyTextEl = document.getElementById('notifyText');
+    const patientInfoEl = document.getElementById('patientInfo');
+    const topbarEl = document.getElementById('topbar');
     const objectivePanelEl = dom.objectivePanelEl || document.getElementById('objectivePanel');
     const levelSelectEl = dom.levelSelectEl || document.getElementById('levelSelect');
     const debugEl = dom.debugEl || document.getElementById('debug');
@@ -206,7 +210,43 @@
     const regen = (typeof SIM.energyRegenPerSec === 'number') ? SIM.energyRegenPerSec : 0;
     const spillOn = !!SIM._spillActive;
 
-    // Top compact HUD
+    // Board-first: position topbar below notify bar without affecting board width.
+    if (notifyBarEl && topbarEl) {
+      const nh = Math.ceil(notifyBarEl.offsetHeight || 0);
+      const desired = (8 + nh + 8); // keep a small gap
+      if (!EC._topbarY || EC._topbarY !== desired) {
+        EC._topbarY = desired;
+        topbarEl.style.top = desired + 'px';
+      }
+    }
+
+    // Top notification bar content (dispositions + short messages)
+    try {
+      const hud = (EC.DISP && typeof EC.DISP.getHudState === 'function') ? EC.DISP.getHudState() : { telegraphText: '', activeText: '' };
+      const tele = hud.telegraphText || '';
+      const act = hud.activeText || '';
+      const short = (act || tele) || ((UI_STATE.uiMsgT > 0 && UI_STATE.uiMsg) ? UI_STATE.uiMsg : '');
+      if (notifyTextEl) notifyTextEl.textContent = short;
+    } catch (_) { /* ignore */ }
+
+    // Patient + step (top-left)
+    try {
+      const lvl = SIM.levelId || 1;
+      const def = (typeof EC.getActiveLevelDef === 'function') ? EC.getActiveLevelDef() : ((EC.LEVELS && typeof EC.LEVELS.get === 'function') ? EC.LEVELS.get(lvl) : null);
+      const pName = (SIM._patientLabel || (def && def.label) || `Patient ${lvl}`);
+      let stepLine = '';
+      if (def && def.win && def.win.type === 'ZEN_CHAIN') {
+        const step = (typeof SIM.zenChainStep === 'number') ? SIM.zenChainStep : 0;
+        const total = (def.win.steps && def.win.steps.length) ? def.win.steps.length : 3;
+        const prefix = def.objectiveShort || 'Step';
+        stepLine = `${prefix} ${step + 1}/${total}`;
+      } else {
+        stepLine = 'Step 1/1';
+      }
+      if (patientInfoEl) patientInfoEl.textContent = `${pName}\n${stepLine}`;
+    } catch (_) { /* ignore */ }
+
+    // Top compact HUD (kept for now; minimized in future pass)
     if (mvpHudEl) {
       const selTxt = (i >= 0) ? `${_wellTitle(ctx, i)} [${i}]` : 'None';
       const msg = (UI_STATE.uiMsgT > 0 && UI_STATE.uiMsg) ? ` | ${UI_STATE.uiMsg}` : '';

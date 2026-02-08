@@ -100,7 +100,7 @@
       name: 'Patient 1 — Grounded',
       trait: 'Stable',
       treatment: 'Weekly',
-      focusHues: [2, 4], // Calm + Clarity (coder-chosen)
+      focusHues: [2, 4], // Chill + Focus (coder-chosen)
       dispositions: [
         { type: 'TENDENCY', hueIndex: 2, startTime: 10 },
       ],
@@ -120,7 +120,7 @@
       name: 'Patient 3 — Restless',
       trait: 'Erratic',
       treatment: 'Weekly',
-      focusHues: [0, 5], // Vitality + Direction
+      focusHues: [0, 5], // Grit + Pep
       dispositions: [
         { type: 'AFFINITY', hueIndex: 2, startTime: 10 },
       ],
@@ -130,7 +130,7 @@
       name: 'Patient 4 — Low Tide',
       trait: 'Depressed',
       treatment: 'Weekly',
-      focusHues: [2, 3], // Calm + Insight
+      focusHues: [2, 3], // Chill + Nerves
       dispositions: [
         { type: 'AVERSION', hueIndex: 2, startTime: 10 },
       ],
@@ -140,7 +140,7 @@
       name: 'Patient 5 — Loaded Spring',
       trait: 'Stable',
       treatment: 'Weekly',
-      focusHues: [1, 2], // Resolve + Calm
+      focusHues: [1, 2], // Ego + Chill
       dispositions: [
         { type: 'TENDENCY', hueIndex: 2, startTime: 10 },
         { type: 'AFFINITY', hueIndex: 2, startTime: 25 },

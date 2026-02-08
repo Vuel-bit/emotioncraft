@@ -317,14 +317,14 @@ function netSwirl(w, now) {
       {
         id: 2,
         label: 'Level 2',
-        name: `Vitality + Insight ≥ ${L2_T}`,
-        objectiveText: `Vitality (Red) ≥ ${L2_T} • Insight (Green) ≥ ${L2_T}`,
+        name: `Grit + Nerves ≥ ${L2_T}`,
+        objectiveText: `Grit (Red) ≥ ${L2_T} • Nerves (Green) ≥ ${L2_T}`,
         startRanges: baseRanges,
         goalVizPerHue: [
-          { type: 'OVER', target: L2_T }, // 0 Red / Vitality
+          { type: 'OVER', target: L2_T }, // 0 Red / Grit
           null,                           // 1 Purple
           null,                           // 2 Blue
-          { type: 'OVER', target: L2_T }, // 3 Green / Insight
+          { type: 'OVER', target: L2_T }, // 3 Green / Nerves
           null,                           // 4 Yellow
           null,                           // 5 Orange
         ],
@@ -353,7 +353,7 @@ function netSwirl(w, now) {
         startRanges: baseRanges,
         goalVizPerHue: mkAllBand(ZEN_LOW, ZEN_HIGH),
         dispositions: [
-          // AFFINITY: Amount ↑ on Calm (Blue). Allows overshoot for spillover.
+          // AFFINITY: Amount ↑ on Chill (Blue). Allows overshoot for spillover.
           { startTime: 10, duration: 30, hueIndex: 2, type: 'AFFINITY', strength: 4.0 }
         ],
         win: { type: 'ALL_BAND_HOLD', low: ZEN_LOW, high: ZEN_HIGH, holdSec: ZEN_HOLD }
@@ -366,7 +366,7 @@ function netSwirl(w, now) {
         startRanges: baseRanges,
         goalVizPerHue: mkAllBand(ZEN_LOW, ZEN_HIGH),
         dispositions: [
-          // AVERSION: Amount ↓ on Calm (Blue). Allows underflow for spillover.
+          // AVERSION: Amount ↓ on Chill (Blue). Allows underflow for spillover.
           { startTime: 10, duration: 30, hueIndex: 2, type: 'AVERSION', strength: 4.0 }
         ],
         win: { type: 'ALL_BAND_HOLD', low: ZEN_LOW, high: ZEN_HIGH, holdSec: ZEN_HOLD }
@@ -379,7 +379,7 @@ function netSwirl(w, now) {
         startRanges: baseRanges,
         goalVizPerHue: mkAllBand(ZEN_LOW, ZEN_HIGH),
         dispositions: [
-          // DAMPING: Spin ↓ on Calm (Blue). Scaled by Amount shield (A/100).
+          // DAMPING: Spin ↓ on Chill (Blue). Scaled by Amount shield (A/100).
           { startTime: 10, duration: 30, hueIndex: 2, type: 'DAMPING', strength: 4.0 }
         ],
         win: { type: 'ALL_BAND_HOLD', low: ZEN_LOW, high: ZEN_HIGH, holdSec: ZEN_HOLD }
@@ -514,8 +514,8 @@ function netSwirl(w, now) {
     } else if (def && def.win && def.win.type === 'SOME_OVER' && Array.isArray(def.win.hues)) {
       const thr = (typeof def.win.threshold === 'number') ? def.win.threshold : ((typeof T.LEVEL2_PSY_TARGET === 'number') ? T.LEVEL2_PSY_TARGET : 300);
       SIM.objectives = [
-        { id: 'L2_RED_300',   text: `Vitality (Red) ≥ ${thr}`,  complete: false, hue: 0, type: 'OVER', target: thr },
-        { id: 'L2_GREEN_300', text: `Insight (Green) ≥ ${thr}`, complete: false, hue: 3, type: 'OVER', target: thr },
+        { id: 'L2_RED_300',   text: `Grit (Red) ≥ ${thr}`,   complete: false, hue: 0, type: 'OVER', target: thr },
+        { id: 'L2_GREEN_300', text: `Nerves (Green) ≥ ${thr}`, complete: false, hue: 3, type: 'OVER', target: thr },
       ];
     } else {
       const thr = (def && def.win && typeof def.win.threshold === 'number') ? def.win.threshold : ((typeof T.LEVEL1_PSY_TARGET === 'number') ? T.LEVEL1_PSY_TARGET : 200);
