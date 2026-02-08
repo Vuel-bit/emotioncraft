@@ -218,9 +218,106 @@
     c.cursor = 'pointer';
     c.hitArea = new PIXI.Circle(0, 0, 140);
 
-    // IMPORTANT: use a single pointer event. Using both pointerdown and pointertap
-    // can double-fire and immediately clear selection.
-    c.on('pointertap', () => EC.onWellTap(w.id));
+    // Mobile-first flick swipe controls (discrete ±5 steps).
+    // We replace pointertap with pointerdown/up so we can distinguish tap vs flick
+    // without double firing.
+    c.on('pointerdown', (e) => {
+      try {
+        const ne = e && e.nativeEvent;
+        if (ne && typeof ne.preventDefault === 'function') ne.preventDefault();
+      } catch (_) {}
+
+      // Select immediately (same behavior as tap selection).
+      EC.onWellTap(w.id);
+
+      const g = e && e.global ? e.global : (e && e.data && e.data.global ? e.data.global : { x: 0, y: 0 });
+      const pid = (e && e.pointerId != null) ? e.pointerId : (e && e.data && e.data.pointerId != null ? e.data.pointerId : -1);
+      EC.RENDER._flick = {
+        active: true,
+        wellId: w.id,
+        pid,
+        t0: performance.now(),
+        x0: g.x,
+        y0: g.y,
+      };
+
+      // Prevent page scroll while an interaction begins on a well.
+      const app = EC.RENDER && EC.RENDER.app;
+      if (app && app.view && app.view.style) {
+        EC.RENDER._prevTouchAction = app.view.style.touchAction || '';
+        app.view.style.touchAction = 'none';
+      }
+    });
+
+    function _endFlick(e) {
+      const st = EC.RENDER && EC.RENDER._flick;
+      if (!st || !st.active) return;
+
+      const app = EC.RENDER && EC.RENDER.app;
+      if (app && app.view && app.view.style) {
+        app.view.style.touchAction = EC.RENDER._prevTouchAction || '';
+      }
+      EC.RENDER._flick = null;
+
+      const g = e && e.global ? e.global : (e && e.data && e.data.global ? e.data.global : { x: 0, y: 0 });
+      const t1 = performance.now();
+      const dt = t1 - (st.t0 || t1);
+      const dx = (g.x - st.x0);
+      const dy = (g.y - st.y0);
+
+      const THRESH_MS = 300;
+      const THRESH_PX = 24;
+
+      const adx = Math.abs(dx);
+      const ady = Math.abs(dy);
+      const dist = Math.max(adx, ady);
+
+      const isFlick = (dt <= THRESH_MS) && (dist >= THRESH_PX);
+      if (!isFlick) {
+        // Treat as tap: selection already happened on pointerdown.
+        return;
+      }
+
+      // Determine direction by dominant axis.
+      let dA = 0, dS = 0;
+      if (adx > ady) {
+        // Horizontal: spin
+        dS = (dx > 0) ? +5 : -5;
+      } else {
+        // Vertical: amount (screen Y down)
+        dA = (dy < 0) ? +5 : -5;
+      }
+
+      // Auto-apply using the canonical Apply path.
+      const SIM = EC.SIM;
+      const i = (SIM && typeof SIM.selectedWellIndex === 'number') ? SIM.selectedWellIndex : -1;
+      const fn = EC.UI_CONTROLS && typeof EC.UI_CONTROLS.flickStep === 'function' ? EC.UI_CONTROLS.flickStep : null;
+      const toast = EC.UI_CONTROLS && typeof EC.UI_CONTROLS.toast === 'function' ? EC.UI_CONTROLS.toast : null;
+      if (!fn || i < 0) {
+        if (toast) toast('Select a Well first.');
+        return;
+      }
+
+      const res = fn(i, dA, dS) || { ok: false, reason: 'unknown', cost: 0 };
+      if (!res.ok) {
+        if (res.reason === 'noenergy') {
+          if (toast) toast('Not enough Energy.');
+        } else if (res.reason === 'nochange') {
+          // silent
+        } else {
+          if (toast) toast('Could not apply.');
+        }
+        // Subtle error feedback
+        if (EC.SFX && typeof EC.SFX.error === 'function') EC.SFX.error();
+        return;
+      }
+
+      // Subtle success tick (if available)
+      if (EC.SFX && typeof EC.SFX.tick === 'function') EC.SFX.tick();
+    }
+
+    c.on('pointerup', _endFlick);
+    c.on('pointerupoutside', _endFlick);
 
     EC.RENDER.wellLayer.addChild(c);
 

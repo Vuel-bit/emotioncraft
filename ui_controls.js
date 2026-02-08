@@ -148,6 +148,68 @@
       UI_STATE.uiMsgT = 1.2;
     }
 
+    // Expose a minimal toast hook for other input paths (e.g., swipe/flick).
+    // This keeps messaging consistent without introducing new UI systems.
+    MOD.toast = toast;
+
+    // Apply a preview (same logic as the Apply button) without touching tuning.
+    function applyPreviewToSim(i, prev) {
+      const cost = prev.cost || 0;
+      if (!prev.changed) return { ok: false, reason: 'nochange', cost };
+      if ((SIM.energy || 0) < cost) return { ok: false, reason: 'noenergy', cost };
+
+      SIM.energy = Math.max(0, (SIM.energy || 0) - cost);
+
+      // Apply to selected well (absolute targets; clamped)
+      SIM.wellsA[i] = prev.A1;
+      SIM.wellsS[i] = prev.S1;
+
+      // One-time opposite push (spin only; amount unchanged)
+      const push = prev.push || 0;
+      const j = OPP[i];
+      if (j != null && j >= 0 && j < 6 && Math.abs(push) > 1e-9) {
+        const Aj = (SIM.wellsA[j] || 0);
+        if (Aj > 0.001) {
+          const Sj0 = (SIM.wellsS[j] || 0);
+          const fluxOppOld = Aj * Sj0;
+          const fluxOppNew = fluxOppOld + push;
+          let Sj1 = fluxOppNew / Aj;
+          // IMPORTANT: do not clamp to [-100,+100] here; allow temporary overflow so spillover can transfer it.
+          const S_SOFT = (typeof T.S_SOFT_MAX === 'number') ? T.S_SOFT_MAX : (Math.max(Math.abs(S_MIN), Math.abs(S_MAX)) * (T.COST && typeof T.COST.S_SOFT_MULT === 'number' ? T.COST.S_SOFT_MULT : 3));
+          Sj1 = Math.max(-S_SOFT, Math.min(S_SOFT, Sj1));
+          SIM.wellsS[j] = Sj1;
+        }
+      }
+
+      return { ok: true, reason: 'ok', cost };
+    }
+
+    // Public: perform a single discrete +/-5 flick step on a well and auto-apply.
+    // This uses the same preview+apply path as the Apply button to avoid mechanic drift.
+    MOD.flickStep = function flickStep(i, dA, dS) {
+      if (i == null || i < 0 || i >= 6) return { ok: false, reason: 'nosel', cost: 0 };
+      if ((dA === 0 || !dA) && (dS === 0 || !dS)) return { ok: false, reason: 'noop', cost: 0 };
+
+      // Compute new absolute targets based on current state.
+      const A0 = clamp((SIM.wellsA[i] || 0), A_MIN, A_MAX);
+      const S0 = clamp((SIM.wellsS[i] || 0), S_MIN, S_MAX);
+      const A1t = clamp(A0 + (dA || 0), A_MIN, A_MAX);
+      const S1t = clamp(S0 + (dS || 0), S_MIN, S_MAX);
+
+      const prev = computeApplyPreview(i, A1t, S1t);
+      const res = applyPreviewToSim(i, prev);
+      if (!res.ok) return res;
+
+      // Keep UI sliders aligned with the new values (presentation only).
+      UI.targetA = prev.A1;
+      UI.targetS = prev.S1;
+      if (deltaAEl) deltaAEl.value = String(UI.targetA);
+      if (deltaSEl) deltaSEl.value = String(UI.targetS);
+      syncDeltaLabels();
+
+      return res;
+    };
+
     function syncDeltaLabels() {
       if (deltaAValEl) deltaAValEl.textContent = String(Math.round(UI.targetA || 0));
       if (deltaSValEl) deltaSValEl.textContent = String(Math.round(UI.targetS || 0));
