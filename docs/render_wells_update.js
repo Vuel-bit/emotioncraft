@@ -197,6 +197,25 @@
   
     const geom = SIM.mvpGeom;
     if (!geom) return;
+
+    // ------------------------------------------------------------
+    // Authoritative well geometry for DOM hit-testing (mobile)
+    // Stored in canvas-local coordinates (Pixi screen coords)
+    // ------------------------------------------------------------
+    const dbg = (EC.UI_STATE = EC.UI_STATE || {}).inputDbg = (EC.UI_STATE.inputDbg || {});
+    const RENDER = (EC.RENDER = EC.RENDER || {});
+    const WG = (RENDER.wellGeom = RENDER.wellGeom || {
+      cx: new Array(6).fill(NaN),
+      cy: new Array(6).fill(NaN),
+      hitR: new Array(6).fill(NaN),
+      ready: 0,
+      updatedAt: 0,
+      src: 'none'
+    });
+    const _wgNow = (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
+    let _wgAnyValid = false;
+    let _wgMinR = 1e9;
+    let _wgMaxR = 0;
   
     const hues = (EC.CONST && EC.CONST.HUES) || EC.HUES || ['red','purple','blue','green','yellow','orange'];
     const A_MIN = EC.TUNE.A_MIN;
@@ -264,6 +283,17 @@
       const cy = geom.cy + Math.sin(ang) * geom.ringR;
   
       const r = computeMvpWellRadius(SIM.wellsA[i], geom.wellMinR, geom.wellMaxR, Amax);
+
+      // Update authoritative DOM hit-testing geometry.
+      // Slightly inside the visible rim so taps are conservative.
+      try {
+        WG.cx[i] = cx;
+        WG.cy[i] = cy;
+        WG.hitR[i] = Math.max(8, r * 1.02);
+        _wgAnyValid = true;
+        _wgMinR = Math.min(_wgMinR, WG.hitR[i]);
+        _wgMaxR = Math.max(_wgMaxR, WG.hitR[i]);
+      } catch (_) {}
 
       // Keep pointer hit area in sync with current radius so taps are reliable.
       // (Visual-only; no gameplay changes.)
@@ -715,6 +745,38 @@
       spinText.position.set(-totalW * 0.5 + wA + wS * 0.5, yAS);
   
     }
+
+    // Finalize authoritative geometry + debug line (always-visible in snapshot)
+    try {
+      WG.ready = _wgAnyValid ? 1 : 0;
+      WG.updatedAt = _wgNow;
+      WG.src = 'updateMvpBoardView';
+
+      // One-time log the moment geometry becomes valid (or after resets)
+      if (_wgAnyValid && !RENDER._wellGeomLogged) {
+        RENDER._wellGeomLogged = true;
+        const line = `WELLGEOM_SET: ready=1 updatedAt=${Math.round(_wgNow)} src=${WG.src} r=[${_wgMinR.toFixed(1)}..${_wgMaxR.toFixed(1)}]`;
+        if (dbg && Array.isArray(dbg.log)) {
+          dbg.log.push(((performance && performance.now)?Math.floor(performance.now()):Date.now()) + ' ' + line);
+          if (dbg.log.length > 200) dbg.log.splice(0, dbg.log.length - 200);
+        }
+        // Also pin it so it can't scroll out of the snapshot.
+        dbg.lastWellGeomSet = line;
+      }
+
+      // Always-visible snapshot line
+      const _fmt = (v) => (typeof v === 'number' && isFinite(v)) ? v.toFixed(1) : 'NaN';
+      const c = (i) => `${_fmt(WG.cx[i])},${_fmt(WG.cy[i])}`;
+      const r = (i) => `${_fmt(WG.hitR[i])}`;
+      dbg.wellGeomLine = `WELLGEOM: ready=${WG.ready} ` +
+        `c0=${c(0)} r0=${r(0)} ` +
+        `c1=${c(1)} r1=${r(1)} ` +
+        `c2=${c(2)} r2=${r(2)} ` +
+        `c3=${c(3)} r3=${r(3)} ` +
+        `c4=${c(4)} r4=${r(4)} ` +
+        `c5=${c(5)} r5=${r(5)} ` +
+        `updatedAt=${Math.round(WG.updatedAt)} src=${WG.src}`;
+    } catch (_) {}
 
     // Debug-only: throttled inspector to confirm interior layers are renderable.
     if (EC.DEBUG) {

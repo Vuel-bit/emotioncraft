@@ -34,7 +34,10 @@
     // Authoritative geometry comes from EC.RENDER.wellGeom (updated by render_wells).
     const geom = (EC.RENDER && EC.RENDER.wellGeom) ? EC.RENDER.wellGeom : null;
     if (!geom || !geom.cx || !geom.cy || !geom.hitR) {
-      return { idx: -1, inside: false, rx, ry, dist: 0, r: 0, cand: -1, err: 'missing_wellGeom' };
+      return { idx: -1, inside: false, rx, ry, cand: -1, err: 'wellGeom_not_ready' };
+    }
+    if (!geom.ready) {
+      return { idx: -1, inside: false, rx, ry, cand: -1, err: 'wellGeom_not_ready' };
     }
 
     let bestCand = -1;
@@ -51,12 +54,12 @@
     }
 
     if (bestCand < 0) {
-      return { idx: -1, inside: false, rx, ry, dist: 0, r: 0, cand: -1, err: 'geom_uninitialized' };
+      return { idx: -1, inside: false, rx, ry, cand: -1, err: 'wellGeom_not_ready' };
     }
 
-    const cx = _num(geom.cx[bestCand], 0);
-    const cy = _num(geom.cy[bestCand], 0);
-    const r  = _num(geom.hitR[bestCand], 0);
+    const cx = _num(geom.cx[bestCand], NaN);
+    const cy = _num(geom.cy[bestCand], NaN);
+    const r  = _num(geom.hitR[bestCand], NaN);
     const dist = Math.sqrt(bestD2);
     const inside = (r > 0) && (dist <= r);
     const out = { idx: inside ? bestCand : -1, inside, rx, ry, dist, r, cand: bestCand, cx, cy };

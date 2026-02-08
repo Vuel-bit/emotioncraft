@@ -367,6 +367,7 @@ try {
     parts.push(`Pixi STAGE counters: pd=${st.pd||0} pm=${st.pm||0} pu=${st.pu||0} po=${st.po||0} pc=${st.pc||0}`);
     const wl = D.pixiWell || {};
     parts.push(`Pixi WELL counters:  pd=${wl.pd||0} pm=${wl.pm||0} pu=${wl.pu||0} po=${wl.po||0} pc=${wl.pc||0}`);
+    parts.push(`${D.wellGeomLine || 'WELLGEOM: ready=0 c0=? r0=? ... c5=? r5=? updatedAt=? src=?'}`);
     parts.push(`GESTURE: ${D.gestureLine || 'active=n key=? well=? x0=? y0=? t0=?'}`);
     parts.push(`RESOLVE: ${D.resolveLine || 'hasGesture=? key=? dt=? dx=? dy=? classified=? dir=? applied=?'}`);
     parts.push(`PICK: ${D.pickLine || 'idx=? cx/cy=? local=? dist=? r=? inside=?'}`);
@@ -440,6 +441,8 @@ if (!UI_STATE._dbgBuilt && debugEl) {
           `DOM(canvas) counters: pd=${dom.pd||0} pm=${dom.pm||0} pu=${dom.pu||0} pc=${dom.pc||0}   ts=${dom.ts||0} tm=${dom.tm||0} te=${dom.te||0} tc=${dom.tc||0}`,
           `Pixi STAGE counters: pd=${st.pd||0} pm=${st.pm||0} pu=${st.pu||0} po=${st.po||0} pc=${st.pc||0}`,
           `Pixi WELL counters:  pd=${wl.pd||0} pm=${wl.pm||0} pu=${wl.pu||0} po=${wl.po||0} pc=${wl.pc||0}`,
+          `${dbg.wellGeomLine || 'WELLGEOM: ready=0 c0=? r0=? ... c5=? r5=? updatedAt=? src=?'}`,
+          `WELLGEOM_SET: ${dbg.lastWellGeomSet || '?'}`,
           `LAST_TOUCHSTART: ${dbg.lastTouchstartStatus || '?'}`,
           `LAST_PICK: ${dbg.lastPick || '?'}`,
           `LAST_ARM: ${dbg.lastArm || '?'}`,
