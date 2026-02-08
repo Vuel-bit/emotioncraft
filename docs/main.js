@@ -9,7 +9,7 @@
   const EC = (window.EC = window.EC || {});
 
   // Build label used by UI summary/debug
-  EC.BUILD = EC.BUILD || '0.1.9';
+  EC.BUILD = EC.BUILD || 'v0_2_54_dom_touch_capture_arm_picker';
 
   // -----------------------------
   // Pixi setup
@@ -116,42 +116,73 @@ function _recordDomTouch(e, phase) {
   // Keep minimal; do not interfere with non-canvas page UI.
 try {
   const view = app.view;
-  const opts = { passive: false };
+  const opts = { capture: true, passive: false };
+
+function _domArmHookLog(e, label) {
+  const D = _idbg(); 
+  const t = (performance && performance.now) ? performance.now() : Date.now();
+  let cx = null, cy = null, touchesN = 0, changedN = 0;
+  try {
+    if (e && (e.changedTouches || e.touches)) {
+      touchesN = (e.touches && e.touches.length) ? e.touches.length : 0;
+      changedN = (e.changedTouches && e.changedTouches.length) ? e.changedTouches.length : 0;
+      const xy = _touchXY(e);
+      cx = (typeof xy.x === 'number') ? Math.round(xy.x) : null;
+      cy = (typeof xy.y === 'number') ? Math.round(xy.y) : null;
+    } else if (e && typeof e.clientX === 'number') {
+      cx = Math.round(e.clientX); cy = Math.round(e.clientY);
+    }
+  } catch (_) {}
+  const before = !!(e && e.defaultPrevented);
+  let after = before;
+  try { if (e && (e.type === 'touchstart' || e.type === 'touchmove')) e.preventDefault(); } catch (_) {}
+  try { after = !!(e && e.defaultPrevented); } catch (_) {}
+  const line = `DOM_ARM_HOOK: type=${e && e.type ? e.type : '?'} touches=${touchesN} changed=${changedN} cx/cy=${cx},${cy} defPrevBefore=${before?'Y':'n'} defPrevAfter=${after?'Y':'n'} ${label||''}`.trim();
+  if (D) {
+    D.domArmHook = line;
+  }
+  _ilog(line);
+  return { before, after, cx, cy };
+}
+
+
 
   // Touch events (some Android devices still emit these alongside Pointer Events)
   view.addEventListener('touchstart', (e) => {
-    _recordDomTouch(e,'ts');
-    try { e.preventDefault(); } catch (_) {}
-    // Arm gesture using Touch.identifier when touch starts over a well (DOM-level, independent of Pixi pointer events).
-    try {
-      if (EC.RENDER && typeof EC.RENDER._armGestureFromDomTouchStart === 'function') {
-        const armed = EC.RENDER._armGestureFromDomTouchStart(e, app);
-        _ilog('DOM touchstart arm=' + (armed ? 'Y' : 'n'));
-      }
-    } catch (_) {}
-  }, opts);
-  view.addEventListener('touchmove', (e) => { _recordDomTouch(e,'tm'); try { e.preventDefault(); } catch (_) {} }, opts);
+  _domArmHookLog(e, 'canvas');
+  _recordDomTouch(e,'ts');
+  // Arm gesture using Touch.identifier when touch starts over a well (DOM-level; do not depend on Pixi WELL events).
+  try {
+    if (EC.RENDER && typeof EC.RENDER._armGestureFromDomTouchStart === 'function') {
+      const armed = EC.RENDER._armGestureFromDomTouchStart(e, app);
+      _ilog('ARM_CALL touchstart armed=' + (armed ? 'Y' : 'n'));
+    }
+  } catch (err) { _ilog('ARM_CALL touchstart err'); }
+}, opts);
+  view.addEventListener('touchmove', (e) => {
+  _domArmHookLog(e, 'canvas');
+  _recordDomTouch(e,'tm');
+}, opts);
   view.addEventListener('touchend', (e) => {
-    _recordDomTouch(e,'te');
-    try { e.preventDefault(); } catch (_) {}
-    // DOM fallback: resolve gesture end even if Pixi doesn't receive pointerup
-    try {
-      if (EC.RENDER && EC.RENDER._gesture && EC.RENDER._gesture.active && typeof EC.RENDER._resolveGestureFromDom === 'function') {
-        EC.RENDER._resolveGestureFromDom(e, 'end');
-      }
-      try { if (view.releasePointerCapture && e.pointerId != null) view.releasePointerCapture(e.pointerId); } catch (_) {}
-    } catch (_) {}
-  }, opts);
+  _domArmHookLog(e, 'canvas');
+  _recordDomTouch(e,'te');
+  // Always attempt resolve on end, even if no gesture exists (it will log RESOLVE hasGesture=0).
+  try {
+    if (EC.RENDER && typeof EC.RENDER._resolveGestureFromDom === 'function') {
+      EC.RENDER._resolveGestureFromDom(e, 'end');
+    }
+  } catch (_) {}
+}, opts);
   view.addEventListener('touchcancel', (e) => {
-    _recordDomTouch(e,'tc');
-    try { e.preventDefault(); } catch (_) {}
-    try {
-      if (EC.RENDER && EC.RENDER._gesture && EC.RENDER._gesture.active && typeof EC.RENDER._resolveGestureFromDom === 'function') {
-        EC.RENDER._resolveGestureFromDom(e, 'cancel');
-      }
-      try { if (view.releasePointerCapture && e.pointerId != null) view.releasePointerCapture(e.pointerId); } catch (_) {}
-    } catch (_) {}
-  }, opts);
+  _domArmHookLog(e, 'canvas');
+  _recordDomTouch(e,'tc');
+  // Always attempt resolve on cancel, even if no gesture exists.
+  try {
+    if (EC.RENDER && typeof EC.RENDER._resolveGestureFromDom === 'function') {
+      EC.RENDER._resolveGestureFromDom(e, 'cancel');
+    }
+  } catch (_) {}
+}, opts);
 
   // Pointer events on the canvas element (raw DOM instrumentation)
   view.addEventListener('pointerdown', (e) => {

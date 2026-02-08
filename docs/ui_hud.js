@@ -371,6 +371,7 @@ try {
     parts.push(`RESOLVE: ${D.resolveLine || 'hasGesture=? key=? dt=? dx=? dy=? classified=? dir=? applied=?'}`);
     parts.push(`PICK: ${D.pickLine || 'idx=? cx/cy=? local=? dist=? r=? inside=?'}`);
     parts.push(`ARM: ${D.armLine || 'ok=? key=? well=?'}`);
+    parts.push(`HOOK: ${D.domArmHook || ''}`);
 
     const lp = D.lastDomPointer || null;
     if (lp) parts.push(`last DOM pointer: ${lp.type||'?'} pid=${lp.pid} pType=${lp.pointerType||'?'} primary=${lp.isPrimary?'Y':'n'} x=${lp.x} y=${lp.y} defPrev=${lp.defaultPrevented?'Y':'n'} cap=${lp.capture||''}`);

@@ -283,23 +283,32 @@
         const views = (EC.RENDER && EC.RENDER.wellViews) ? EC.RENDER.wellViews : null;
         if (!views) return null;
 
-        let best = null;
-        let bestD2 = 1e18;
+        let bestInside = null;
+let bestInsideD2 = 1e18;
+let bestAny = null;
+let bestAnyD2 = 1e18;
 
-        views.forEach((v, id) => {
-          if (!v || !v.c || !v.c.getGlobalPosition) return;
-          const gp = v.c.getGlobalPosition();
-          const dx = rx - gp.x;
-          const dy = ry - gp.y;
-          const d2 = dx*dx + dy*dy;
-          const r = (v.hitR != null) ? v.hitR : ((v.c.hitArea && v.c.hitArea.radius) ? v.c.hitArea.radius : 140);
-          const inside = d2 <= (r*r);
-          if (inside && d2 < bestD2) {
-            bestD2 = d2;
-            best = { idx: _wellIndexById(id), wellId: id, rx, ry, dist: Math.sqrt(d2), r, inside };
-          }
-        });
-        return best;
+views.forEach((v, id) => {
+  if (!v || !v.c || !v.c.getGlobalPosition) return;
+  const gp = v.c.getGlobalPosition();
+  const dx = rx - gp.x;
+  const dy = ry - gp.y;
+  const d2 = dx*dx + dy*dy;
+  const r = (v.hitR != null) ? v.hitR : ((v.c.hitArea && v.c.hitArea.radius) ? v.c.hitArea.radius : 140);
+  const inside = d2 <= (r*r);
+
+  if (d2 < bestAnyD2) {
+    bestAnyD2 = d2;
+    bestAny = { idx: _wellIndexById(id), wellId: id, rx, ry, dist: Math.sqrt(d2), r, inside: false };
+  }
+  if (inside && d2 < bestInsideD2) {
+    bestInsideD2 = d2;
+    bestInside = { idx: _wellIndexById(id), wellId: id, rx, ry, dist: Math.sqrt(d2), r, inside: true };
+  }
+});
+
+// Return inside pick if available; otherwise return nearest well with inside=false
+        return bestInside || bestAny;
       } catch (_) { return null; }
     };
 
@@ -435,7 +444,15 @@ try {
       // Enforce same kind + key
       if (st.kind === 'pointer') {
         if (evKind !== 'pointer') return;
-        if (st.pid != null && st.pid >= 0 && pid != null && pid >= 0 && pid !== st.pid) return;
+        if (st.pid != null && st.pid >= 0 && pid != null && pid >= 0 && pid !== st.pid) {
+        try {
+          const D = EC.UI_STATE && EC.UI_STATE.inputDbg;
+          const endKey = 'p:' + pid;
+          if (D) D.resolveLine = `hasGesture=1 endKey=${endKey} storedKey=${st.key||'?'} dt=? dx=? dy=? class=NONE dir=NONE applied=fail reason=pid_mismatch end=${kind||'end'}`;
+          if (D && Array.isArray(D.log)) D.log.push(((performance&&performance.now)?Math.floor(performance.now()):Date.now()) + ' RESOLVE mismatch pointer endKey=' + endKey + ' stored=' + (st.key||'?'));
+        } catch (_) {}
+        return;
+      }
         if (st.key && evKey && st.key !== evKey) return;
       } else if (st.kind === 'touch') {
         if (evKind !== 'touch') return;
@@ -462,7 +479,7 @@ try {
         const D = EC.UI_STATE && EC.UI_STATE.inputDbg;
         if (D) {
           const wi = _wellIndexById(st.wellId);
-          D.resolveLine = `hasGesture=1 key=${st.key||'?'} well=${wi} dt=${dt.toFixed(0)} dx=${dx.toFixed(0)} dy=${dy.toFixed(0)} class=? dir=? applied=? reason=?`;
+          D.resolveLine = `hasGesture=1 endKey=${evKey||'?'} storedKey=${st.key||'?'} well=${wi} dt=${dt.toFixed(0)} dx=${dx.toFixed(0)} dy=${dy.toFixed(0)} class=? dir=? applied=? reason=?`;
         }
       } catch (_) {}
 
@@ -480,7 +497,7 @@ try {
         EC.onWellTap(st.wellId);
         try {
           const D = EC.UI_STATE && EC.UI_STATE.inputDbg;
-          if (D) D.resolveLine = `hasGesture=1 key=${st.key||'?'} well=${_wellIndexById(st.wellId)} dt=${dt.toFixed(0)} dx=${dx.toFixed(0)} dy=${dy.toFixed(0)} class=TAP dir=NONE applied=ok reason=`;
+          if (D) D.resolveLine = `hasGesture=1 endKey=${evKey||'?'} storedKey=${st.key||'?'} well=${_wellIndexById(st.wellId)} dt=${dt.toFixed(0)} dx=${dx.toFixed(0)} dy=${dy.toFixed(0)} class=TAP dir=NONE applied=ok reason=`;
         } catch (_) {}
         _setGestureDebug(`SWIPE: dt=${dt.toFixed(0)} dx=${dx.toFixed(0)} dy=${dy.toFixed(0)} => TAP`);
         return;
@@ -504,7 +521,7 @@ try {
         if (toast) toast('Select a Well first.');
         try {
           const D = EC.UI_STATE && EC.UI_STATE.inputDbg;
-          if (D) D.resolveLine = `hasGesture=1 key=${st.key||'?'} kind=${st.kind||'?'} well=${_wellIndexById(st.wellId)} dt=${dt.toFixed(0)} dx=${dx.toFixed(0)} dy=${dy.toFixed(0)} class=FLICK dir=${(dS!==0?(dS>0?'RIGHT':'LEFT'):(dA>0?'UP':'DOWN'))} applied=fail reason=noindex`;
+          if (D) D.resolveLine = `hasGesture=1 endKey=${evKey||'?'} storedKey=${st.key||'?'} kind=${st.kind||'?'} well=${_wellIndexById(st.wellId)} dt=${dt.toFixed(0)} dx=${dx.toFixed(0)} dy=${dy.toFixed(0)} class=FLICK dir=${(dS!==0?(dS>0?'RIGHT':'LEFT'):(dA>0?'UP':'DOWN'))} applied=fail reason=noindex`;
         } catch (_) {}
         _setGestureDebug(`SWIPE: dt=${dt.toFixed(0)} dx=${dx.toFixed(0)} dy=${dy.toFixed(0)} => FLICK (no index)`);
         return;
@@ -520,7 +537,7 @@ try {
         if (EC.SFX && typeof EC.SFX.error === 'function') EC.SFX.error();
         try {
           const D = EC.UI_STATE && EC.UI_STATE.inputDbg;
-          if (D) D.resolveLine = `hasGesture=1 key=${st.key||'?'} kind=${st.kind||'?'} well=${_wellIndexById(st.wellId)} dt=${dt.toFixed(0)} dx=${dx.toFixed(0)} dy=${dy.toFixed(0)} class=FLICK dir=${dirTxt} applied=FAIL(reason=${res.reason||'fail'})`;
+          if (D) D.resolveLine = `hasGesture=1 endKey=${evKey||'?'} storedKey=${st.key||'?'} kind=${st.kind||'?'} well=${_wellIndexById(st.wellId)} dt=${dt.toFixed(0)} dx=${dx.toFixed(0)} dy=${dy.toFixed(0)} class=FLICK dir=${dirTxt} applied=FAIL(reason=${res.reason||'fail'})`;
         } catch (_) {}
         _setGestureDebug(`SWIPE: dt=${dt.toFixed(0)} dx=${dx.toFixed(0)} dy=${dy.toFixed(0)} => ${dirTxt} ❌`);
         return;
@@ -529,7 +546,7 @@ try {
       if (EC.SFX && typeof EC.SFX.tick === 'function') EC.SFX.tick();
       try {
         const D = EC.UI_STATE && EC.UI_STATE.inputDbg;
-        if (D) D.resolveLine = `hasGesture=1 key=${st.key||'?'} kind=${st.kind||'?'} well=${_wellIndexById(st.wellId)} dt=${dt.toFixed(0)} dx=${dx.toFixed(0)} dy=${dy.toFixed(0)} class=FLICK dir=${dirTxt} applied=OK`;
+        if (D) D.resolveLine = `hasGesture=1 endKey=${evKey||'?'} storedKey=${st.key||'?'} kind=${st.kind||'?'} well=${_wellIndexById(st.wellId)} dt=${dt.toFixed(0)} dx=${dx.toFixed(0)} dy=${dy.toFixed(0)} class=FLICK dir=${dirTxt} applied=OK`;
       } catch (_) {}
       _setGestureDebug(`SWIPE: dt=${dt.toFixed(0)} dx=${dx.toFixed(0)} dy=${dy.toFixed(0)} => ${dirTxt} APPLIED ✅${isOutside ? ' (upoutside)' : ''}`);
     }
@@ -583,7 +600,7 @@ EC.RENDER._armGestureFromDomTouchStart = function(domTouchEvent, app) {
       const D = EC.UI_STATE && EC.UI_STATE.inputDbg;
       if (D) {
         if (pick) {
-          D.pickLine = `idx=${pick.idx} cx/cy=${clientX.toFixed(1)},${clientY.toFixed(1)} local=${pick.rx.toFixed(1)},${pick.ry.toFixed(1)} dist=${pick.dist.toFixed(1)} r=${pick.r.toFixed(1)} inside=Y`;
+          D.pickLine = `idx=${pick.idx} cx/cy=${clientX.toFixed(1)},${clientY.toFixed(1)} local=${pick.rx.toFixed(1)},${pick.ry.toFixed(1)} dist=${pick.dist.toFixed(1)} r=${pick.r.toFixed(1)} inside=${pick.inside?'Y':'n'}`;
           if (Array.isArray(D.log)) D.log.push(((performance && performance.now)?Math.floor(performance.now()):Date.now()) + ' PICK touch idx=' + pick.idx + ' dist=' + pick.dist.toFixed(1));
         } else {
           D.pickLine = `idx=-1 cx/cy=${clientX.toFixed(1)},${clientY.toFixed(1)} local=? dist=? r=? inside=n`;
@@ -593,9 +610,18 @@ EC.RENDER._armGestureFromDomTouchStart = function(domTouchEvent, app) {
       }
     } catch (_) {}
 
-    if (!pick || !pick.wellId) return false;
+    if (!pick || !pick.wellId || !pick.inside) {
+      try {
+        const D = EC.UI_STATE && EC.UI_STATE.inputDbg;
+        if (D) {
+          D.armLine = `ok=n reason=pick_miss`;
+          if (Array.isArray(D.log)) D.log.push(((performance && performance.now)?Math.floor(performance.now()):Date.now()) + ' ARM touch ok=n reason=pick_miss');
+          if (D.log && D.log.length > 120) D.log.splice(0, D.log.length - 120);
+        }
+      } catch (_) {}
+      return false;
+    }
     const bestId = pick.wellId;
-
 
     EC.RENDER._gesture = {
       active: true,
@@ -660,7 +686,7 @@ EC.RENDER._armGestureFromDomPointerDown = function(domPointerEvent, app) {
       const D = EC.UI_STATE && EC.UI_STATE.inputDbg;
       if (D) {
         if (pick) {
-          D.pickLine = `idx=${pick.idx} cx/cy=${clientX.toFixed(1)},${clientY.toFixed(1)} local=${pick.rx.toFixed(1)},${pick.ry.toFixed(1)} dist=${pick.dist.toFixed(1)} r=${pick.r.toFixed(1)} inside=Y`;
+          D.pickLine = `idx=${pick.idx} cx/cy=${clientX.toFixed(1)},${clientY.toFixed(1)} local=${pick.rx.toFixed(1)},${pick.ry.toFixed(1)} dist=${pick.dist.toFixed(1)} r=${pick.r.toFixed(1)} inside=${pick.inside?'Y':'n'}`;
           if (Array.isArray(D.log)) D.log.push(((performance && performance.now)?Math.floor(performance.now()):Date.now()) + ' PICK pointer idx=' + pick.idx + ' dist=' + pick.dist.toFixed(1));
         } else {
           D.pickLine = `idx=-1 cx/cy=${clientX.toFixed(1)},${clientY.toFixed(1)} local=? dist=? r=? inside=n`;
@@ -715,7 +741,7 @@ EC.RENDER._resolveGestureFromDom = function(domEv, kind) {
     if (!st || !st.active) {
       try {
         const D = EC.UI_STATE && EC.UI_STATE.inputDbg;
-        if (D) D.resolveLine = `hasGesture=0 key=? dt=? dx=? dy=? class=NONE dir=NONE applied=na reason=no_gesture end=${kind||'end'}`;
+        if (D) D.resolveLine = `hasGesture=0 endKey=? storedKey=? dt=? dx=? dy=? class=NONE dir=NONE applied=na reason=no_gesture end=${kind||'end'}`;
       } catch (_) {}
       return;
     }
@@ -731,14 +757,30 @@ EC.RENDER._resolveGestureFromDom = function(domEv, kind) {
                 : [];
       let found = null;
       for (let i=0;i<list.length;i++) { if (list[i] && list[i].identifier === st.touchId) { found = list[i]; break; } }
-      if (!found) return; // not our touch
+      if (!found) {
+        try {
+          const D = EC.UI_STATE && EC.UI_STATE.inputDbg;
+          const endKey = (oe && oe.changedTouches && oe.changedTouches.length && oe.changedTouches[0].identifier!=null) ? ('t:' + oe.changedTouches[0].identifier) : 't:?';
+          if (D) D.resolveLine = `hasGesture=1 endKey=${endKey} storedKey=${st.key||'?'} dt=? dx=? dy=? class=NONE dir=NONE applied=fail reason=key_mismatch end=${kind||'end'}`;
+          if (D && Array.isArray(D.log)) D.log.push(((performance&&performance.now)?Math.floor(performance.now()):Date.now()) + ' RESOLVE mismatch touch endKey=' + endKey + ' stored=' + (st.key||'?'));
+        } catch (_) {}
+        return;
+      }
       ok = true;
       wrapped.pointerId = -1;
       wrapped.data.originalEvent = domEv;
     } else {
       // pointer
       const pid = (domEv && domEv.pointerId != null) ? domEv.pointerId : -1;
-      if (st.pid != null && st.pid >= 0 && pid != null && pid >= 0 && pid !== st.pid) return;
+      if (st.pid != null && st.pid >= 0 && pid != null && pid >= 0 && pid !== st.pid) {
+        try {
+          const D = EC.UI_STATE && EC.UI_STATE.inputDbg;
+          const endKey = 'p:' + pid;
+          if (D) D.resolveLine = `hasGesture=1 endKey=${endKey} storedKey=${st.key||'?'} dt=? dx=? dy=? class=NONE dir=NONE applied=fail reason=pid_mismatch end=${kind||'end'}`;
+          if (D && Array.isArray(D.log)) D.log.push(((performance&&performance.now)?Math.floor(performance.now()):Date.now()) + ' RESOLVE mismatch pointer endKey=' + endKey + ' stored=' + (st.key||'?'));
+        } catch (_) {}
+        return;
+      }
       ok = true;
       wrapped.pointerId = pid;
       wrapped.data.originalEvent = domEv;
@@ -751,7 +793,7 @@ EC.RENDER._resolveGestureFromDom = function(domEv, kind) {
       if (EC.RENDER && typeof EC.RENDER._setGestureDebug === 'function') EC.RENDER._setGestureDebug('SWIPE: cancel(DOM)');
       try {
         const D = EC.UI_STATE && EC.UI_STATE.inputDbg;
-        if (D) D.resolveLine = `hasGesture=1 key=${st.key||'?'} kind=${st.kind||'?'} well=${_wellIndexById(st.wellId)} dt=? dx=? dy=? classified=CANCEL dir=NONE applied=NA`;
+        if (D) D.resolveLine = `hasGesture=1 endKey=${evKey||'?'} storedKey=${st.key||'?'} kind=${st.kind||'?'} well=${_wellIndexById(st.wellId)} dt=? dx=? dy=? classified=CANCEL dir=NONE applied=NA`;
         if (D && Array.isArray(D.log)) D.log.push(((performance && performance.now)?Math.floor(performance.now()):Date.now()) + ' DOM cancel -> cleared key=' + (st.key||'?'));
       } catch (_) {}
       return;
