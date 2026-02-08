@@ -216,9 +216,12 @@ function _domArmHookLog(e, label) {
     try {
       if (pick && typeof pick.idx === 'number') {
         const inside = pick.inside ? 'Y' : 'n';
-        const line = `PICK: idx=${pick.idx} cx/cy=${clientX.toFixed(1)},${clientY.toFixed(1)} local=${pick.rx.toFixed(1)},${pick.ry.toFixed(1)} dist=${pick.dist.toFixed(1)} r=${pick.r.toFixed(1)} inside=${inside}`;
+        const cand = (pick.cand != null) ? pick.cand : pick.idx;
+        const cxw = (pick.cx != null) ? pick.cx : NaN;
+        const cyw = (pick.cy != null) ? pick.cy : NaN;
+        const line = `PICK: idx=${pick.idx} cand=${cand} cx/cy=${clientX.toFixed(1)},${clientY.toFixed(1)} local=${pick.rx.toFixed(1)},${pick.ry.toFixed(1)} wellc=${isFinite(cxw)?cxw.toFixed(1):'?'} ,${isFinite(cyw)?cyw.toFixed(1):'?'} dist=${pick.dist.toFixed(1)} r=${pick.r.toFixed(1)} inside=${inside}`;
         _ilog(line);
-        _setLast('lastPick', `idx=${pick.idx} inside=${inside} cx/cy=${clientX.toFixed(1)},${clientY.toFixed(1)}`);
+        _setLast('lastPick', `idx=${pick.idx} cand=${(pick.cand!=null?pick.cand:pick.idx)} inside=${inside} dist=${(pick.dist!=null && isFinite(pick.dist))?pick.dist.toFixed(1):'?'} r=${(pick.r!=null && isFinite(pick.r))?pick.r.toFixed(1):'?'} cx/cy=${clientX.toFixed(1)},${clientY.toFixed(1)}`);
       } else {
         const line = `PICK: idx=-1 cx/cy=${clientX.toFixed(1)},${clientY.toFixed(1)} local=? dist=? r=? inside=n`;
         _ilog(line);
@@ -308,7 +311,15 @@ function _domArmHookLog(e, label) {
     if (dbg) {
       // Snapshot-friendly last resolve
       dbg.lastResolve = dbg.resolveLine || '';
-      _ilog('RESOLVE: ' + (dbg.resolveLine || 'hasGesture=0 reason=resolveLine_missing'));
+      if (!dbg.resolveLine) {
+        try {
+          const st = (EC.RENDER && EC.RENDER._gesture) ? EC.RENDER._gesture : null;
+          const storedActive = !!(st && st.active);
+          const storedKey = st && st.key ? st.key : '?';
+          dbg.resolveLine = storedActive ? (`hasGesture=1 key=${storedKey} dt=? dx=? dy=? class=? dir=? applied=? reason=resolve_unset`) : ('hasGesture=0 reason=no_gesture');
+        } catch (_) { dbg.resolveLine = 'hasGesture=0 reason=no_gesture'; }
+      }
+      _ilog('RESOLVE: ' + dbg.resolveLine);
     }
   } catch (_) {}
 }, opts);
@@ -355,7 +366,15 @@ function _domArmHookLog(e, label) {
     if (dbg) {
       // Snapshot-friendly last resolve
       dbg.lastResolve = dbg.resolveLine || '';
-      _ilog('RESOLVE: ' + (dbg.resolveLine || 'hasGesture=0 reason=resolveLine_missing'));
+      if (!dbg.resolveLine) {
+        try {
+          const st = (EC.RENDER && EC.RENDER._gesture) ? EC.RENDER._gesture : null;
+          const storedActive = !!(st && st.active);
+          const storedKey = st && st.key ? st.key : '?';
+          dbg.resolveLine = storedActive ? (`hasGesture=1 key=${storedKey} dt=? dx=? dy=? class=? dir=? applied=? reason=resolve_unset`) : ('hasGesture=0 reason=no_gesture');
+        } catch (_) { dbg.resolveLine = 'hasGesture=0 reason=no_gesture'; }
+      }
+      _ilog('RESOLVE: ' + dbg.resolveLine);
     }
   } catch (_) {}
 }, opts);

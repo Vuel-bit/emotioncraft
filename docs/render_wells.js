@@ -34,7 +34,9 @@
   }
 
   EC.RENDER = EC.RENDER || {};
-  const wellViews = (EC.RENDER.wellViews = EC.RENDER.wellViews || new Map());
+    // Authoritative well geometry for DOM hit-testing (updated each view update)
+  EC.RENDER.wellGeom = EC.RENDER.wellGeom || { cx: new Array(6).fill(0), cy: new Array(6).fill(0), hitR: new Array(6).fill(0) };
+const wellViews = (EC.RENDER.wellViews = EC.RENDER.wellViews || new Map());
 
   // ------------------------------------------------------------
   // Shared gesture helpers (used by per-well handlers + stage fallback)
@@ -888,6 +890,17 @@ EC.RENDER._resolveGestureFromDom = function(domEv, kind) {
     label.position.set(w.pos.x, w.pos.y + w.radius + 18);
 
     c.hitArea = new PIXI.Circle(0, 0, w.radius + 14);
+    // Update authoritative geometry for DOM hit-testing (canvas-local coords)
+    try {
+      const g = EC.RENDER && EC.RENDER.wellGeom;
+      const id = (w && w.id != null) ? w.id : -1;
+      if (g && id >= 0 && id < 6) {
+        g.cx[id] = w.pos.x;
+        g.cy[id] = w.pos.y;
+        g.hitR[id] = w.radius + 14;
+      }
+    } catch (_) {}
+
 
     const isSelected = (EC.SIM.selectedWellId === w.id);
 

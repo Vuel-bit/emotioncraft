@@ -31,50 +31,36 @@
 
     const { rx, ry } = map;
 
-    // Prefer live wellViews: each view has container "c" and a hit radius.
-    const views = (EC.RENDER && EC.RENDER.wellViews) ? EC.RENDER.wellViews : null;
-    if (!views || !views.forEach) return { idx: -1, inside: false, rx, ry, dist: 0, r: 0 };
+    // Authoritative geometry comes from EC.RENDER.wellGeom (updated by render_wells).
+    const geom = (EC.RENDER && EC.RENDER.wellGeom) ? EC.RENDER.wellGeom : null;
+    if (!geom || !geom.cx || !geom.cy || !geom.hitR) {
+      return { idx: -1, inside: false, rx, ry, dist: 0, r: 0, cand: -1, err: 'missing_wellGeom' };
+    }
 
-    let bestInside = null;
-    let bestInsideD2 = 1e18;
-    let bestAny = null;
-    let bestAnyD2 = 1e18;
-
-    views.forEach((v, id) => {
-      if (!v || !v.c || typeof v.c.getGlobalPosition !== 'function') return;
-      const gp = v.c.getGlobalPosition();
-      const dx = rx - _num(gp.x);
-      const dy = ry - _num(gp.y);
+    let bestCand = -1;
+    let bestD2 = 1e18;
+    for (let i=0;i<6;i++) {
+      const cx = _num(geom.cx[i], NaN);
+      const cy = _num(geom.cy[i], NaN);
+      const r  = _num(geom.hitR[i], NaN);
+      if (!isFinite(cx) || !isFinite(cy) || !isFinite(r) || r <= 0) continue;
+      const dx = rx - cx;
+      const dy = ry - cy;
       const d2 = dx*dx + dy*dy;
+      if (d2 < bestD2) { bestD2 = d2; bestCand = i; }
+    }
 
-      // Determine hit radius: prefer explicit hitR, then hitArea radius, else a conservative fallback.
-      let r = null;
-      if (v.hitR != null) r = v.hitR;
-      else if (v.c.hitArea && v.c.hitArea.radius != null) r = v.c.hitArea.radius;
-      else if (v.c.hitArea && v.c.hitArea.r != null) r = v.c.hitArea.r;
-      // Fallback: use tuned well radius if available, else 80.
-      if (r == null) {
-        r = (EC.TUNING && EC.TUNING.WELL && EC.TUNING.WELL.R_OUT) ? EC.TUNING.WELL.R_OUT : 80;
-      }
-      r = _num(r, 80);
+    if (bestCand < 0) {
+      return { idx: -1, inside: false, rx, ry, dist: 0, r: 0, cand: -1, err: 'geom_uninitialized' };
+    }
 
-      const inside = d2 <= (r*r);
-      const rec = { idx: id, rx, ry, dist: Math.sqrt(d2), r, inside };
-
-      if (inside && d2 < bestInsideD2) {
-        bestInside = rec; bestInsideD2 = d2;
-      }
-      if (d2 < bestAnyD2) {
-        bestAny = rec; bestAnyD2 = d2;
-      }
-    });
-
-    const best = bestInside || bestAny || { idx: -1, rx, ry, dist: 0, r: 0, inside: false };
-
-    // If nothing is "inside", return idx=-1 (we don't want near-misses to arm gestures).
-    const out = best.inside ? best : { idx: -1, rx, ry, dist: best.dist, r: best.r, inside: false };
-
-    // Snapshot for debug (optional; main.js also logs)
+    const cx = _num(geom.cx[bestCand], 0);
+    const cy = _num(geom.cy[bestCand], 0);
+    const r  = _num(geom.hitR[bestCand], 0);
+    const dist = Math.sqrt(bestD2);
+    const inside = (r > 0) && (dist <= r);
+    const out = { idx: inside ? bestCand : -1, inside, rx, ry, dist, r, cand: bestCand, cx, cy };
+// Snapshot for debug (optional; main.js also logs)
     try {
       EC.UI_STATE = EC.UI_STATE || {};
       EC.UI_STATE.inputDebug = EC.UI_STATE.inputDebug || {};
