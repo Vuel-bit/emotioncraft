@@ -187,7 +187,7 @@ function _domArmHookLog(e, label) {
       _ilog('TOUCHSTART_RETURN: reason=multitouch_block');
       _setLast('lastTouchstartStatus','RETURN(multitouch_block)');
       // Also snapshot ARM failure explicitly.
-      _ilog('ARM: ok=n key=t:? well=-1 reason=multitouch_block');
+      _ilog(`ARM: gsId=${(EC.INPUT&&EC.INPUT.gestureState&&EC.INPUT.gestureState._id)||'?' } ok=n key=t:? well=-1 reason=multitouch_block`);
       _setLast('lastArm', 'ok=n key=t:? well=-1 reason=multitouch_block');
       return;
     }
@@ -216,7 +216,7 @@ function _domArmHookLog(e, label) {
       _setLast('lastPick', `idx=? inside=? cx/cy=${clientX},${clientY}`);
       _setLast('lastTouchstartStatus','PICK_ERR');
       _ilog('TOUCHSTART_BEFORE_ARM');
-      _ilog('ARM: ok=n key=' + endKey + ' well=-1 reason=pick_throw');
+      _ilog(`ARM: gsId= ok=n key= well=-1 reason=pick_throw`);
       _setLast('lastArm', `ok=n key=${endKey} well=-1 reason=pick_throw`);
       _setLast('lastTouchstartStatus','EXIT');
       _ilog('TOUCHSTART_EXIT');
@@ -244,7 +244,7 @@ function _domArmHookLog(e, label) {
 
     // Arm only on pick hit.
     if (!pick || !pick.inside || pick.idx == null || pick.idx < 0) {
-      _ilog('ARM: ok=n key=' + endKey + ' well=-1 reason=pick_miss');
+      _ilog(`ARM: gsId= ok=n key= well=-1 reason=pick_miss`);
       _setLast('lastArm', `ok=n key=${endKey} well=-1 reason=pick_miss`);
       _setLast('lastTouchstartStatus','EXIT');
       _ilog('TOUCHSTART_EXIT');
@@ -264,12 +264,12 @@ function _domArmHookLog(e, label) {
       const incomingKey = lastArm && lastArm.incomingKey ? lastArm.incomingKey : key;
       const storedWell = (lastArm && lastArm.storedWell != null) ? lastArm.storedWell : '?';
       const incomingWell = (lastArm && lastArm.incomingWell != null) ? lastArm.incomingWell : String(pick.idx);
-      _ilog(`ARM: ok=${armed?'y':'n'} key=${key} well=${pick.idx} reason=${reason} active=${lastArm?lastArm.active:0} storedKey=${storedKey} incomingKey=${incomingKey} storedWell=${storedWell} incomingWell=${incomingWell}`);
+      _ilog(`ARM: gsId=${(EC.INPUT&&EC.INPUT.gestureState&&EC.INPUT.gestureState._id)||'?'} ok=${armed?'y':'n'} key=${key} well=${pick.idx} reason=${reason} active=${lastArm?lastArm.active:0} storedKey=${storedKey} incomingKey=${incomingKey} storedWell=${storedWell} incomingWell=${incomingWell}`);
       _setLast('lastArm', `ok=${armed?'y':'n'} key=${key} well=${pick.idx} reason=${reason}`);
     } catch (err) {
       const msg = (err && err.message) ? err.message : String(err);
       _ilog('ARM_ERR: ' + msg);
-      _ilog(`ARM: ok=n key=${key} well=${pick.idx} reason=arm_throw`);
+      _ilog(`ARM: gsId=${(EC.INPUT&&EC.INPUT.gestureState&&EC.INPUT.gestureState._id)||'?'} ok=n key=${key} well=${pick.idx} reason=arm_throw`);
       _setLast('lastArm', `ok=n key=${key} well=${pick.idx} reason=arm_throw`);
     }
 
@@ -304,14 +304,14 @@ function _domArmHookLog(e, label) {
 
   // Resolve attempt logging (even if no gesture)
   try {
-    const st = (EC.RENDER && EC.RENDER._gesture) ? EC.RENDER._gesture : null;
+    const st = (EC.INPUT && EC.INPUT.gestureState) ? EC.INPUT.gestureState : null;
     const storedActive = !!(st && st.active);
     const storedKey = st && st.key ? st.key : '?';
     const match = storedActive && (storedKey === endKey);
     let reason = 'ok';
     if (!storedActive) reason = 'no_gesture';
     else if (!match) reason = 'key_mismatch';
-    _ilog(`RESOLVE_ATTEMPT: storedActive=${storedActive?1:0} storedKey=${storedKey} endKey=${endKey} match=${match?'y':'n'} reason=${reason}`);
+    _ilog(`RESOLVE_ATTEMPT: gsId=${(EC.INPUT&&EC.INPUT.gestureState&&EC.INPUT.gestureState._id)||'?'} storedActive=${storedActive?1:0} storedKey=${storedKey} endKey=${endKey} match=${match?'y':'n'} reason=${reason}`);
   } catch (_) {}
 
   try {
@@ -330,7 +330,7 @@ function _domArmHookLog(e, label) {
       dbg.lastResolve = dbg.resolveLine || '';
       if (!dbg.resolveLine) {
         try {
-          const st = (EC.RENDER && EC.RENDER._gesture) ? EC.RENDER._gesture : null;
+          const st = (EC.INPUT && EC.INPUT.gestureState) ? EC.INPUT.gestureState : null;
           const storedActive = !!(st && st.active);
           const storedKey = st && st.key ? st.key : '?';
           dbg.resolveLine = storedActive ? (`hasGesture=1 key=${storedKey} dt=? dx=? dy=? class=? dir=? applied=? reason=resolve_unset`) : ('hasGesture=0 reason=no_gesture');
@@ -359,14 +359,14 @@ function _domArmHookLog(e, label) {
 
   // Resolve attempt logging (even if no gesture)
   try {
-    const st = (EC.RENDER && EC.RENDER._gesture) ? EC.RENDER._gesture : null;
+    const st = (EC.INPUT && EC.INPUT.gestureState) ? EC.INPUT.gestureState : null;
     const storedActive = !!(st && st.active);
     const storedKey = st && st.key ? st.key : '?';
     const match = storedActive && (storedKey === endKey);
     let reason = 'ok';
     if (!storedActive) reason = 'no_gesture';
     else if (!match) reason = 'key_mismatch';
-    _ilog(`RESOLVE_ATTEMPT: storedActive=${storedActive?1:0} storedKey=${storedKey} endKey=${endKey} match=${match?'y':'n'} reason=${reason}`);
+    _ilog(`RESOLVE_ATTEMPT: gsId=${(EC.INPUT&&EC.INPUT.gestureState&&EC.INPUT.gestureState._id)||'?'} storedActive=${storedActive?1:0} storedKey=${storedKey} endKey=${endKey} match=${match?'y':'n'} reason=${reason}`);
   } catch (_) {}
 
   try {
@@ -385,7 +385,7 @@ function _domArmHookLog(e, label) {
       dbg.lastResolve = dbg.resolveLine || '';
       if (!dbg.resolveLine) {
         try {
-          const st = (EC.RENDER && EC.RENDER._gesture) ? EC.RENDER._gesture : null;
+          const st = (EC.INPUT && EC.INPUT.gestureState) ? EC.INPUT.gestureState : null;
           const storedActive = !!(st && st.active);
           const storedKey = st && st.key ? st.key : '?';
           dbg.resolveLine = storedActive ? (`hasGesture=1 key=${storedKey} dt=? dx=? dy=? class=? dir=? applied=? reason=resolve_unset`) : ('hasGesture=0 reason=no_gesture');

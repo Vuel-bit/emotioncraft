@@ -3,6 +3,14 @@
   const EC = (window.EC = window.EC || {});
   EC.INPUT = EC.INPUT || {};
 
+
+  // Canonical gesture state (single source of truth)
+  // Never replace this object reference; mutate fields only.
+  if (!EC.INPUT.gestureState) {
+    const rid = (Math.random().toString(16).slice(2, 6) + Math.random().toString(16).slice(2, 6)).slice(0, 8);
+    EC.INPUT.gestureState = { _id: rid, active: 0, key: '', kind: '', well: -1, x0: 0, y0: 0, t0: 0, touchId: null, pid: -1, wellId: null };
+  }
+
   // Helper: safe number
   const _num = (v, d=0) => (typeof v === 'number' && isFinite(v)) ? v : d;
 
@@ -96,10 +104,10 @@
       }
 
       const R = (EC.RENDER = EC.RENDER || {});
-      const cur = R._gesture;
+      const gs = EC.INPUT.gestureState; const cur = gs;
       res.active = (cur && cur.active) ? 1 : 0;
       res.storedKey = (cur && cur.key) ? String(cur.key) : '?';
-      res.storedWell = (cur && cur.wellId != null) ? String(cur.wellId) : '?';
+      res.storedWell = (cur && cur.well != null) ? String(cur.well) : '?';
 
       const kind = info.kind || 'touch';
       const incomingKey = (info.key != null) ? String(info.key) : '';
@@ -147,17 +155,18 @@
       const touchId = (kind === 'touch') ? (info.touchId != null ? info.touchId : (incomingKey.startsWith('t:') ? parseInt(incomingKey.slice(2), 10) : null)) : null;
       const pid = (kind === 'pointer') ? (info.pid != null ? info.pid : (incomingKey.startsWith('p:') ? parseInt(incomingKey.slice(2), 10) : -1)) : -1;
 
-      R._gesture = {
+      Object.assign(EC.INPUT.gestureState, {
         active: true,
         kind,
         key: incomingKey,
         touchId,
         pid,
-        wellId: idx,
+        well: idx,
+        wellId: (info.wellId != null ? info.wellId : null),
         t0,
         x0,
         y0,
-      };
+      });
 
       res.ok = true;
       res.reason = 'ok';
@@ -190,9 +199,9 @@
       const D = EC.UI_STATE && EC.UI_STATE.inputDbg;
       if (!D) return;
       const ok = res.ok ? 'Y' : 'N';
-      D.armLine = `ok=${ok} reason=${res.reason||'unknown_false'} active=${res.active||0} storedKey=${res.storedKey||'?'} incomingKey=${res.incomingKey||'?'} storedWell=${res.storedWell||'?'} incomingWell=${res.incomingWell||'?'}${res.err ? (' err=' + res.err) : ''}`;
+      D.armLine = `ok=${ok} reason=${res.reason||'unknown_false'} gsId=${(EC.INPUT.gestureState&&EC.INPUT.gestureState._id)||'?'} gsPtrOk=1 active=${res.active||0} storedKey=${res.storedKey||'?'} incomingKey=${res.incomingKey||'?'} storedWell=${res.storedWell||'?'} incomingWell=${res.incomingWell||'?'}${res.err ? (' err=' + res.err) : ''}`;
       if (Array.isArray(D.log)) {
-        D.log.push(`${res.now||0} ARM ok=${ok} reason=${res.reason||'unknown_false'} active=${res.active||0} storedKey=${res.storedKey||'?'} incomingKey=${res.incomingKey||'?'} storedWell=${res.storedWell||'?'} incomingWell=${res.incomingWell||'?'}${res.err ? (' err=' + res.err) : ''}`);
+        D.log.push(`${res.now||0} ARM ok=${ok} reason=${res.reason||'unknown_false'} gsId=${(EC.INPUT.gestureState&&EC.INPUT.gestureState._id)||'?'} active=${res.active||0} storedKey=${res.storedKey||'?'} incomingKey=${res.incomingKey||'?'} storedWell=${res.storedWell||'?'} incomingWell=${res.incomingWell||'?'}${res.err ? (' err=' + res.err) : ''}`);
         if (D.log.length > 180) D.log.splice(0, D.log.length - 180);
       }
     } catch (_) {}
