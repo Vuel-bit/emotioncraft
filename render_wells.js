@@ -222,48 +222,102 @@
     // We replace pointertap with pointerdown/up so we can distinguish tap vs flick
     // without double firing.
     c.on('pointerdown', (e) => {
+      const ne = e && e.nativeEvent;
+      // Prevent default scrolling only when gesture begins on a well.
       try {
-        const ne = e && e.nativeEvent;
         if (ne && typeof ne.preventDefault === 'function') ne.preventDefault();
       } catch (_) {}
 
       // Select immediately (same behavior as tap selection).
       EC.onWellTap(w.id);
 
-      const g = e && e.global ? e.global : (e && e.data && e.data.global ? e.data.global : { x: 0, y: 0 });
-      const pid = (e && e.pointerId != null) ? e.pointerId : (e && e.data && e.data.pointerId != null ? e.data.pointerId : -1);
+      const pid = (e && e.pointerId != null) ? e.pointerId : (e && e.data && e.data.pointerId != null ? e.data.pointerId : (ne && ne.pointerId != null ? ne.pointerId : -1));
+      const t0 = performance.now();
+
+      // Use client coords for gesture delta; reliable for native window listeners.
+      const cx0 = (ne && ne.clientX != null) ? ne.clientX : (e && e.global ? e.global.x : 0);
+      const cy0 = (ne && ne.clientY != null) ? ne.clientY : (e && e.global ? e.global.y : 0);
+
       EC.RENDER._flick = {
         active: true,
         wellId: w.id,
         pid,
-        t0: performance.now(),
-        x0: g.x,
-        y0: g.y,
+        t0,
+        cx0,
+        cy0,
       };
 
-      // Prevent page scroll while an interaction begins on a well.
-      const app = EC.RENDER && EC.RENDER.app;
-      if (app && app.view && app.view.style) {
-        EC.RENDER._prevTouchAction = app.view.style.touchAction || '';
-        app.view.style.touchAction = 'none';
+      // Pointer capture improves reliability on mobile when finger drifts.
+      try {
+        if (ne && ne.target && typeof ne.target.setPointerCapture === 'function' && pid != null && pid >= 0) {
+          ne.target.setPointerCapture(pid);
+        }
+      } catch (_) {}
+
+      // Fallback: listen on window until release (in case capture isn't supported).
+      // Keep these handlers stable and lightweight.
+      if (!EC.RENDER._flickWin) {
+        EC.RENDER._flickWin = { move: null, up: null, cancel: null };
       }
+      const win = window;
+      const st = EC.RENDER._flick;
+
+      const onMove = (ev) => {
+        if (!EC.RENDER._flick || !EC.RENDER._flick.active) return;
+        if (st.pid != null && st.pid >= 0 && ev.pointerId != null && ev.pointerId !== st.pid) return;
+        try { if (typeof ev.preventDefault === 'function') ev.preventDefault(); } catch (_) {}
+      };
+      const onUp = (ev) => {
+        if (!EC.RENDER._flick || !EC.RENDER._flick.active) return;
+        if (st.pid != null && st.pid >= 0 && ev.pointerId != null && ev.pointerId !== st.pid) return;
+        _endFlick({ nativeEvent: ev });
+      };
+      const onCancel = (ev) => {
+        if (!EC.RENDER._flick || !EC.RENDER._flick.active) return;
+        if (st.pid != null && st.pid >= 0 && ev.pointerId != null && ev.pointerId !== st.pid) return;
+        // Abort cleanly
+        EC.RENDER._flick = null;
+        if (EC.DEBUG) console.log('[flick] pointercancel');
+        _detachWindowFlick();
+      };
+
+      EC.RENDER._flickWin.move = onMove;
+      EC.RENDER._flickWin.up = onUp;
+      EC.RENDER._flickWin.cancel = onCancel;
+      win.addEventListener('pointermove', onMove, { passive: false });
+      win.addEventListener('pointerup', onUp, { passive: false });
+      win.addEventListener('pointercancel', onCancel, { passive: false });
+
+      if (EC.DEBUG) console.log('[flick] down', { pid, wellId: w.id });
     });
+
+    function _detachWindowFlick() {
+      const win = window;
+      const fw = EC.RENDER && EC.RENDER._flickWin;
+      if (!fw) return;
+      // Note: removeEventListener only keys on (type, listener, capture).
+      // Do not pass a new options object here.
+      if (fw.move) win.removeEventListener('pointermove', fw.move);
+      if (fw.up) win.removeEventListener('pointerup', fw.up);
+      if (fw.cancel) win.removeEventListener('pointercancel', fw.cancel);
+      fw.move = fw.up = fw.cancel = null;
+    }
 
     function _endFlick(e) {
       const st = EC.RENDER && EC.RENDER._flick;
       if (!st || !st.active) return;
 
-      const app = EC.RENDER && EC.RENDER.app;
-      if (app && app.view && app.view.style) {
-        app.view.style.touchAction = EC.RENDER._prevTouchAction || '';
-      }
+      // Detach global listeners (if any)
+      _detachWindowFlick();
       EC.RENDER._flick = null;
 
-      const g = e && e.global ? e.global : (e && e.data && e.data.global ? e.data.global : { x: 0, y: 0 });
+      const ne = e && e.nativeEvent;
+      const cx1 = (ne && ne.clientX != null) ? ne.clientX : (e && e.global ? e.global.x : 0);
+      const cy1 = (ne && ne.clientY != null) ? ne.clientY : (e && e.global ? e.global.y : 0);
       const t1 = performance.now();
       const dt = t1 - (st.t0 || t1);
-      const dx = (g.x - st.x0);
-      const dy = (g.y - st.y0);
+      const dx = (cx1 - st.cx0);
+      const dy = (cy1 - st.cy0);
 
       const THRESH_MS = 300;
       const THRESH_PX = 24;
@@ -275,6 +329,7 @@
       const isFlick = (dt <= THRESH_MS) && (dist >= THRESH_PX);
       if (!isFlick) {
         // Treat as tap: selection already happened on pointerdown.
+        if (EC.DEBUG) console.log('[flick] tap', { dt, dx, dy });
         return;
       }
 
@@ -314,6 +369,8 @@
 
       // Subtle success tick (if available)
       if (EC.SFX && typeof EC.SFX.tick === 'function') EC.SFX.tick();
+
+      if (EC.DEBUG) console.log('[flick] ok', { dt, dx, dy, dA, dS });
     }
 
     c.on('pointerup', _endFlick);

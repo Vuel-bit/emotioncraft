@@ -25,6 +25,15 @@
   });
   appEl.appendChild(app.view);
 
+  // Mobile gesture reliability: disable browser gesture handling on the canvas.
+  // Flick input uses Pointer Events; `touch-action: none` prevents the browser
+  // from hijacking swipes for scrolling/back navigation over the game surface.
+  try {
+    app.view.style.touchAction = 'none';
+    app.view.style.userSelect = 'none';
+    app.view.style.webkitUserSelect = 'none';
+  } catch (_) {}
+
   const root = new PIXI.Container();
   app.stage.addChild(root);
 
