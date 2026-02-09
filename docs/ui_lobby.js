@@ -34,7 +34,11 @@
       title.textContent = p.name;
       const meta = document.createElement('div');
       meta.className = 'patientMeta';
-      meta.textContent = `${p.trait} • ${p.treatment}`;
+      const mood = (p.moodLabel || p.mindsetLabel) ? `Mood: ${p.moodLabel || p.mindsetLabel}` : '';
+      const vibe = p.vibeLabel ? `Vibe: ${p.vibeLabel}` : '';
+      const plan = p.planName ? `Plan: ${p.planName}` : '';
+      const tagline = p.tagline ? p.tagline : '';
+      meta.textContent = [tagline, [mood, vibe, plan].filter(Boolean).join(' • ')].filter(Boolean).join(' — ');
       left.appendChild(title);
       left.appendChild(meta);
 
@@ -42,7 +46,7 @@
       right.className = 'patientBadges';
       const pill1 = document.createElement('div');
       pill1.className = 'pill';
-      pill1.textContent = `Quirks: ${p.dispositionCount}`;
+      pill1.textContent = `Quirks: ${p.quirkCount}`;
       right.appendChild(pill1);
 
       row.appendChild(left);
@@ -55,7 +59,19 @@
         rows.forEach((r) => r.classList.remove('selected'));
         row.classList.add('selected');
         if (els.startBtn) els.startBtn.disabled = false;
-        if (els.hint) els.hint.innerHTML = `Selected: ${p.name}<br>Quirks: ${p.quirkSummary || '—'}${(p.quirkLineTexts && p.quirkLineTexts.length) ? '<br>' + p.quirkLineTexts.join('<br>') : ''}`;
+        if (els.hint) {
+          const lines = [];
+          lines.push(`Selected: ${p.name}`);
+          if (p.tagline) lines.push(p.tagline);
+          const mv = [];
+          if (p.mindsetLabel) mv.push(`Mood: ${(p.moodLabel || p.mindsetLabel)} (${(p.moodTemplate || p.mindsetTemplate || 'Flat')})`);
+          if (p.vibeLabel) mv.push(`Vibe: ${p.vibeLabel}`);
+          if (p.planName) mv.push(`Plan: ${p.planName}`);
+          if (mv.length) lines.push(mv.join(' • '));
+          lines.push(`Quirks: ${p.quirkSummary || '—'}`);
+          if (p.quirkLineTexts && p.quirkLineTexts.length) lines.push(...p.quirkLineTexts);
+          els.hint.innerHTML = lines.join('<br>');
+        }
       });
 
       // Auto-select first item if none selected.
@@ -66,7 +82,19 @@
           EC.UI_STATE.selectedPatientId = p.id;
           row.classList.add('selected');
           if (els.startBtn) els.startBtn.disabled = false;
-          if (els.hint) els.hint.innerHTML = `Selected: ${p.name}<br>Quirks: ${p.quirkSummary || '—'}${(p.quirkLineTexts && p.quirkLineTexts.length) ? '<br>' + p.quirkLineTexts.join('<br>') : ''}`;
+          if (els.hint) {
+            const lines = [];
+            lines.push(`Selected: ${p.name}`);
+            if (p.tagline) lines.push(p.tagline);
+            const mv = [];
+            if (p.mindsetLabel) mv.push(`Mood: ${(p.moodLabel || p.mindsetLabel)} (${(p.moodTemplate || p.mindsetTemplate || 'Flat')})`);
+            if (p.vibeLabel) mv.push(`Vibe: ${p.vibeLabel}`);
+            if (p.planName) mv.push(`Plan: ${p.planName}`);
+            if (mv.length) lines.push(mv.join(' • '));
+            lines.push(`Quirks: ${p.quirkSummary || '—'}`);
+            if (p.quirkLineTexts && p.quirkLineTexts.length) lines.push(...p.quirkLineTexts);
+            els.hint.innerHTML = lines.join('<br>');
+          }
         } else if (sel === p.id) {
           row.classList.add('selected');
           if (els.startBtn) els.startBtn.disabled = false;

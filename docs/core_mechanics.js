@@ -382,7 +382,85 @@ const SIM = (EC.SIM = EC.SIM || {
 
     let didWin = false;
 
-    if (winDef && winDef.type === 'ZEN_CHAIN' && Array.isArray(winDef.steps)) {
+    if (winDef && winDef.type === 'PLAN_CHAIN' && Array.isArray(winDef.steps)) {
+      const eps = (typeof T.PAT_SPIN_ZERO_EPS === 'number') ? T.PAT_SPIN_ZERO_EPS : 1.0;
+      if (typeof SIM.planStep !== 'number') SIM.planStep = 0;
+      if (typeof SIM.planHoldSec !== 'number') SIM.planHoldSec = 0;
+
+      const stepIdx = Math.max(0, Math.min(winDef.steps.length - 1, SIM.planStep));
+      const st = winDef.steps[stepIdx];
+      const holdReq = (st && typeof st.holdSec === 'number') ? st.holdSec : 0;
+
+      let ok = true;
+      const kind = st ? String(st.kind || '').toUpperCase() : '';
+      if (kind === 'ALL_OVER') {
+        const thr = (typeof st.threshold === 'number') ? st.threshold : 0;
+        for (let k = 0; k < 6; k++) { if ((SIM.psyP[k] || 0) < thr) { ok = false; break; } }
+        SIM.goalViz = SIM.goalViz || { perHue: new Array(6).fill(null) };
+        SIM.goalViz.perHue = new Array(6).fill(null).map(() => ({ type: 'OVER', target: thr }));
+      } else if (kind === 'SET_BOUNDS') {
+        const highs = Array.isArray(st.highs) ? st.highs : [];
+        const lows  = Array.isArray(st.lows)  ? st.lows  : [];
+        const hiMin = (typeof st.hiMin === 'number') ? st.hiMin : 0;
+        const loMax = (typeof st.loMax === 'number') ? st.loMax : 999999;
+        const isHigh = (i) => highs.indexOf(i) >= 0;
+        const isLow  = (i) => lows.indexOf(i) >= 0;
+        for (let k = 0; k < 6; k++) {
+          const v = (SIM.psyP[k] || 0);
+          if (isHigh(k)) { if (v < hiMin) { ok = false; break; } }
+          else if (isLow(k)) { if (v > loMax) { ok = false; break; } }
+        }
+
+        // Goal viz reflects the current step.
+        SIM.goalViz = SIM.goalViz || { perHue: new Array(6).fill(null) };
+        SIM.goalViz.perHue = new Array(6).fill(null).map((_, i) => {
+          if (isHigh(i)) return { type: 'OVER', target: hiMin };
+          if (isLow(i)) return { type: 'UNDER', target: loMax };
+          return null;
+        });
+      } else if (kind === 'ALL_BAND') {
+        const low = (typeof st.low === 'number') ? st.low : 0;
+        const high = (typeof st.high === 'number') ? st.high : 999999;
+        for (let k = 0; k < 6; k++) {
+          const v = (SIM.psyP[k] || 0);
+          if (v < low || v > high) { ok = false; break; }
+        }
+        SIM.goalViz = SIM.goalViz || { perHue: new Array(6).fill(null) };
+        SIM.goalViz.perHue = new Array(6).fill(null).map(() => ({ type: 'BAND', low: low, high: high }));
+      } else if (kind === 'SPIN_ZERO') {
+        for (let k = 0; k < 6; k++) {
+          if (Math.abs(SIM.wellsS[k] || 0) > eps) { ok = false; break; }
+        }
+        // No psyche goal viz for this step.
+        SIM.goalViz = SIM.goalViz || { perHue: new Array(6).fill(null) };
+        SIM.goalViz.perHue = new Array(6).fill(null);
+      }
+
+      // Hold / advance
+      if (holdReq > 0) {
+        SIM.planHoldSec = ok ? (SIM.planHoldSec + _dt) : 0;
+      } else {
+        SIM.planHoldSec = 0;
+      }
+
+      // Objective completion bookkeeping
+      if (!Array.isArray(SIM.objectives) || SIM.objectives.length !== winDef.steps.length) {
+        SIM.objectives = winDef.steps.map((_, i) => ({ id: `PLAN_STEP_${i+1}`, text: `Step ${i+1}`, complete: false }));
+      }
+      for (let i = 0; i < winDef.steps.length; i++) {
+        if (!SIM.objectives[i]) continue;
+        if (i < SIM.planStep) SIM.objectives[i].complete = true;
+        else if (i === SIM.planStep) SIM.objectives[i].complete = ok && (holdReq <= 0 || SIM.planHoldSec >= holdReq);
+        else SIM.objectives[i].complete = false;
+      }
+
+      if (ok && (holdReq <= 0 || SIM.planHoldSec >= holdReq)) {
+        SIM.planStep += 1;
+        SIM.planHoldSec = 0;
+      }
+
+      didWin = (SIM.planStep >= winDef.steps.length);
+    } else if (winDef && winDef.type === 'ZEN_CHAIN' && Array.isArray(winDef.steps)) {
       // 3-step Zen chain: advance when each condition is held.
       if (typeof SIM.zenChainStep !== 'number') SIM.zenChainStep = 0;
       if (typeof SIM.zenChainHoldSec !== 'number') SIM.zenChainHoldSec = 0;

@@ -169,6 +169,56 @@
     // Optional per-tier jitter ranges for totals (min,max)
     DISP_TIER_TOTAL_JITTER: [[0.8, 1.2], [0.85, 1.15], [0.9, 1.1]],
 
+    // ---------------------------------------------------------------------
+    // Patient generation — Mindset + Vibe (v0.2.76)
+    // ---------------------------------------------------------------------
+    // Mindset total psyche targets (sum across 6 hues). Each label samples from a range.
+    PAT_MINDSET_TOTAL_RANGES: {
+      Spent: [525, 675],        // ~600 ±75
+      Drained: [725, 875],      // ~800 ±75
+      Steady: [925, 1075],      // ~1000 ±75
+      Antsy: [1125, 1275],      // ~1200 ±75
+      Overwhelmed: [1325, 1475] // ~1400 ±75
+    },
+    // Mindset distribution guardrails
+    PAT_PSY_START_MIN: 50,
+    PAT_PSY_START_MAX: 350,
+
+    // Spread template shape parameters (relative to avg = total/6)
+    // ≥30% tilt for Tilted/Split, ≥70% spike for Spike.
+    PAT_SPREAD_TILT_FRAC: 0.35,
+    PAT_SPREAD_SPIKE_FRAC: 0.75,
+    PAT_SPREAD_FLAT_JITTER_FRAC: 0.10,
+
+    // Vibe: starting wells
+    PAT_VIBE_LABELS: ['Crisis', 'Blah', 'Mid', 'Anxious', 'Freaking'],
+    PAT_VIBE_BANDS: {
+      Crisis:   [-75, -50],
+      Blah:     [-50, -25],
+      Mid:      [-25,  25],
+      Anxious:  [ 25,  50],
+      Freaking: [ 50,  75]
+    },
+    PAT_VIBE_FLIP_CHANCE: 0.10,
+    PAT_VIBE_MAX_FLIPS: 3,
+    // Integrity checks (non-Erratic): preserve overall sign direction.
+    PAT_VIBE_MEAN_NEG_MAX: -10,
+    PAT_VIBE_MEAN_POS_MIN: 10,
+    PAT_VIBE_NEG_COUNT_MIN: 4,
+    PAT_VIBE_POS_COUNT_MIN: 4,
+    // Erratic loosens but should not fully invert.
+    PAT_VIBE_ERR_MEAN_NEG_MAX: -2,
+    PAT_VIBE_ERR_MEAN_POS_MIN: 2,
+    PAT_VIBE_ERR_NEG_COUNT_MIN: 3,
+    PAT_VIBE_ERR_POS_COUNT_MIN: 3,
+
+    // Treatment plan evaluation
+    PAT_BAND_HOLD_SECONDS: 10,
+    PAT_SPIN_ZERO_EPS: 1.0,
+
+    // Plan step: "all spins = 0" epsilon
+    PAT_SPIN_ZERO_EPS: 1.0,
+
     // Telegraph warning brightness per tier (muted / medium / bright)
     DISP_WARN_BRIGHTNESS_BY_TIER: [0.45, 0.70, 1.0],
 

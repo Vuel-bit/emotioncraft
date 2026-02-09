@@ -117,11 +117,22 @@
 
     const btnResetEl = dom.btnResetEl || document.getElementById('btnReset');
     const btnDebugEl = dom.btnDebugEl || document.getElementById('btnDebug');
+    const btnLobbyEl = dom.btnLobbyEl || document.getElementById('btnLobby');
 
     // Reset button
     if (btnResetEl && !UI_STATE._resetWired) {
       UI_STATE._resetWired = true;
       btnResetEl.addEventListener('click', () => EC.resetRun && EC.resetRun());
+    }
+
+    // Lobby button (must work even after WIN/LOSE freeze)
+    if (btnLobbyEl && !UI_STATE._lobbyWired) {
+      UI_STATE._lobbyWired = true;
+      btnLobbyEl.addEventListener('click', () => {
+        try {
+          if (EC.PAT && typeof EC.PAT.backToLobby === 'function') EC.PAT.backToLobby();
+        } catch (_) { /* ignore */ }
+      });
     }
 
     // Debug button + key toggle
@@ -307,6 +318,10 @@
         const total = (def.win.steps && def.win.steps.length) ? def.win.steps.length : 3;
         const prefix = def.objectiveShort || 'Step';
         stepLine = `${prefix} ${step + 1}/${total}`;
+      } else if (def && def.win && def.win.type === 'PLAN_CHAIN' && Array.isArray(def.win.steps)) {
+        const step = (typeof SIM.planStep === 'number') ? SIM.planStep : 0;
+        const total = def.win.steps.length || 1;
+        stepLine = `Step ${step + 1}/${total}`;
       } else {
         stepLine = 'Step 1/1';
       }

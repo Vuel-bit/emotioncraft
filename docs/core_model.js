@@ -446,12 +446,25 @@ function netSwirl(w, now) {
       EC.BREAK.reset();
     }
 
-    // Randomized start ranges (defaults)
-    const ranges = (def && def.startRanges) ? def.startRanges : { wellsA: [40, 60], wellsS: [-20, 20], psyP: [80, 120] };
-    for (let i = 0; i < 6; i++) {
-      SIM.wellsA[i] = randInt(ranges.wellsA[0], ranges.wellsA[1]);
-      SIM.wellsS[i] = randInt(ranges.wellsS[0], ranges.wellsS[1]);
-      SIM.psyP[i]   = randInt(ranges.psyP[0], ranges.psyP[1]);
+    // Start state:
+    // - Patient sessions can provide an explicit startState override (psyP/wellsA/wellsS arrays).
+    // - Otherwise we fall back to randomized startRanges.
+    const ss = (def && def.startState) ? def.startState : null;
+    const hasSS = !!(ss && Array.isArray(ss.psyP) && Array.isArray(ss.wellsA) && Array.isArray(ss.wellsS));
+    if (hasSS) {
+      for (let i = 0; i < 6; i++) {
+        SIM.wellsA[i] = Number(ss.wellsA[i] || 0);
+        SIM.wellsS[i] = Number(ss.wellsS[i] || 0);
+        SIM.psyP[i]   = Number(ss.psyP[i] || 0);
+      }
+    } else {
+      // Randomized start ranges (defaults)
+      const ranges = (def && def.startRanges) ? def.startRanges : { wellsA: [40, 60], wellsS: [-20, 20], psyP: [80, 120] };
+      for (let i = 0; i < 6; i++) {
+        SIM.wellsA[i] = randInt(ranges.wellsA[0], ranges.wellsA[1]);
+        SIM.wellsS[i] = randInt(ranges.wellsS[0], ranges.wellsS[1]);
+        SIM.psyP[i]   = randInt(ranges.psyP[0], ranges.psyP[1]);
+      }
     }
 
     // Apply clamps (keep within standardized MVP ranges)
@@ -477,8 +490,20 @@ function netSwirl(w, now) {
     SIM.zenHoldSec = 0;
 
 
-    // Objectives (for side panel / future use)
-    if (def && def.win && def.win.type === 'ZEN_CHAIN' && Array.isArray(def.win.steps)) {
+    // Objectives (for side panel / bottom plan panel)
+    if (def && def.win && def.win.type === 'PLAN_CHAIN' && Array.isArray(def.win.steps)) {
+      SIM.planStep = 0;
+      SIM.planHoldSec = 0;
+      SIM.objectives = def.win.steps.map((st, i) => ({
+        id: `${String(def.win.planKey || 'PLAN').toUpperCase()}_STEP_${i+1}`,
+        text: st.text || `Step ${i+1}`,
+        complete: false,
+        type: 'PLAN_STEP',
+        stepIndex: i,
+        kind: st.kind,
+        holdSec: st.holdSec,
+      }));
+    } else if (def && def.win && def.win.type === 'ZEN_CHAIN' && Array.isArray(def.win.steps)) {
       // Patient Zen 3-step chain.
       SIM.zenChainStep = 0;
       SIM.zenChainHoldSec = 0;
