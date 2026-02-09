@@ -408,37 +408,69 @@
 
         const THRESH_MS = 400;
         const THRESH_PX = 18;
-        const step = 5;
+        const STEP_UNIT = 5;
 
-        const flick = (dt <= THRESH_MS) && (Math.max(Math.abs(dx), Math.abs(dy)) >= THRESH_PX);
-        let cls = flick ? 'FLICK' : 'TAP';
+        // DRAG tuning (slow swipe / press-and-drag)
+        const DRAG_PX_PER_STEP = 28;   // px per 5-step (tunable)
+        const DRAG_MAX_STEPS   = 16;   // max multiplier (tunable) => max change = 80
+        const HOLD_MS          = 750;  // long-press threshold (tunable)
+        const HOLD_MULT        = 2.0;  // long-press acceleration (tunable)
+
+        const absDx = Math.abs(dx);
+        const absDy = Math.abs(dy);
+        const distAxis = Math.max(absDx, absDy);
+
+        const flick = (dt <= THRESH_MS) && (distAxis >= THRESH_PX);
+        const drag  = (!flick) && (distAxis >= THRESH_PX);
+
+        const _clampI = (v, lo, hi) => Math.max(lo, Math.min(hi, v|0));
+
+        let cls = flick ? 'FLICK' : (drag ? 'DRAG' : 'TAP');
+        let steps = flick ? 1 : (drag ? _clampI(Math.round(distAxis / DRAG_PX_PER_STEP), 1, DRAG_MAX_STEPS) : 0);
+        let held = 0;
+        if (drag && steps > 0 && dt >= HOLD_MS) {
+          held = 1;
+          steps = _clampI(Math.round(steps * HOLD_MULT), 1, DRAG_MAX_STEPS);
+        }
+
         let dir = 'NONE';
         let applied = 'ok';
         let applyReason = 'ok';
+        let dA = 0, dS = 0;
+        let cost = 0;
+        const dist = distAxis;
+        const hold = held;
 
         const w = (gs.well != null) ? gs.well : -1;
         if (w < 0 || w > 5) {
           applied = 'fail';
           applyReason = 'invalid_idx';
-        } else if (!flick) {
-          // TAP selects the well.
+        } else if (cls === 'TAP') {
+          // TAP selects the well only (no sim change).
+          applied = '0';
+          applyReason = 'tap';
           try { if (EC.SIM) EC.SIM.selectedWellIndex = w; } catch (e) {}
         } else {
-          let dA = 0, dS = 0;
-          if (Math.abs(dx) >= Math.abs(dy)) {
+          // FLICK and DRAG both route through the same flickStep() path for consistent energy/cost.
+          dA = 0; dS = 0;
+          const stepAmt = STEP_UNIT * (steps || 1);
+
+          if (absDx >= absDy) {
             dir = (dx >= 0) ? 'RIGHT' : 'LEFT';
-            dS = (dx >= 0) ? step : -step;
+            dS = (dx >= 0) ? stepAmt : -stepAmt;
           } else {
             dir = (dy <= 0) ? 'UP' : 'DOWN';
-            dA = (dy <= 0) ? step : -step;
+            dA = (dy <= 0) ? stepAmt : -stepAmt;
           }
 
           try { if (EC.SIM) EC.SIM.selectedWellIndex = w; } catch (e) {}
 
+          cost = 0;
           if (EC.UI_CONTROLS && typeof EC.UI_CONTROLS.flickStep === 'function') {
             try {
               const res = EC.UI_CONTROLS.flickStep(w, dA, dS);
               const ok = !!(res && res.ok);
+              cost = (res && typeof res.cost === 'number') ? res.cost : 0;
               if (!ok) {
                 applied = 'fail';
                 applyReason = (res && res.reason) ? res.reason : 'apply_failed';
@@ -453,15 +485,15 @@
           }
         }
 
-        status = flick ? 'resolved_ok_flick' : 'resolved_ok_tap';
-        resolveLine = `hasGesture=1 key=${storedKey || '?'} dt=${dt.toFixed(0)} dx=${dx.toFixed(1)} dy=${dy.toFixed(1)} class=${cls} dir=${dir} applied=${applied} reason=${applyReason}`;
+        status = (cls === 'FLICK') ? 'resolved_ok_flick' : ((cls === 'DRAG') ? 'resolved_ok_drag' : 'resolved_ok_tap');
+        resolveLine = `hasGesture=1 key=${storedKey || '?'} dt=${dt.toFixed(0)} dx=${dx.toFixed(1)} dy=${dy.toFixed(1)} dist=${dist.toFixed(1)} class=${cls} dir=${dir} steps=${steps} dA=${dA} dS=${dS} ok=${(applied === 'ok') ? 1 : 0} cost=${(typeof cost === 'number') ? cost : 0} reason=${applyReason}`;
         _setResolveLine(resolveLine, status);
-        _ilog(`RESOLVE_OK: gsId=${gsId} dt=${dt.toFixed(0)} dx=${dx.toFixed(1)} dy=${dy.toFixed(1)} class=${cls} dir=${dir} applied=${applied} reason=${applyReason}`);
+        _ilog(`RESOLVE_OK: gsId=${gsId} dt=${dt.toFixed(0)} dx=${dx.toFixed(1)} dy=${dy.toFixed(1)} dist=${dist.toFixed(1)} class=${cls} dir=${dir} steps=${steps} dA=${dA} dS=${dS} ok=${(applied === 'ok') ? 1 : 0} cost=${(typeof cost === 'number') ? cost : 0} reason=${applyReason}`);
 
         // Always clear after an end/cancel resolve attempt.
         EC.INPUT.clearGesture('resolved_ok', { status: status, why: why || '' });
 
-        _ilog(`RESOLVE_RETURN: gsId=${gsId} status=${status} activeAfter=${gs.active ? 1 : 0} resolveLineSet=Y`);
+        _ilog(`RESOLVE_RETURN: cls=${cls} dir=${dir} steps=${steps} dA=${dA} dS=${dS} ok=${(applied === 'ok') ? 1 : 0} cost=${(typeof cost === 'number') ? cost : 0} reason=${applyReason} status=${status} activeAfter=${gs.active ? 1 : 0} resolveLineSet=Y`);
         return { status: status, resolveLine: resolveLine, resolveLineSet: true, activeAfter: (gs.active ? 1 : 0) };
 
       } catch (err) {
