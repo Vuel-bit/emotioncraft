@@ -75,33 +75,72 @@ function computeApplyPreview(i, A1In, S1In) {
   return { changed, cost, impulseCost, push, A0, S0, A1, S1 };
 }
 
-// Cost for the "zero pair" action (used by MOD.render on desktop).
-// Returns {cost: number}.
+// Cost for the "zero pair" action.
+// Canonical single source of truth used for display, gating, and deduction.
+// Returns { cost, i, j, baseCost1, pushCost1, baseCost2, pushCost2 } with cost in energy units.
 function computeZeroPairCost(i) {
   const SIM = EC.SIM;
   const T = EC.TUNE || {};
-  if (!SIM || !SIM.wellsA || !SIM.wellsS) return { cost: 0, j: _oppIndex(i) };
+  if (!SIM || !SIM.wellsA || !SIM.wellsS) return { cost: 0, i, j: _oppIndex(i) };
+
+  const A_MIN = (typeof T.A_MIN === 'number') ? T.A_MIN : 0;
+  const A_MAX = (typeof T.A_MAX === 'number') ? T.A_MAX : 100;
+  const S_MIN = (typeof T.S_MIN === 'number') ? T.S_MIN : -100;
+  const S_MAX = (typeof T.S_MAX === 'number') ? T.S_MAX : 100;
 
   const COST_NORM = (typeof T.COST_NORM === 'number' && T.COST_NORM !== 0) ? T.COST_NORM : 100;
-  const j = _oppIndex(i);
-  if (!(j >= 0 && j < 6) || !(i >= 0 && i < 6)) return { cost: 0, j };
+  const kPush = (typeof T.OPPOSITE_PUSH_K === 'number') ? T.OPPOSITE_PUSH_K : 0;
 
-  // Pair action: set spins of selected well and its opposite to 0 (amounts unchanged).
-  // Compute cost state-based (not UI target-based) so it stays valid with sliders removed.
-  const A0i = (SIM.wellsA[i] || 0);
-  const A0j = (SIM.wellsA[j] || 0);
+  const idx = (typeof i === 'number') ? i : (typeof SIM.selectedWellIndex === 'number' ? SIM.selectedWellIndex : -1);
+  const j = _oppIndex(idx);
+  if (!(idx >= 0 && idx < 6) || !(j >= 0 && j < 6)) return { cost: 0, i: idx, j };
 
-  const cI = computeApplyPreview(i, A0i, 0);
-  const cJ = computeApplyPreview(j, A0j, 0);
+  // Soft clamp used for scratch pushes (mirrors Apply behavior cost envelope).
+  const S_SOFT = (typeof T.S_SOFT_MAX === 'number')
+    ? T.S_SOFT_MAX
+    : (Math.max(Math.abs(S_MIN), Math.abs(S_MAX)) * (T.COST && typeof T.COST.S_SOFT_MULT === 'number' ? T.COST.S_SOFT_MULT : 3));
 
-  const costI = (cI && cI.changed) ? (cI.cost || 0) : 0;
-  const costJ = (cJ && cJ.changed) ? (cJ.cost || 0) : 0;
+  const Ai = (SIM.wellsA[idx] || 0);
+  const Aj = (SIM.wellsA[j] || 0);
+  const Si0 = (SIM.wellsS[idx] || 0);
+  const Sj0 = (SIM.wellsS[j] || 0);
 
-  const cost = costI + costJ;
+  // Step 1: selected well -> 0 (amount unchanged)
+  const A1i = _clamp(Ai, A_MIN, A_MAX);
+  const S1i = 0;
+  const impulseSim1 = _fluxSim(A1i, S1i) - _fluxSim(Ai, Si0);
+  const baseCost1 = Math.abs(_fluxCost(A1i, S1i, T) - _fluxCost(Ai, Si0, T)) / Math.max(1e-6, COST_NORM);
+  const push1 = -kPush * impulseSim1;
 
-  // Keep compatibility fields for debug display if anything reads them later.
-  const impulseCost = cost * COST_NORM;
-  return { cost, impulseCost, push: 0, j };
+  // Apply push1 to opposite in scratch (as normal Apply would)
+  let Sj1 = Sj0;
+  let pushCost1 = 0;
+  if (Aj > 0.001 && Math.abs(push1) > 1e-9) {
+    const fluxOld = Aj * Sj0;
+    const fluxNew = fluxOld + push1;
+    Sj1 = fluxNew / Aj;
+    Sj1 = Math.max(-S_SOFT, Math.min(S_SOFT, Sj1));
+    pushCost1 = Math.abs(_fluxCost(Aj, Sj1, T) - _fluxCost(Aj, Sj0, T)) / Math.max(1e-6, COST_NORM);
+  }
+
+  // Step 2: opposite well -> 0 (from scratch Sj1)
+  const impulseSim2 = _fluxSim(Aj, 0) - _fluxSim(Aj, Sj1);
+  const baseCost2 = Math.abs(_fluxCost(Aj, 0, T) - _fluxCost(Aj, Sj1, T)) / Math.max(1e-6, COST_NORM);
+  const push2 = -kPush * impulseSim2;
+
+  // Apply push2 back to selected in scratch (selected is at 0 after step 1)
+  let Si2 = 0;
+  let pushCost2 = 0;
+  if (Ai > 0.001 && Math.abs(push2) > 1e-9) {
+    const fluxOld = 0; // Ai * 0
+    const fluxNew = fluxOld + push2;
+    Si2 = fluxNew / Ai;
+    Si2 = Math.max(-S_SOFT, Math.min(S_SOFT, Si2));
+    pushCost2 = Math.abs(_fluxCost(Ai, Si2, T) - _fluxCost(Ai, 0, T)) / Math.max(1e-6, COST_NORM);
+  }
+
+  const total = (baseCost1 + pushCost1 + baseCost2 + pushCost2);
+  return { cost: total, i: idx, j, baseCost1, pushCost1, baseCost2, pushCost2 };
 }
 
   MOD.init = function init(ctxIn) {
@@ -183,55 +222,8 @@ function computeZeroPairCost(i) {
       return { cost, changed, impulseSim, impulseCost, push, A0, S0, A1, S1 };
     }
 
-    function computeZeroPairCost(i) {
-      const j = OPP[i];
-      if (i == null || i < 0 || j == null || j < 0) return { cost: 0, i, j };
 
-      const kPush = T.OPPOSITE_PUSH_K;
-      const S_SOFT = (typeof T.S_SOFT_MAX === 'number') ? T.S_SOFT_MAX : (Math.max(Math.abs(S_MIN), Math.abs(S_MAX)) * (T.COST && typeof T.COST.S_SOFT_MULT === 'number' ? T.COST.S_SOFT_MULT : 3));
-
-      const Ai = (SIM.wellsA[i] || 0);
-      const Aj = (SIM.wellsA[j] || 0);
-      const Si0 = (SIM.wellsS[i] || 0);
-      const Sj0 = (SIM.wellsS[j] || 0);
-
-      // Step 1: selected well -> 0 (amount unchanged)
-      const A1i = clamp(Ai, A_MIN, A_MAX);
-      const S1i = 0;
-      const impulseSim1 = fluxSim(A1i, S1i) - fluxSim(Ai, Si0);
-      const baseCost1 = Math.abs(fluxCost(A1i, S1i) - fluxCost(Ai, Si0)) / Math.max(1e-6, COST_NORM);
-      const push1 = -kPush * impulseSim1;
-
-      // Apply push1 to opposite in scratch (as normal Apply would)
-      let Sj1 = Sj0;
-      let pushCost1 = 0;
-      if (Aj > 0.001 && Math.abs(push1) > 1e-9) {
-        const fluxOld = Aj * Sj0;
-        const fluxNew = fluxOld + push1;
-        Sj1 = fluxNew / Aj;
-        Sj1 = Math.max(-S_SOFT, Math.min(S_SOFT, Sj1));
-        pushCost1 = Math.abs(fluxCost(Aj, Sj1) - fluxCost(Aj, Sj0)) / Math.max(1e-6, COST_NORM);
-      }
-
-      // Step 2: opposite well -> 0 (from scratch Sj1)
-      const impulseSim2 = fluxSim(Aj, 0) - fluxSim(Aj, Sj1);
-      const baseCost2 = Math.abs(fluxCost(Aj, 0) - fluxCost(Aj, Sj1)) / Math.max(1e-6, COST_NORM);
-      const push2 = -kPush * impulseSim2;
-
-      // Apply push2 back to selected in scratch (selected is at 0 after step 1)
-      let Si2 = 0;
-      let pushCost2 = 0;
-      if (Ai > 0.001 && Math.abs(push2) > 1e-9) {
-        const fluxOld = Ai * 0;
-        const fluxNew = fluxOld + push2;
-        Si2 = fluxNew / Ai;
-        Si2 = Math.max(-S_SOFT, Math.min(S_SOFT, Si2));
-        pushCost2 = Math.abs(fluxCost(Ai, Si2) - fluxCost(Ai, 0)) / Math.max(1e-6, COST_NORM);
-      }
-
-      const total = (baseCost1 + pushCost1 + baseCost2 + pushCost2);
-      return { cost: total, i, j, baseCost1, pushCost1, baseCost2, pushCost2 };
-    }
+    // computeZeroPairCost is canonical at module scope.
 
     function setTargetsFromSelection(i) {
       if (i == null || i < 0) return;
@@ -254,9 +246,9 @@ function computeZeroPairCost(i) {
     function applyPreviewToSim(i, prev) {
       const cost = prev.cost || 0;
       if (!prev.changed) return { ok: false, reason: 'nochange', cost };
-      if ((SIM.energy || 0) < cost) return { ok: false, reason: 'noenergy', cost };
+      if ((SIM.energy || 0) < pairCost) return { ok: false, reason: 'noenergy', cost };
 
-      SIM.energy = Math.max(0, (SIM.energy || 0) - cost);
+      SIM.energy = Math.max(0, (SIM.energy || 0) - pairCost);
 
       // Apply to selected well (absolute targets; clamped)
       SIM.wellsA[i] = prev.A1;
@@ -436,13 +428,14 @@ if (btnZeroPairEl) {
 
         // Immediate execute: atomic dual-spin-to-zero update.
         const c = computeZeroPairCost(sel);
-        const cost = c.cost || 0;
+        const pairCostRaw = c.cost || 0;
+        const pairCost = Math.ceil(pairCostRaw * 100) / 100; // round UP to cents so gating never exceeds display
 
         const changed = (Math.abs(SIM.wellsS[sel] || 0) > 1e-9) || (Math.abs(SIM.wellsS[j] || 0) > 1e-9);
         if (!changed) return;
-        if ((SIM.energy || 0) < cost) return;
+        if ((SIM.energy || 0) < pairCost) return;
 
-        SIM.energy = Math.max(0, (SIM.energy || 0) - cost);
+        SIM.energy = Math.max(0, (SIM.energy || 0) - pairCost);
         SIM.wellsS[sel] = 0;
         SIM.wellsS[j] = 0;
       });
@@ -513,8 +506,7 @@ if (btnZeroPairEl) {
     const btnSpinZeroEl2 = dom.btnSpinZeroEl || document.getElementById('btnSpinZero');
     const btnZeroPairEl2 = dom.btnZeroPairEl || document.getElementById('btnZeroPair');
     if (btnSpinZeroEl2) btnSpinZeroEl2.disabled = !hasSel;
-    if (btnZeroPairEl2) btnZeroPairEl2.disabled = !hasSel;
-
+    
     if (!hasSel) {
       const costSpinZeroEl2 = dom.costSpinZeroEl || document.getElementById('costSpinZero');
       const costZeroPairEl2 = dom.costZeroPairEl || document.getElementById('costZeroPair');
@@ -531,8 +523,12 @@ if (btnZeroPairEl) {
       const c2 = computeZeroPairCost(sel);
       const j = _oppIndex(sel);
       const changedPair = (j != null && j >= 0 && j < 6) && ((Math.abs(SIM.wellsS[sel] || 0) > 1e-9) || (Math.abs(SIM.wellsS[j] || 0) > 1e-9));
-      const cost2 = changedPair ? (c2.cost || 0) : 0;
-      if (costZeroPairEl2) costZeroPairEl2.textContent = `Cost ${cost2.toFixed(2)}`;
+      const pairCostRaw = changedPair ? (c2.cost || 0) : 0;
+      const pairCost = Math.ceil(pairCostRaw * 100) / 100; // round UP to cents so gating never exceeds display
+      if (costZeroPairEl2) costZeroPairEl2.textContent = `Cost ${pairCost.toFixed(2)}`;
+
+      // Gating must match displayed cost exactly.
+      if (btnZeroPairEl2) btnZeroPairEl2.disabled = !hasSel || !changedPair || ((SIM.energy || 0) < pairCost);
     }
   };
 
