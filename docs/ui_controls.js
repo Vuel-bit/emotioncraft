@@ -10,6 +10,108 @@
     return ctxIn || (EC.UI_STATE && EC.UI_STATE.mvpCtx) || {};
   }
 
+
+// ---------------------------------------------------------------------------
+// Module-scope helpers used by MOD.render().
+//
+// A prior UI pass scoped these helpers inside MOD.init(), but MOD.render() is
+// module-scoped and is called during desktop boot. Keep lightweight versions
+// here so desktop does not crash if render() runs before init-scoped symbols
+// exist.
+function _clamp(v, lo, hi) { return Math.max(lo, Math.min(hi, v)); }
+
+function _oppIndex(i) {
+  const opp = (EC.CONST && EC.CONST.OPP);
+  if (Array.isArray(opp) && opp.length >= 6 && typeof opp[i] === 'number') return opp[i];
+  // Fallback for 6 wells: opposite is +3 mod 6
+  return (i + 3) % 6;
+}
+
+function _fluxSim(A, S) { return A * S; }
+
+function _fluxCost(A, S, T) {
+  const costCfg = (T && T.COST) || {};
+  const sZeroAsOne = !!costCfg.S_ZERO_AS_ONE;
+  const spinCost = (Math.abs(S) < 1e-9 && sZeroAsOne) ? 1.0 : S;
+  return A * spinCost;
+}
+
+// Preview for a single well apply (used by MOD.render on desktop).
+// Mirrors the init-scoped helper to avoid behavior changes.
+function computeApplyPreview(i, A1In, S1In) {
+  const SIM = EC.SIM;
+  const UI = EC.UI || {};
+  const T = EC.TUNE || {};
+  if (!SIM || !SIM.wellsA || !SIM.wellsS) {
+    return { changed:false, cost:0, impulseCost:0, push:0, A0:0, S0:0, A1:0, S1:0 };
+  }
+
+  const A_MIN = (typeof T.A_MIN === 'number') ? T.A_MIN : 0;
+  const A_MAX = (typeof T.A_MAX === 'number') ? T.A_MAX : 100;
+  const S_MIN = (typeof T.S_MIN === 'number') ? T.S_MIN : -100;
+  const S_MAX = (typeof T.S_MAX === 'number') ? T.S_MAX : 100;
+  const COST_NORM = (typeof T.COST_NORM === 'number' && T.COST_NORM !== 0) ? T.COST_NORM : 100;
+  const kPush = (typeof T.OPPOSITE_PUSH_K === 'number') ? T.OPPOSITE_PUSH_K : 0;
+
+  const idx = (typeof i === 'number') ? i : (typeof SIM.selectedWellIndex === 'number' ? SIM.selectedWellIndex : -1);
+  if (idx < 0 || idx >= 6) {
+    return { changed:false, cost:0, impulseCost:0, push:0, A0:0, S0:0, A1:0, S1:0 };
+  }
+
+  const A0 = SIM.wellsA[idx];
+  const S0 = SIM.wellsS[idx];
+  const A1 = _clamp(A1In, A_MIN, A_MAX);
+  const S1 = _clamp(S1In, S_MIN, S_MAX);
+
+  const changed = (A1 !== A0) || (S1 !== S0);
+
+  const dFlux = _fluxCost(A1, S1, T) - _fluxCost(A0, S0, T);
+  const impulseCost = Math.abs(dFlux);
+  const cost = Math.abs(impulseCost) / COST_NORM;
+
+  const impulseSim = _fluxSim(A1, S1) - _fluxSim(A0, S0);
+  const push = impulseSim * kPush;
+
+  return { changed, cost, impulseCost, push, A0, S0, A1, S1 };
+}
+
+// Cost for the "zero pair" action (used by MOD.render on desktop).
+// Returns {cost: number}.
+function computeZeroPairCost(i) {
+  const SIM = EC.SIM;
+  const UI = EC.UI || {};
+  const T = EC.TUNE || {};
+  if (!SIM || !SIM.wellsA || !SIM.wellsS) return { cost: 0 };
+
+  const A_MIN = (typeof T.A_MIN === 'number') ? T.A_MIN : 0;
+  const A_MAX = (typeof T.A_MAX === 'number') ? T.A_MAX : 100;
+  const S_MIN = (typeof T.S_MIN === 'number') ? T.S_MIN : -100;
+  const S_MAX = (typeof T.S_MAX === 'number') ? T.S_MAX : 100;
+  const COST_NORM = (typeof T.COST_NORM === 'number' && T.COST_NORM !== 0) ? T.COST_NORM : 100;
+
+  const j = (typeof UI.zeroPairOpp === 'number') ? UI.zeroPairOpp : _oppIndex(i);
+
+  const A0i = SIM.wellsA[i], S0i = SIM.wellsS[i];
+  const A0j = SIM.wellsA[j], S0j = SIM.wellsS[j];
+
+  const A1i = _clamp(UI.targetA, A_MIN, A_MAX);
+  const S1i = _clamp(UI.targetS, S_MIN, S_MAX);
+  const A1j = _clamp(UI.targetA2, A_MIN, A_MAX);
+  const S1j = _clamp(UI.targetS2, S_MIN, S_MAX);
+
+  const dFluxi = _fluxCost(A1i, S1i, T) - _fluxCost(A0i, S0i, T);
+  const dFluxj = _fluxCost(A1j, S1j, T) - _fluxCost(A0j, S0j, T);
+
+  const impulseCost = Math.abs(dFluxi) + Math.abs(dFluxj);
+  const cost = Math.abs(impulseCost) / COST_NORM;
+
+  // Include fields for possible debug display (keeps compatibility)
+  const impulseSim = (_fluxSim(A1i, S1i) - _fluxSim(A0i, S0i)) + (_fluxSim(A1j, S1j) - _fluxSim(A0j, S0j));
+  const push = (typeof T.OPPOSITE_PUSH_K === 'number' ? T.OPPOSITE_PUSH_K : 0) * impulseSim;
+
+  return { cost, impulseCost, push, j };
+}
+
   MOD.init = function init(ctxIn) {
     const ctx = _getCtx(ctxIn);
     const SIM = ctx.SIM || EC.SIM;
@@ -34,6 +136,10 @@
     const btnApplyEl = dom.btnApplyEl || document.getElementById('btnApply');
     const btnSpinZeroEl = dom.btnSpinZeroEl || document.getElementById('btnSpinZero');
     const btnZeroPairEl = dom.btnZeroPairEl || document.getElementById('btnZeroPair');
+    const costSpinZeroEl = dom.costSpinZeroEl || document.getElementById('costSpinZero');
+    const costZeroPairEl = dom.costZeroPairEl || document.getElementById('costZeroPair');
+    const energyHudEl = dom.energyHudEl || document.getElementById('energyHud');
+
 
     // Persistent caches (hardening)
     UI.targetA = (typeof UI.targetA === 'number') ? UI.targetA : 0;
@@ -225,7 +331,7 @@
       const prev = (() => {
         if (i < 0) return { cost: 0, changed: false, push: 0, A0: 0, S0: 0, A1: 0, S1: 0, zeroPair: false, j: -1 };
         if (UI.zeroPairArmed) {
-          const j = (typeof UI.zeroPairOpp === 'number') ? UI.zeroPairOpp : OPP[i];
+          const j = (typeof UI.zeroPairOpp === 'number') ? UI.zeroPairOpp : _oppIndex(i);
           const c = computeZeroPairCost(i);
           const cost = c.cost || 0;
           return { cost, changed: true, push: 0, A0: SIM.wellsA[i]||0, S0: SIM.wellsS[i]||0, A1: SIM.wellsA[i]||0, S1: 0, zeroPair: true, j };
@@ -307,105 +413,43 @@
 
     if (btnSpinZeroEl) {
       btnSpinZeroEl.addEventListener('click', () => {
-        UI.zeroPairArmed = false;
-        UI.zeroPairOpp = -1;
-
         const i = (typeof SIM.selectedWellIndex === 'number') ? SIM.selectedWellIndex : -1;
-        if (i < 0) { toast('Select a Well first.'); return; }
-        UI.targetS = 0;
-        if (deltaSEl) deltaSEl.value = String(UI.targetS);
-        syncDeltaLabels();
+        if (i < 0) return;
+
+        // Immediate execute: set selected well spin to 0 via the same preview/apply path as swipes.
+        const S0 = (SIM.wellsS[i] || 0);
+        const dS = (0 - S0);
+        const res = MOD.flickStep(i, 0, dS);
+
+        // Keep UI tidy; costs will refresh on next render.
+        if (!res || !res.ok) {
+          // no toast spam; debug overlay will show apply reason if needed
+        }
       });
     }
-
-    if (btnZeroPairEl) {
+if (btnZeroPairEl) {
       btnZeroPairEl.addEventListener('click', () => {
         const i = (typeof SIM.selectedWellIndex === 'number') ? SIM.selectedWellIndex : -1;
-        if (i < 0) { toast('Select a Well first.'); return; }
+        if (i < 0) return;
         const j = OPP[i];
-        if (j == null || j < 0 || j >= 6) { toast('No opposite Well found.'); return; }
+        if (j == null || j < 0 || j >= 6) return;
 
-        // QoL: set targets only. Apply executes atomically.
-        UI.zeroPairArmed = true;
-        UI.zeroPairOpp = j;
-
-        UI.targetS = 0;
-        if (deltaSEl) deltaSEl.value = String(UI.targetS);
-
-        syncDeltaLabels();
-        toast('Zero Pair set (targets only).');
-      });
-    }
-
-    if (btnApplyEl) {
-      btnApplyEl.addEventListener('click', () => {
-        const i = (typeof SIM.selectedWellIndex === 'number') ? SIM.selectedWellIndex : -1;
-        if (i < 0) { toast('Select a Well first.'); return; }
-
-        // If Zero Pair is armed, Apply performs an atomic dual-spin-to-zero update (no ping-pong).
-        if (UI.zeroPairArmed) {
-          const j = (typeof UI.zeroPairOpp === 'number') ? UI.zeroPairOpp : OPP[i];
-          if (j == null || j < 0 || j >= 6) { toast('No opposite Well found.'); return; }
-
-          const c = computeZeroPairCost(i);
-          const cost = c.cost || 0;
-          const changed = (Math.abs(SIM.wellsS[i] || 0) > 1e-9) || (Math.abs(SIM.wellsS[j] || 0) > 1e-9);
-          if (!changed) { toast('No change to apply.'); UI.zeroPairArmed = false; UI.zeroPairOpp = -1; return; }
-          if ((SIM.energy || 0) < cost) { toast('Not enough Energy.'); return; }
-
-          SIM.energy = Math.max(0, (SIM.energy || 0) - cost);
-          SIM.wellsS[i] = 0;
-          SIM.wellsS[j] = 0;
-
-          // Clear arm; keep selection and keep selected slider aligned.
-          UI.zeroPairArmed = false;
-          UI.zeroPairOpp = -1;
-          UI.targetS = 0;
-          if (deltaSEl) deltaSEl.value = String(UI.targetS);
-          syncDeltaLabels();
-          toast(`Zero Pair applied (Cost ${cost.toFixed(2)})`);
-          return;
-        }
-
-        const prev = computeApplyPreview(i, UI.targetA, UI.targetS);
-        const cost = prev.cost || 0;
-        if (!prev.changed) { toast('No change to apply.'); return; }
-        if ((SIM.energy || 0) < cost) { toast('Not enough Energy.'); return; }
+        // Immediate execute: atomic dual-spin-to-zero update (same behavior as prior Zero Pair Apply).
+        const c = computeZeroPairCost(i);
+        const cost = c.cost || 0;
+        const changed = (Math.abs(SIM.wellsS[i] || 0) > 1e-9) || (Math.abs(SIM.wellsS[j] || 0) > 1e-9);
+        if (!changed) return;
+        if ((SIM.energy || 0) < cost) return;
 
         SIM.energy = Math.max(0, (SIM.energy || 0) - cost);
-
-        // Apply to selected well (absolute targets; clamped)
-        SIM.wellsA[i] = prev.A1;
-        SIM.wellsS[i] = prev.S1;
-
-        // One-time opposite push (spin only; amount unchanged)
-        const push = prev.push || 0;
-        const j = OPP[i];
-        if (j != null && j >= 0 && j < 6 && Math.abs(push) > 1e-9) {
-          const Aj = (SIM.wellsA[j] || 0);
-          if (Aj > 0.001) {
-            const Sj0 = (SIM.wellsS[j] || 0);
-            const fluxOppOld = Aj * Sj0;
-            const fluxOppNew = fluxOppOld + push;
-            let Sj1 = fluxOppNew / Aj;
-            // IMPORTANT: do not clamp to [-100,+100] here; allow temporary overflow so spillover can transfer it.
-            const S_SOFT = (typeof T.S_SOFT_MAX === 'number') ? T.S_SOFT_MAX : (Math.max(Math.abs(S_MIN), Math.abs(S_MAX)) * (T.COST && typeof T.COST.S_SOFT_MULT === 'number' ? T.COST.S_SOFT_MULT : 3));
-            Sj1 = Math.max(-S_SOFT, Math.min(S_SOFT, Sj1));
-            SIM.wellsS[j] = Sj1;
-          }
-        }
-
-        // Keep selection; sliders stay on the new values
-        UI.targetA = prev.A1;
-        UI.targetS = prev.S1;
-        if (deltaAEl) deltaAEl.value = String(UI.targetA);
-        if (deltaSEl) deltaSEl.value = String(UI.targetS);
-
-        syncDeltaLabels();
+        SIM.wellsS[i] = 0;
+        SIM.wellsS[j] = 0;
       });
     }
 
-    // Initial sync on init
+    // Apply button removed in mobile-first controls.
+
+// Initial sync on init
     const _initSel = (typeof SIM.selectedWellIndex === 'number') ? SIM.selectedWellIndex : -1;
     if (_initSel >= 0) setTargetsFromSelection(_initSel);
     syncDeltaLabels();
@@ -449,6 +493,41 @@
 
     // Keep apply validity fresh
     if (typeof MOD._syncDeltaLabels === 'function') MOD._syncDeltaLabels();
+
+    // Mobile-first controls: live energy HUD + inline costs for immediate buttons.
+    const E_CAP2 = (typeof T.ENERGY_CAP === 'number') ? T.ENERGY_CAP : ((typeof T.E_MAX === 'number') ? T.E_MAX : 200);
+    const energyHudEl2 = dom.energyHudEl || document.getElementById('energyHud');
+    if (energyHudEl2) {
+      energyHudEl2.textContent = `⚡ ${(SIM.energy || 0).toFixed(0)}/${E_CAP2}`;
+    }
+
+    const sel = (typeof SIM.selectedWellIndex === 'number') ? SIM.selectedWellIndex : -1;
+    const hasSel = (sel >= 0 && sel < 6);
+
+    const btnSpinZeroEl2 = dom.btnSpinZeroEl || document.getElementById('btnSpinZero');
+    const btnZeroPairEl2 = dom.btnZeroPairEl || document.getElementById('btnZeroPair');
+    if (btnSpinZeroEl2) btnSpinZeroEl2.disabled = !hasSel;
+    if (btnZeroPairEl2) btnZeroPairEl2.disabled = !hasSel;
+
+    if (!hasSel) {
+      const costSpinZeroEl2 = dom.costSpinZeroEl || document.getElementById('costSpinZero');
+      const costZeroPairEl2 = dom.costZeroPairEl || document.getElementById('costZeroPair');
+      if (costSpinZeroEl2) costSpinZeroEl2.textContent = '—';
+      if (costZeroPairEl2) costZeroPairEl2.textContent = '—';
+    } else {
+      const A0 = (SIM.wellsA[sel] || 0);
+      const c1 = computeApplyPreview(sel, A0, 0);
+      const cost1 = (c1 && c1.changed) ? (c1.cost || 0) : 0;
+      const costSpinZeroEl2 = dom.costSpinZeroEl || document.getElementById('costSpinZero');
+      const costZeroPairEl2 = dom.costZeroPairEl || document.getElementById('costZeroPair');
+      if (costSpinZeroEl2) costSpinZeroEl2.textContent = `Cost ${cost1.toFixed(2)}`;
+
+      const c2 = computeZeroPairCost(sel);
+      const j = _oppIndex(sel);
+      const changedPair = (j != null && j >= 0 && j < 6) && ((Math.abs(SIM.wellsS[sel] || 0) > 1e-9) || (Math.abs(SIM.wellsS[j] || 0) > 1e-9));
+      const cost2 = changedPair ? (c2.cost || 0) : 0;
+      if (costZeroPairEl2) costZeroPairEl2.textContent = `Cost ${cost2.toFixed(2)}`;
+    }
   };
 
   MOD.onResize = function onResize() {

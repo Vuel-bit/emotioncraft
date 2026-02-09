@@ -463,7 +463,36 @@
             dA = (dy <= 0) ? stepAmt : -stepAmt;
           }
 
-          try { if (EC.SIM) EC.SIM.selectedWellIndex = w; } catch (e) {}
+          
+
+          // Long-press + drag: snap to extreme ("max out") on the affected stat.
+          // This is input interpretation only; apply still routes through the same flickStep() path.
+          if (hold && cls === 'DRAG') {
+            const A0c = (EC.SIM && EC.SIM.wellsA) ? (EC.SIM.wellsA[w] || 0) : 0;
+            const S0c = (EC.SIM && EC.SIM.wellsS) ? (EC.SIM.wellsS[w] || 0) : 0;
+
+            if (dir === 'RIGHT') {
+              const tgt = 100;
+              dS = (tgt - S0c);
+              dA = 0;
+            } else if (dir === 'LEFT') {
+              const tgt = -100;
+              dS = (tgt - S0c);
+              dA = 0;
+            } else if (dir === 'UP') {
+              const tgt = 100;
+              dA = (tgt - A0c);
+              dS = 0;
+            } else if (dir === 'DOWN') {
+              const tgt = 25;
+              dA = (tgt - A0c);
+              dS = 0;
+            }
+
+            // Update steps for debug readability (how many 5-units worth of change).
+            steps = _clampI(Math.max(1, Math.round(Math.abs((Math.abs(dA) > 0) ? dA : dS) / STEP_UNIT)), 1, DRAG_MAX_STEPS);
+          }
+try { if (EC.SIM) EC.SIM.selectedWellIndex = w; } catch (e) {}
 
           cost = 0;
           if (EC.UI_CONTROLS && typeof EC.UI_CONTROLS.flickStep === 'function') {
