@@ -538,6 +538,19 @@
     gap:10px;
     pointer-events:auto;
   }
+  #objectiveSummary{
+    max-width: 56vw;
+    text-align: right;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  #costSpinZero, #costZeroPair{
+    display: inline-block;
+    min-width: 78px;
+    text-align: left;
+  }
+
   .drawerLeft{ min-width: 220px; flex: 1 1 auto; }
   .drawerRight{ display:flex; flex-direction:column; align-items:flex-end; gap:6px; flex: 0 0 auto; }
   .pill.big{ font-weight: 700; letter-spacing: 0.2px; }
@@ -566,15 +579,15 @@
   /* This pass: bottom controls compression (reclaim board space). */
   .drawer{ padding: 8px 10px; border-radius: 16px; }
   .drawerTop{ gap: 8px; margin-bottom: 6px; }
-  .drawerTitleRow, #drawerSub, #objectiveSummary, #selectedWellPill, #previewPill{ display:none !important; }
+  .drawerTitleRow, #drawerSub, #selectedWellPill, #previewPill{ display:none !important; }
   .drawerRight{ gap: 6px; }
   #energyCostPill{ font-size: 12px; padding: 6px 10px; }
   .pill{ padding: 6px 10px; }
   .ctrl{ margin-top: 6px; padding: 8px; }
   .ctrlRow{ gap: 8px; }
   .ctrlRow label{ gap: 6px; }
-  .energyHud{ position: fixed; left: 12px; bottom: 92px; z-index: 25; font-size: 13px; padding: 6px 10px; border-radius: 999px; background: rgba(18,22,35,0.70); border: 1px solid rgba(255,255,255,0.10); color: rgba(232,238,252,0.92); font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; }
-  @media (max-width: 720px){ .energyHud{ bottom: 96px; } }
+  .energyHud{ position: fixed; left: 12px; bottom: 142px; z-index: 25; font-size: 13px; padding: 6px 10px; border-radius: 999px; background: rgba(18,22,35,0.70); border: 1px solid rgba(255,255,255,0.10); color: rgba(232,238,252,0.92); font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; }
+  @media (max-width: 720px){ .energyHud{ bottom: 146px; }  #objectiveSummary{ max-width: 46vw; } }
 
 </style>
 </head>
@@ -631,6 +644,7 @@
 <div class="drawer" id="drawer">
     <div class="drawerTop" style="margin-bottom:6px;">
       <div class="sub" id="goalLine">Goal: —</div>
+      <div class="sub" id="objectiveSummary">—</div>
     </div>
     <div class="ctrl" id="ctrlPanel">
       <div class="ctrlRow" id="ctrlRow">

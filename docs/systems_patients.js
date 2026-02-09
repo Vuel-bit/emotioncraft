@@ -1,8 +1,8 @@
 /* Emotioncraft — Patient Lobby (v0)
    Hardcoded patients with trait-based start randomization, treatment templates,
-   and fixed dispositions.
+   and fixed quirks.
 
-   Dispositions affect wells only; psyche changes via existing drive.
+   Quirks affect wells only; psyche changes via existing drive.
 
    Exposes: EC.PAT = { list(), get(id), start(id), backToLobby() }
 
@@ -21,6 +21,27 @@
     Erratic:   { aMin: 30, aMax: 70, sMin: -30, sMax: 30,  pMin: 100, pMax: 250 },
     Depressed: { aMin: 30, aMax: 50, sMin: -30, sMax: 10,  pMin: 50,  pMax: 100 },
   };
+
+  function quirkTypeName(t) {
+    const s = String(t || '').toUpperCase();
+    if (s === 'AMPED') return 'Amped';
+    if (s === 'LOCKS_IN') return 'Locks In';
+    if (s === 'CRASHES') return 'Crashes';
+    if (s === 'SPIRALS') return 'Spirals';
+    // Legacy
+    if (s === 'TENDENCY') return 'Amped';
+    if (s === 'DAMPING') return 'Spirals';
+    if (s === 'AFFINITY') return 'Locks In';
+    if (s === 'AVERSION') return 'Crashes';
+    return s;
+  }
+
+  function quirkIntensityLabel(tier) {
+    const n = Math.max(0, Math.min(2, Math.round(Number(tier || 0))));
+    if (n === 2) return 'Intense';
+    if (n === 1) return 'Noticeable';
+    return 'Low-Key';
+  }
 
   // Build a level def for a patient session (does not enter global EC.LEVELS list).
   function buildPatientLevelDef(patient) {
@@ -43,6 +64,7 @@
         hueIndex:  d.hueIndex,
         type:      d.type,
         strength:  (typeof d.strength === "number") ? d.strength : ((T.DISP_DEFAULT_STRENGTH != null) ? T.DISP_DEFAULT_STRENGTH : 4),
+        intensityTier: (typeof d.intensityTier === "number") ? d.intensityTier : 0,
       })) : [],
     };
 
@@ -102,7 +124,7 @@
       treatment: 'Weekly',
       focusHues: [2, 4], // Chill + Focus (coder-chosen)
       dispositions: [
-        { type: 'TENDENCY', hueIndex: 2, startTime: 10 },
+        { type: 'AMPED', hueIndex: 2, startTime: 10 , intensityTier: 0},
       ],
     },
     {
@@ -112,7 +134,7 @@
       treatment: 'Zen',
       focusHues: [0, 3],
       dispositions: [
-        { type: 'DAMPING', hueIndex: 2, startTime: 10 },
+        { type: 'SPIRALS', hueIndex: 2, startTime: 10 , intensityTier: 1},
       ],
     },
     {
@@ -122,7 +144,7 @@
       treatment: 'Weekly',
       focusHues: [0, 5], // Grit + Pep
       dispositions: [
-        { type: 'AFFINITY', hueIndex: 2, startTime: 10 },
+        { type: 'LOCKS_IN', hueIndex: 2, startTime: 10 , intensityTier: 0},
       ],
     },
     {
@@ -132,7 +154,7 @@
       treatment: 'Weekly',
       focusHues: [2, 3], // Chill + Nerves
       dispositions: [
-        { type: 'AVERSION', hueIndex: 2, startTime: 10 },
+        { type: 'CRASHES', hueIndex: 2, startTime: 10 , intensityTier: 1},
       ],
     },
     {
@@ -142,9 +164,9 @@
       treatment: 'Weekly',
       focusHues: [1, 2], // Ego + Chill
       dispositions: [
-        { type: 'TENDENCY', hueIndex: 2, startTime: 10 },
-        { type: 'AFFINITY', hueIndex: 2, startTime: 25 },
-        { type: 'DAMPING', hueIndex: 2, startTime: 40 },
+        { type: 'AMPED', hueIndex: 2, startTime: 10 , intensityTier: 2},
+        { type: 'LOCKS_IN', hueIndex: 2, startTime: 25 , intensityTier: 1},
+        { type: 'SPIRALS', hueIndex: 2, startTime: 40 , intensityTier: 2},
       ],
     },
   ];
@@ -160,6 +182,8 @@
       trait: p.trait,
       treatment: p.treatment,
       dispositionCount: Array.isArray(p.dispositions) ? p.dispositions.length : 0,
+      quirkSummary: Array.isArray(p.dispositions) ? p.dispositions.map((d)=>quirkTypeName(d.type)).join(', ') : '',
+      quirkLineTexts: Array.isArray(p.dispositions) ? p.dispositions.map((d)=>`${quirkTypeName(d.type)}: ${quirkIntensityLabel(d.intensityTier)}`) : [],
     }));
   }
 

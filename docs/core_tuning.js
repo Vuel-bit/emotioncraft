@@ -141,6 +141,13 @@
     DISP_TELEGRAPH_SEC: 10,
     DISP_DEFAULT_STRENGTH: 3.0,
 
+    // Quirk intensity scaling (tier steps: Low-Key→Noticeable→Intense)
+    // Combined per-step impact ≈ 2× via (freq×dur×strength)
+    DISP_TIER_FREQ_STEP: 1.30,
+    DISP_TIER_DUR_STEP: 1.30,
+    DISP_TIER_STR_STEP: 1.18,
+
+
     // Random disposition timing (patient sessions)
     // Each disposition slot is an independent event source.
     DISP_MEAN_INTERVAL_SEC_PER_SLOT: 120,

@@ -1,9 +1,9 @@
-/* systems_dispositions.js — Dispositions (random-ready)
+/* systems_dispositions.js — Quirks (random-ready)
    - Owns EC.DISP (initLevel/update/getHudState/cancelAll)
    - Applies well-only drift during telegraphed waves
    - No direct psyche modification (psyche changes only via existing well→psyche drive)
 
-   Disposition types (player-facing):
+   Quirk types (player-facing):
      AFFINITY  = Amount ↑
      AVERSION  = Amount ↓
      TENDENCY  = Spin ↑  (always pushes upward)
@@ -16,7 +16,7 @@
    Notes:
    - Wave shape is smooth 0→1→0 over duration (sin(pi*phase))
    - Spin-type dispositions are scaled by Amount shield: rate *= (A/100)
-   - Dispositions must NOT clamp stored sim values (overshoot enables spillover)
+   - Quirks must NOT clamp stored sim values (overshoot enables spillover)
 */
 (() => {
   const EC = (window.EC = window.EC || {});
@@ -27,10 +27,18 @@
   });
 
   const TYPES = {
-    AFFINITY: 'AFFINITY',
-    AVERSION: 'AVERSION',
-    TENDENCY: 'TENDENCY',
-    DAMPING: 'DAMPING'
+    AMPED: 'AMPED',
+    LOCKS_IN: 'LOCKS_IN',
+    CRASHES: 'CRASHES',
+    SPIRALS: 'SPIRALS'
+  };
+
+  // Back-compat: accept older type names in level defs/patient pools.
+  const LEGACY_TYPE_MAP = {
+    AFFINITY: TYPES.LOCKS_IN,
+    AVERSION: TYPES.CRASHES,
+    TENDENCY: TYPES.AMPED,
+    DAMPING: TYPES.SPIRALS,
   };
 
   function clamp01(x) { return Math.max(0, Math.min(1, x)); }
@@ -47,20 +55,33 @@
   }
 
   function dirText(type) {
-    if (type === TYPES.AFFINITY) return 'Amount ↑';
-    if (type === TYPES.AVERSION) return 'Amount ↓';
-    if (type === TYPES.TENDENCY) return 'Spin ↑';
-    if (type === TYPES.DAMPING) return 'Spin ↓';
+    if (type === TYPES.LOCKS_IN) return 'Amount ↑';
+    if (type === TYPES.CRASHES) return 'Amount ↓';
+    if (type === TYPES.AMPED) return 'Spin → +100';
+    if (type === TYPES.SPIRALS) return 'Spin → -100';
     return '';
+  }
+
+  function typeDisplayName(type) {
+    if (type === TYPES.AMPED) return 'Amped';
+    if (type === TYPES.LOCKS_IN) return 'Locks In';
+    if (type === TYPES.CRASHES) return 'Crashes';
+    if (type === TYPES.SPIRALS) return 'Spirals';
+    // Legacy fallbacks
+    if (type === 'TENDENCY') return 'Amped';
+    if (type === 'DAMPING') return 'Spirals';
+    if (type === 'AFFINITY') return 'Locks In';
+    if (type === 'AVERSION') return 'Crashes';
+    return String(type || '');
   }
 
   function intensityLabel(x01) {
     const T = EC.TUNE || {};
     const hi = (typeof T.DISP_INTENSITY_HIGH_TH === 'number') ? T.DISP_INTENSITY_HIGH_TH : 0.66;
     const med = (typeof T.DISP_INTENSITY_MED_TH === 'number') ? T.DISP_INTENSITY_MED_TH : 0.33;
-    if (x01 >= hi) return 'High';
-    if (x01 >= med) return 'Med';
-    return 'Low';
+    if (x01 >= hi) return 'Intense';
+    if (x01 >= med) return 'Noticeable';
+    return 'Low-Key';
   }
 
   function ringParamsForType(type) {
@@ -75,10 +96,10 @@
     // Affinity: start bottom, CCW
     // Aversion: start top, CCW
     // Damping: start top, CW
-    if (type === TYPES.TENDENCY) return { startAngleRad: BOTTOM, dirSign: +1 };
-    if (type === TYPES.AFFINITY) return { startAngleRad: BOTTOM, dirSign: -1 };
-    if (type === TYPES.AVERSION) return { startAngleRad: TOP, dirSign: -1 };
-    if (type === TYPES.DAMPING) return { startAngleRad: TOP, dirSign: +1 };
+    if (type === TYPES.AMPED) return { startAngleRad: BOTTOM, dirSign: +1 };
+    if (type === TYPES.LOCKS_IN) return { startAngleRad: BOTTOM, dirSign: -1 };
+    if (type === TYPES.CRASHES) return { startAngleRad: TOP, dirSign: -1 };
+    if (type === TYPES.SPIRALS) return { startAngleRad: TOP, dirSign: +1 };
     return { startAngleRad: BOTTOM, dirSign: +1 };
   }
 
@@ -362,13 +383,41 @@
 
   function normWave(w, withStartTime) {
     const T = EC.TUNE || {};
-    const dur = (typeof w.duration === 'number') ? w.duration : ((typeof T.DISP_DEFAULT_DURATION === 'number') ? T.DISP_DEFAULT_DURATION : 30);
-    const type = String(w.type || TYPES.TENDENCY).toUpperCase();
+
+    const baseDur = (typeof w.duration === 'number') ? w.duration
+      : ((typeof T.DISP_DEFAULT_DURATION === 'number') ? T.DISP_DEFAULT_DURATION : 30);
+
+    // Type normalization + legacy mapping
+    const rawType = String(w.type || TYPES.AMPED).toUpperCase();
+    const mapped = TYPES[rawType] ? TYPES[rawType] : (LEGACY_TYPE_MAP[rawType] || TYPES.AMPED);
+
+    // Intensity tier (0=Low-Key, 1=Noticeable, 2=Intense)
+    let tier = 0;
+    if (typeof w.intensityTier === 'number') tier = Math.round(w.intensityTier);
+    else if (typeof w.intensity === 'number') tier = Math.round(w.intensity);
+    else if (typeof w.tier === 'number') tier = Math.round(w.tier);
+    tier = Math.max(0, Math.min(2, tier));
+
+    const freqStep = (typeof T.DISP_TIER_FREQ_STEP === 'number') ? T.DISP_TIER_FREQ_STEP : 1.30;
+    const durStep  = (typeof T.DISP_TIER_DUR_STEP === 'number') ? T.DISP_TIER_DUR_STEP : 1.30;
+    const strStep  = (typeof T.DISP_TIER_STR_STEP === 'number') ? T.DISP_TIER_STR_STEP : 1.18;
+
+    const durMult = Math.pow(durStep, tier);
+    const strMult = Math.pow(strStep, tier);
+    const freqMult = Math.pow(freqStep, tier);
+
+    const baseStrength = (typeof w.strength === 'number') ? w.strength
+      : ((typeof T.DISP_DEFAULT_STRENGTH === 'number') ? T.DISP_DEFAULT_STRENGTH : 3.0);
+
     const o = {
-      duration: Math.max(0.1, Number(dur || 30)),
+      duration: Math.max(0.1, Number(baseDur || 30)) * durMult,
       hueIndex: Math.max(0, Math.min(5, Number(w.hueIndex || 0))),
-      type: (TYPES[type] ? TYPES[type] : TYPES.TENDENCY),
-      strength: (typeof w.strength === 'number') ? w.strength : ((typeof T.DISP_DEFAULT_STRENGTH === 'number') ? T.DISP_DEFAULT_STRENGTH : 3.0)
+      type: mapped,
+      strength: Number(baseStrength || 0) * strMult,
+
+      // Keep tier for display + scheduler scaling
+      intensityTier: tier,
+      _freqMult: freqMult,
     };
     if (withStartTime) o.startTime = Math.max(0, Number(w.startTime || 0));
     return o;
@@ -431,7 +480,7 @@
 
   function rescheduleSlot(i, nowT) {
     if (!_slots[i]) return;
-    _slots[i].nextT = nowT + sampleExp(meanPerSlot());
+    _slots[i].nextT = nowT + sampleExp(meanPerSlot() / ( (_slots[i].tpl && _slots[i].tpl._freqMult) ? _slots[i].tpl._freqMult : 1 ));
   }
 
   function enqueuePending(evt) {
@@ -465,7 +514,7 @@
     if (!_pool || _pool.length === 0) return;
     const m = meanPerSlot();
     for (let i = 0; i < _pool.length; i++) {
-      _slots.push({ tpl: _pool[i], nextT: nowT + sampleExp(m), announced: false });
+      _slots.push({ tpl: _pool[i], nextT: nowT + sampleExp(m / ((_pool[i] && _pool[i]._freqMult) ? _pool[i]._freqMult : 1)), announced: false });
     }
   }
 
@@ -521,16 +570,24 @@
     const A_ref = Math.max(A_MIN, Math.min(A_MAX, A_raw));
     const S_ref = Math.max(S_MIN, Math.min(S_MAX, S_raw));
 
-    if (w.type === TYPES.AFFINITY) {
+    if (w.type === TYPES.LOCKS_IN) {
       SIM.wellsA[hi] = A_raw + rateRaw * dt;
-    } else if (w.type === TYPES.AVERSION) {
+    } else if (w.type === TYPES.CRASHES) {
       SIM.wellsA[hi] = A_raw - rateRaw * dt;
-    } else if (w.type === TYPES.TENDENCY) {
+    } else if (w.type === TYPES.AMPED) {
+      // Push toward +100 specifically (no clamping; overshoot allowed by design).
       const rateSpin = rateRaw * (A_ref / 100);
-      SIM.wellsS[hi] = S_raw + rateSpin * dt;
-    } else if (w.type === TYPES.DAMPING) {
+      const target = S_MAX;
+      const delta = target - S_raw;
+      const deltaNorm = Math.max(-1, Math.min(1, delta / 100));
+      SIM.wellsS[hi] = S_raw + rateSpin * deltaNorm * dt;
+    } else if (w.type === TYPES.SPIRALS) {
+      // Push toward -100 specifically.
       const rateSpin = rateRaw * (A_ref / 100);
-      SIM.wellsS[hi] = S_raw - rateSpin * dt;
+      const target = S_MIN;
+      const delta = target - S_raw;
+      const deltaNorm = Math.max(-1, Math.min(1, delta / 100));
+      SIM.wellsS[hi] = S_raw + rateSpin * deltaNorm * dt;
     }
 
     // S_ref is unused, but keeping read consistent for future debug.
@@ -709,10 +766,10 @@
 
       // 5) HUD summaries
       if (teleLines.length) {
-        teleText = `Incoming Disposition${teleLines.length > 1 ? 's' : ''}: ` + teleLines.slice(0, 2).join(' | ') + (teleLines.length > 2 ? ' ...' : '');
+        teleText = `Incoming Quirk${teleLines.length > 1 ? 's' : ''}: ` + teleLines.slice(0, 2).join(' | ') + (teleLines.length > 2 ? ' ...' : '');
       }
       if (activeLines.length) {
-        activeText = `Disposition${activeLines.length > 1 ? 's' : ''} Active: ` + activeLines.slice(0, 2).join(' | ') + (activeLines.length > 2 ? ' ...' : '');
+        activeText = `Quirk${activeLines.length > 1 ? 's' : ''} Active: ` + activeLines.slice(0, 2).join(' | ') + (activeLines.length > 2 ? ' ...' : '');
       }
 
       // Debug-only: events/min over last 180s, plus slot count
@@ -771,7 +828,7 @@
       const t1 = w.startTime + w.duration;
 
       if (_t >= (t0 - tele) && _t < t0) {
-        teleText = `Incoming Disposition: ${w.type} — ${hueName(w.hueIndex)} (${dirText(w.type)})`;
+        teleText = `Incoming Quirk: ${typeDisplayName(w.type)} — ${hueName(w.hueIndex)} (${dirText(w.type)})`;
         const rp = ringParamsForType(w.type);
         _renderList.push({
           phase: 'telegraph',
@@ -789,7 +846,7 @@
         const phase = (_t - t0) / dur;
         const sh = shape01(phase);
         applyWaveToWell(SIM, w, dt, sh);
-        activeText = `Disposition Active: ${w.type} — ${hueName(w.hueIndex)} (${intensityLabel(sh)})`;
+        activeText = `Quirk Active: ${typeDisplayName(w.type)} — ${hueName(w.hueIndex)} (${intensityLabel(sh)})`;
         const rp = ringParamsForType(w.type);
         _renderList.push({
           phase: 'active',

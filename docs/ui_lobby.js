@@ -42,7 +42,7 @@
       right.className = 'patientBadges';
       const pill1 = document.createElement('div');
       pill1.className = 'pill';
-      pill1.textContent = `Dispositions: ${p.dispositionCount}`;
+      pill1.textContent = `Quirks: ${p.dispositionCount}`;
       right.appendChild(pill1);
 
       row.appendChild(left);
@@ -55,7 +55,7 @@
         rows.forEach((r) => r.classList.remove('selected'));
         row.classList.add('selected');
         if (els.startBtn) els.startBtn.disabled = false;
-        if (els.hint) els.hint.textContent = `Selected: ${p.name}`;
+        if (els.hint) els.hint.innerHTML = `Selected: ${p.name}<br>Quirks: ${p.quirkSummary || '—'}${(p.quirkLineTexts && p.quirkLineTexts.length) ? '<br>' + p.quirkLineTexts.join('<br>') : ''}`;
       });
 
       // Auto-select first item if none selected.
@@ -66,7 +66,7 @@
           EC.UI_STATE.selectedPatientId = p.id;
           row.classList.add('selected');
           if (els.startBtn) els.startBtn.disabled = false;
-          if (els.hint) els.hint.textContent = `Selected: ${p.name}`;
+          if (els.hint) els.hint.innerHTML = `Selected: ${p.name}<br>Quirks: ${p.quirkSummary || '—'}${(p.quirkLineTexts && p.quirkLineTexts.length) ? '<br>' + p.quirkLineTexts.join('<br>') : ''}`;
         } else if (sel === p.id) {
           row.classList.add('selected');
           if (els.startBtn) els.startBtn.disabled = false;
