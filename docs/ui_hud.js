@@ -212,6 +212,7 @@
 
     // small transient message timer
     if (UI_STATE.uiMsgT > 0) UI_STATE.uiMsgT = Math.max(0, UI_STATE.uiMsgT - (dt || 0));
+    if (UI_STATE.uiMsgFlashT > 0) UI_STATE.uiMsgFlashT = Math.max(0, UI_STATE.uiMsgFlashT - (dt || 0));
 
     const T = EC.TUNE || {};
     const E_CAP = (typeof T.ENERGY_CAP === 'number') ? T.ENERGY_CAP : ((typeof T.E_MAX === 'number') ? T.E_MAX : 200);
@@ -249,16 +250,54 @@
       const hud = (EC.DISP && typeof EC.DISP.getHudState === 'function') ? EC.DISP.getHudState() : { telegraphText: '', activeText: '' };
       const tele = hud.telegraphText || '';
       const act = hud.activeText || '';
-      const short = (act || tele) || ((UI_STATE.uiMsgT > 0 && UI_STATE.uiMsg) ? UI_STATE.uiMsg : '');
-      // On-device gesture resolution line (required for this chunk; can be gated later).
+      // Banner priority: WIN/LOSE > mental break > normal disposition/short message
       const g = UI_STATE.gestureDebug || '';
-      if (notifyTextEl) notifyTextEl.textContent = g ? (short ? (short + "\n" + g) : g) : short;
+
+      const isWin = (SIM.levelState === 'win') || !!SIM.mvpWin;
+      const isLose = (SIM.levelState === 'lose') || !!SIM.mvpLose || !!SIM.gameOver;
+      const isBreak = (!isWin && !isLose && UI_STATE.uiMsgT > 0 && UI_STATE.uiMsgKind === 'break');
+
+      // Notify bar classes (visual styling)
+      if (notifyBarEl) {
+        notifyBarEl.classList.toggle('isBanner', !!(isWin || isLose));
+        notifyBarEl.classList.toggle('bannerWin', !!isWin);
+        notifyBarEl.classList.toggle('bannerLose', !!isLose);
+        notifyBarEl.classList.toggle('flashBreak', !!(isBreak && UI_STATE.uiMsgFlashT > 0));
+      }
+
+      if (isWin) {
+        if (patientInfoEl) patientInfoEl.textContent = 'SUCCESS!';
+        if (notifyTextEl) notifyTextEl.textContent = 'Treatment complete';
+      } else if (isLose) {
+        if (patientInfoEl) patientInfoEl.textContent = 'TREATMENT FAILED';
+        // Optional second line: keep it short + player-facing.
+        let line2 = 'Too many breaks';
+        const r = String(SIM.gameOverReason || '').trim();
+        if (r && !/4\s*breaks\s*in\s*5\s*seconds/i.test(r)) {
+          // If reason isn't the standard one, show it.
+          line2 = r;
+        }
+        if (notifyTextEl) notifyTextEl.textContent = line2;
+      } else if (isBreak) {
+        if (patientInfoEl) patientInfoEl.textContent = 'MENTAL BREAK';
+        const reason = String(UI_STATE.uiMsgReason || '').trim() || '—';
+        if (notifyTextEl) notifyTextEl.textContent = reason;
+      } else {
+        // Normal mode: show disposition HUD or short message + gesture debug line.
+        const short = (act || tele) || ((UI_STATE.uiMsgT > 0 && UI_STATE.uiMsg) ? UI_STATE.uiMsg : '');
+        if (notifyTextEl) notifyTextEl.textContent = g ? (short ? (short + "\n" + g) : g) : short;
+      }
+
       // Always-visible debug overlay (does not depend on the notify bar state)
       if (gestureDbgEl) gestureDbgEl.textContent = g || 'SWIPE: (waiting)';
     } catch (_) { /* ignore */ }
 
     // Patient + step (top-left)
     try {
+      // If a banner is active, we already replaced patientInfoEl above.
+      if ((SIM.levelState === 'win') || !!SIM.mvpWin || (SIM.levelState === 'lose') || !!SIM.mvpLose || !!SIM.gameOver || (UI_STATE.uiMsgT > 0 && UI_STATE.uiMsgKind === 'break')) {
+        // No-op: keep banner/break header.
+      } else {
       const lvl = SIM.levelId || 1;
       const def = (typeof EC.getActiveLevelDef === 'function') ? EC.getActiveLevelDef() : ((EC.LEVELS && typeof EC.LEVELS.get === 'function') ? EC.LEVELS.get(lvl) : null);
       const pName = (SIM._patientLabel || (def && def.label) || `Patient ${lvl}`);
@@ -272,6 +311,7 @@
         stepLine = 'Step 1/1';
       }
       if (patientInfoEl) patientInfoEl.textContent = `${pName}\n${stepLine}`;
+      }
     } catch (_) { /* ignore */ }
 
     // Top compact HUD (kept for now; minimized in future pass)

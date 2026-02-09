@@ -138,7 +138,8 @@
     // Dispositions (v2) — external well-only waves (Level 3)
     DISP_DEFAULT_DURATION: 30,
     // Warning window shown before a disposition takes effect.
-    DISP_TELEGRAPH_SEC: 10,
+    // Quirk warning timeline: 3s flash + 3*(1.5s fill + 0.5s beat) = 9s total
+    DISP_TELEGRAPH_SEC: 9,
     DISP_DEFAULT_STRENGTH: 3.0,
 
     // Quirk intensity scaling (tier steps: Low-Key→Noticeable→Intense)
@@ -150,7 +151,8 @@
 
     // Random disposition timing (patient sessions)
     // Each disposition slot is an independent event source.
-    DISP_MEAN_INTERVAL_SEC_PER_SLOT: 120,
+    // Random scheduler mean per slot (tier 0 baseline). Tier multipliers below target 180/150/120.
+    DISP_MEAN_INTERVAL_SEC_PER_SLOT: 180,
     // Minimum gap between the end of one disposition and the start of the next (global).
     // Global safety gap between disposition waves. Keep this small so
     // multi-slot patients scale their event rate properly.
@@ -158,6 +160,17 @@
 
     // Back-compat (unused by current scheduler; kept for older builds/notes)
     DISP_MEAN_INTERVAL_SEC: 180,
+
+    // Tier frequency multipliers (Low-Key / Noticeable / Intense)
+    DISP_TIER_FREQ_MULTS: [1.0, 1.2, 1.5],
+
+    // Integrated total-change targets per quirk (amount or spin impulse proxy)
+    DISP_TIER_TOTAL_TARGETS: [40, 60, 80],
+    // Optional per-tier jitter ranges for totals (min,max)
+    DISP_TIER_TOTAL_JITTER: [[0.8, 1.2], [0.85, 1.15], [0.9, 1.1]],
+
+    // Telegraph warning brightness per tier (muted / medium / bright)
+    DISP_WARN_BRIGHTNESS_BY_TIER: [0.45, 0.70, 1.0],
 
 
 

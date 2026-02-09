@@ -39,8 +39,41 @@
   function _pushUiMsg(text) {
     const UI = EC.UI_STATE || (EC.UI_STATE = {});
     const msgSec = (typeof T().BREAK_MSG_SECONDS === 'number') ? T().BREAK_MSG_SECONDS : 4.5;
-    UI.uiMsg = text || '';
+    const msg = String(text || '');
+    UI.uiMsg = msg;
     UI.uiMsgT = msgSec;
+
+    // A2: tag mental-break messages so HUD can flash + show a short reason line.
+    // Do NOT create new break logic; just derive presentation from existing message text.
+    if (/^\s*Mental\s+Break\s*:/i.test(msg)) {
+      UI.uiMsgKind = 'break';
+      UI.uiMsgFlashT = 0.80; // brief attention grab
+      UI.uiMsgT = 2.0; // short-lived, auto-clears unless replaced by win/lose
+
+      // Derive a concise reason from the existing break message.
+      // Examples of msg patterns in this build:
+      //  - "Mental Break: Red psyche > 500 (..)")
+      //  - "Mental Break: Total psyche > 2000 (..)")
+      let reason = msg.replace(/^\s*Mental\s+Break\s*:\s*/i, '');
+      reason = reason.replace(/\s*\(.*?\)\s*$/,'').trim();
+      // Map to player-friendly phrasing if we can recognize it.
+      if (/^Total\s+psyche\s*>\s*\d+/i.test(reason)) {
+        const m = reason.match(/\d+/);
+        reason = `Total psyche exceeded ${m ? m[0] : 'cap'}`;
+      } else if (/psyche\s*>\s*\d+/i.test(reason)) {
+        // "<Hue> psyche > 500" -> "<Hue> exceeded 500"
+        const m = reason.match(/^(.*?)\s+psyche\s*>\s*(\d+)/i);
+        if (m) reason = `${m[1].trim()} exceeded ${m[2]}`;
+      } else if (/psyche\s*<\s*0/i.test(reason)) {
+        const m = reason.match(/^(.*?)\s+psyche\s*<\s*0/i);
+        if (m) reason = `${m[1].trim()} dropped below 0`;
+      }
+      UI.uiMsgReason = reason;
+    } else {
+      // Non-break messages
+      UI.uiMsgKind = '';
+      UI.uiMsgReason = '';
+    }
   }
 
   function _cancelDispositions() {

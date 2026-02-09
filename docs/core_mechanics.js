@@ -53,8 +53,8 @@ const SIM = (EC.SIM = EC.SIM || {
     if (dt <= 0) return;
 
     // Shared timebase for rendering (e.g., moving spin arrows)
-    // Freeze the simulation on lose (and in Lobby); UI continues to render.
-    if (SIM.levelState === 'lose' || SIM.mvpLose || SIM.gameOver) {
+    // Freeze the simulation on end states (lose/win) and in Lobby; UI continues to render.
+    if (SIM.levelState === 'lose' || SIM.mvpLose || SIM.gameOver || SIM.levelState === 'win' || SIM.mvpWin) {
       return;
     }
 

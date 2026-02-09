@@ -84,6 +84,34 @@
     return 'Low-Key';
   }
 
+  function warnBrightnessForTier(tier) {
+    const T = EC.TUNE || {};
+    const b = Array.isArray(T.DISP_WARN_BRIGHTNESS_BY_TIER) ? T.DISP_WARN_BRIGHTNESS_BY_TIER : null;
+    if (b && typeof b[tier] === 'number') return clamp01(Number(b[tier]));
+    // Default: muted / medium / bright
+    if (tier >= 2) return 1.0;
+    if (tier === 1) return 0.70;
+    return 0.45;
+  }
+
+  function totalTargetForTier(tier) {
+    const T = EC.TUNE || {};
+    const totals = Array.isArray(T.DISP_TIER_TOTAL_TARGETS) ? T.DISP_TIER_TOTAL_TARGETS : [40, 60, 80];
+    const t0 = (typeof totals[tier] === 'number') ? Number(totals[tier]) : (tier === 2 ? 80 : (tier === 1 ? 60 : 40));
+
+    const jit = Array.isArray(T.DISP_TIER_TOTAL_JITTER) ? T.DISP_TIER_TOTAL_JITTER : null;
+    let lo = 0.9, hi = 1.1;
+    if (tier === 0) { lo = 0.8; hi = 1.2; }
+    else if (tier === 1) { lo = 0.85; hi = 1.15; }
+    else { lo = 0.9; hi = 1.1; }
+    if (jit && Array.isArray(jit[tier]) && jit[tier].length >= 2) {
+      if (typeof jit[tier][0] === 'number') lo = Number(jit[tier][0]);
+      if (typeof jit[tier][1] === 'number') hi = Number(jit[tier][1]);
+    }
+    const r = lo + (hi - lo) * Math.random();
+    return t0 * r;
+  }
+
   function ringParamsForType(type) {
     // Used by the renderer for the halo progress ring.
     // Angles are in radians: 0 at +X, increasing clockwise.
@@ -398,13 +426,18 @@
     else if (typeof w.tier === 'number') tier = Math.round(w.tier);
     tier = Math.max(0, Math.min(2, tier));
 
+    // Tier scaling (scheduler + duration/strength). Prefer explicit per-tier lists if provided.
     const freqStep = (typeof T.DISP_TIER_FREQ_STEP === 'number') ? T.DISP_TIER_FREQ_STEP : 1.30;
     const durStep  = (typeof T.DISP_TIER_DUR_STEP === 'number') ? T.DISP_TIER_DUR_STEP : 1.30;
     const strStep  = (typeof T.DISP_TIER_STR_STEP === 'number') ? T.DISP_TIER_STR_STEP : 1.18;
 
-    const durMult = Math.pow(durStep, tier);
-    const strMult = Math.pow(strStep, tier);
-    const freqMult = Math.pow(freqStep, tier);
+    const freqMults = Array.isArray(T.DISP_TIER_FREQ_MULTS) ? T.DISP_TIER_FREQ_MULTS : null;
+    const durMults  = Array.isArray(T.DISP_TIER_DUR_MULTS) ? T.DISP_TIER_DUR_MULTS : null;
+    const strMults  = Array.isArray(T.DISP_TIER_STR_MULTS) ? T.DISP_TIER_STR_MULTS : null;
+
+    const durMult  = (durMults && typeof durMults[tier] === 'number') ? Number(durMults[tier]) : Math.pow(durStep, tier);
+    const strMult  = (strMults && typeof strMults[tier] === 'number') ? Number(strMults[tier]) : Math.pow(strStep, tier);
+    const freqMult = (freqMults && typeof freqMults[tier] === 'number') ? Number(freqMults[tier]) : Math.pow(freqStep, tier);
 
     const baseStrength = (typeof w.strength === 'number') ? w.strength
       : ((typeof T.DISP_DEFAULT_STRENGTH === 'number') ? T.DISP_DEFAULT_STRENGTH : 3.0);
@@ -692,6 +725,22 @@
           // Build warped-progress LUT + initialize painted halo history.
           inst.warp = buildWarpLUT(inst);
           initSegHistory(inst);
+
+          // Per-event amplitude scaling so the integrated total change matches tier targets
+          // while preserving the existing ramp→peak→fall envelope shape.
+          // For amount-type quirks, total change ≈ strengthEff * ∫intensity(t)dt.
+          // For spin-type quirks, this is an impulse proxy; still scales feel by tier.
+          try {
+            const tier = (inst.tpl && typeof inst.tpl.intensityTier === 'number') ? (inst.tpl.intensityTier | 0) : 0;
+            const targetTotal = totalTargetForTier(tier);
+            const area = (inst.warp && typeof inst.warp.Iend === 'number') ? Math.max(1e-6, inst.warp.Iend) : Math.max(1e-6, durSec * 0.5);
+            inst._strengthEff = targetTotal / area;
+          } catch (e) {
+            inst._strengthEff = (inst.tpl && typeof inst.tpl.strength === 'number') ? inst.tpl.strength : ((typeof T.DISP_DEFAULT_STRENGTH === 'number') ? T.DISP_DEFAULT_STRENGTH : 3.0);
+          }
+
+          // Cache warning brightness for telegraph rendering.
+          inst._warnBright = warnBrightnessForTier((inst.tpl && typeof inst.tpl.intensityTier === 'number') ? (inst.tpl.intensityTier | 0) : 0);
           // Now that the event has actually fired, reschedule its slot and clear "announced".
           if (inst.slotIdx != null && inst.slotIdx >= 0) {
             rescheduleSlot(inst.slotIdx, inst.fireAt);
@@ -714,14 +763,46 @@
           if (_t < inst.fireAt) {
             const hi = inst.hueIndex;
             teleLines.push(`${inst.type} — ${hueName(hi)} (${dirText(inst.type)})`);
-            const inten = clamp01(1 - ((inst.fireAt - _t) / Math.max(1e-6, tele)));
             const rp = ringParamsForType(inst.type);
+
+            // Telegraph timeline (total length = tele):
+            //  - First 3.0s: flashing warning ring
+            //  - Then 3 cycles: 1.5s fill + 0.5s beat/reset
+            const tier = (inst.tpl && typeof inst.tpl.intensityTier === 'number') ? (inst.tpl.intensityTier | 0) : 0;
+            const bright = (typeof inst._warnBright === 'number') ? clamp01(inst._warnBright) : warnBrightnessForTier(tier);
+            const tInto = clamp01((_t - (inst.fireAt - tele)) / Math.max(1e-6, tele)) * tele;
+            let teleMode = 'flash';
+            let flash01 = 0;
+            let fill01 = 0;
+            let beat01 = 0;
+
+            if (tInto < 3.0) {
+              teleMode = 'flash';
+              const hz = 1.3; // >=3 flashes in 3s
+              flash01 = 0.5 + 0.5 * Math.sin((Math.PI * 2) * hz * tInto);
+            } else {
+              const t2 = tInto - 3.0;
+              const cycLen = 2.0;
+              const inCyc = t2 % cycLen;
+              const fillDur = 1.5;
+              if (inCyc < fillDur) {
+                teleMode = 'fill';
+                fill01 = clamp01(inCyc / fillDur);
+              } else {
+                teleMode = 'beat';
+                beat01 = clamp01((inCyc - fillDur) / (cycLen - fillDur));
+              }
+            }
+
             _renderList.push({
               phase: 'telegraph',
+              teleMode,
+              flash01,
+              beat01,
               targetIndex: hi,
               type: inst.type,
-              intensity01: inten,
-              progress01: 0,
+              intensity01: bright,
+              progress01: fill01,
               startAngleRad: rp.startAngleRad,
               dirSign: rp.dirSign
             });
@@ -738,6 +819,7 @@
             // Warped halo progress (peak maps to 50% regardless of peak timing)
             const prog01 = warpedProgress01(inst, _t);
             const w = Object.assign({}, inst.tpl, { hueIndex: inst.hueIndex, type: inst.type });
+            if (typeof inst._strengthEff === 'number' && isFinite(inst._strengthEff)) w.strength = inst._strengthEff;
             applyWaveToWell(SIM, w, dt, sh);
             activeLines.push(`${inst.type} — ${hueName(inst.hueIndex)} (${intensityLabel(sh)})`);
             const rp = ringParamsForType(inst.type);

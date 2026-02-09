@@ -581,7 +581,8 @@
           const haloR = r + R.DISP_HALO_PAD;
           const baseW = Math.max(R.DISP_HALO_W_MIN, r * R.DISP_HALO_W_SCALE);
 
-          const warnCol = (typeof R.DISP_WARN_HALO_COLOR === 'number') ? R.DISP_WARN_HALO_COLOR : 0xff3d7f; // magenta-red warning
+          // Telegraph warning (red). Intensity tier controls brightness via DISP.intensity01.
+          const warnCol = (typeof R.DISP_WARN_HALO_COLOR === 'number') ? R.DISP_WARN_HALO_COLOR : 0xff0033;
           const activeCol = (typeof R.DISP_ACTIVE_HALO_COLOR === 'number') ? R.DISP_ACTIVE_HALO_COLOR : 0xf5f5ff; // whitish
           const headGlowCol = (typeof R.DISP_HEAD_GLOW_COLOR === 'number') ? R.DISP_HEAD_GLOW_COLOR : 0xffffff;
           const headGlowAlphaMax = (typeof R.DISP_HEAD_GLOW_ALPHA_MAX === 'number') ? R.DISP_HEAD_GLOW_ALPHA_MAX : 0.85;
@@ -589,14 +590,39 @@
           const headGlowWScale = (typeof R.DISP_HEAD_GLOW_WIDTH_SCALE === 'number') ? R.DISP_HEAD_GLOW_WIDTH_SCALE : 1.6;
 
           if (dispPhase === 'telegraph') {
-            // Outline only (warning color); no fill arc; no countdown.
-            const pulse = 0.5 + 0.5 * Math.sin((tNow || 0) * (Math.PI * 2) * R.DISP_TELE_PULSE_HZ);
-            // Ensure warning halo is reliably visible even early in the telegraph window.
-            const inten = Math.max(0.35, clamp(dispIntensity, 0, 1));
-            const a = R.DISP_TELE_ALPHA_BASE + R.DISP_TELE_ALPHA_GAIN * (0.35 + 0.65 * pulse) * inten;
-            const w = baseW * (0.75 + 0.75 * pulse);
-            dispHalo.lineStyle(w, warnCol, clamp(a, 0, 1));
+            // Telegraph modes (provided by systems_dispositions.js):
+            //  - flash: 3s flashing ring
+            //  - fill: 3 directional fill cycles (1.5s fill + 0.5s beat)
+            //  - beat: reset beat between fills
+            const mode = (DISP && typeof DISP.teleMode === 'string') ? DISP.teleMode : 'flash';
+            const inten = clamp(dispIntensity, 0, 1); // already tier-scaled (muted→bright)
+            const twoPi = Math.PI * 2;
+
+            const start = (DISP && typeof DISP.startAngleRad === 'number') ? DISP.startAngleRad : (Math.PI / 2);
+            const dirSign = (DISP && typeof DISP.dirSign === 'number') ? (DISP.dirSign < 0 ? -1 : 1) : 1;
+            const anti = (dirSign < 0);
+
+            // Faint constant outline so the cue is always readable.
+            const outlineA = 0.10 + 0.18 * inten;
+            dispHalo.lineStyle(Math.max(2, baseW * 0.55), warnCol, clamp(outlineA, 0, 1));
             dispHalo.drawCircle(0, 0, haloR);
+
+            if (mode === 'flash') {
+              const f = (DISP && typeof DISP.flash01 === 'number') ? clamp(DISP.flash01, 0, 1) : 0.6;
+              const a = clamp(0.15 + 0.85 * f * inten, 0, 1);
+              const w = baseW * (0.85 + 0.30 * f);
+              dispHalo.lineStyle(w, warnCol, a);
+              dispHalo.drawCircle(0, 0, haloR);
+            } else if (mode === 'fill') {
+              const p = (DISP && typeof DISP.progress01 === 'number') ? clamp(DISP.progress01, 0, 1) : 0;
+              const arcW = Math.max(3, baseW * 0.92);
+              const a1 = start + dirSign * (twoPi * p);
+              const alpha = clamp(0.35 + 0.65 * inten, 0, 1);
+              dispHalo.lineStyle(arcW, warnCol, alpha);
+              dispHalo.arc(0, 0, haloR, start, a1, anti);
+            } else {
+              // Beat/reset: keep only faint outline (already drawn).
+            }
           } else if (dispPhase === 'active') {
             // Whitish outline + monotonic progress ring (time-based; fills once to full circle).
             // Keep outline secondary so the neon fill remains fully saturated.
