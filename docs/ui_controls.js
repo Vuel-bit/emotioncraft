@@ -348,10 +348,12 @@ function computeZeroPairCost(i) {
       if (costPillEl) costPillEl.textContent = 'Cost: ' + (((prev && prev.cost) || 0).toFixed(2));
 
       if (objectiveSummaryEl) {
-        const getTxt = (EC.UI_HUD && typeof EC.UI_HUD.getObjectiveSummaryText === 'function')
-          ? EC.UI_HUD.getObjectiveSummaryText
+        const getNext = (EC.UI_HUD && typeof EC.UI_HUD.getNextObjectiveText === 'function')
+          ? EC.UI_HUD.getNextObjectiveText
           : null;
-        objectiveSummaryEl.textContent = getTxt ? String(getTxt()) : (objectiveSummaryEl.textContent || '');
+        const rawNext = getNext ? String(getNext() || '') : '';
+        const nextTxt = rawNext && rawNext.trim() ? rawNext.trim() : '—';
+        objectiveSummaryEl.textContent = 'Next: ' + nextTxt;
       }
 
       if (previewPillEl) {
@@ -488,7 +490,7 @@ if (btnZeroPairEl) {
       const raw = String(EC.UI_HUD.getObjectiveSummaryText() || '').replace(/^\s*Goal:\s*/i, '');
       const maxLen = 72;
       const txt = raw.length > maxLen ? (raw.slice(0, maxLen - 1) + '…') : raw;
-      goalLineEl.textContent = 'Goal: ' + txt;
+      goalLineEl.textContent = 'Current: ' + txt;
     }
 
     // Keep apply validity fresh
@@ -501,7 +503,12 @@ if (btnZeroPairEl) {
       energyHudEl2.textContent = `⚡ ${(SIM.energy || 0).toFixed(0)}/${E_CAP2}`;
     }
 
-    const sel = (typeof SIM.selectedWellIndex === 'number') ? SIM.selectedWellIndex : -1;
+    let sel = (typeof SIM.selectedWellIndex === 'number') ? SIM.selectedWellIndex : -1;
+    // Robust selection for bottom-bar costs: fall back to last known UI selection
+    if (!(sel >= 0 && sel < 6)) {
+      const ps = (UI_STATE && typeof UI_STATE.prevSel === 'number') ? UI_STATE.prevSel : -1;
+      if (ps >= 0 && ps < 6) sel = ps;
+    }
     const hasSel = (sel >= 0 && sel < 6);
 
     const btnSpinZeroEl2 = dom.btnSpinZeroEl || document.getElementById('btnSpinZero');

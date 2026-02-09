@@ -73,6 +73,29 @@
     return `${label}${objText ? ` — ${objText}` : ''}`;
   };
 
+  // Next objective hint (UI only). If a level has no explicit "next", return empty and UI will show —.
+  MOD.getNextObjectiveText = function getNextObjectiveText() {
+    const SIM = EC.SIM || {};
+    const lvl = SIM.levelId || 1;
+    const def = (typeof EC.getActiveLevelDef === 'function') ? EC.getActiveLevelDef()
+      : ((EC.LEVELS && typeof EC.LEVELS.get === 'function') ? EC.LEVELS.get(lvl) : null);
+    if (!def || !def.win) return '';
+    const win = def.win;
+
+    // ZEN_CHAIN: show the next step index if not complete.
+    if (win.type === 'ZEN_CHAIN') {
+      const step = (typeof SIM.zenChainStep === 'number') ? SIM.zenChainStep : 0;
+      const total = (win.steps && Array.isArray(win.steps)) ? win.steps.length : 3;
+      const nextStep = step + 1;
+      if (nextStep >= total) return '';
+      return `Step ${nextStep + 1}/${total}`;
+    }
+
+    // Other win types don't have an explicit next step in current design.
+    return '';
+  };
+
+
   MOD.init = function init(ctxIn) {
     const ctx = _getCtx(ctxIn);
     const SIM = ctx.SIM || EC.SIM;

@@ -488,6 +488,9 @@
     /* MVP redesign controls panel (Chunk 5) */
     .ctrl{ margin-top:8px; padding:8px; border-radius:12px; background: rgba(12,16,26,0.55); border: 1px solid rgba(232,238,252,0.08); }
     .ctrlRow{ display:flex; flex-wrap:wrap; gap:10px; align-items:center; }
+    .ctrlPair{ display:flex; align-items:center; gap:8px; white-space:nowrap; }
+    .costLabel{ display:inline-block; min-width:82px; text-align:left; }
+
     .ctrlRow label{ display:flex; gap:6px; align-items:center; font-size:12px; color: rgba(232,238,252,0.88); }
     .ctrlRow input[type="range"]{ accent-color: #7aa2ff; width: 120px; }
     .ctrlRow .val{ min-width:44px; text-align:right; font-variant-numeric: tabular-nums; color: rgba(232,238,252,0.85); }
@@ -586,8 +589,8 @@
   .ctrl{ margin-top: 6px; padding: 8px; }
   .ctrlRow{ gap: 8px; }
   .ctrlRow label{ gap: 6px; }
-  .energyHud{ position: fixed; left: 12px; bottom: 142px; z-index: 25; font-size: 13px; padding: 6px 10px; border-radius: 999px; background: rgba(18,22,35,0.70); border: 1px solid rgba(255,255,255,0.10); color: rgba(232,238,252,0.92); font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; }
-  @media (max-width: 720px){ .energyHud{ bottom: 146px; }  #objectiveSummary{ max-width: 46vw; } }
+  .energyHud{ position: fixed; left: 12px; bottom: 180px; z-index: 25; font-size: 13px; padding: 6px 10px; border-radius: 999px; background: rgba(18,22,35,0.70); border: 1px solid rgba(255,255,255,0.10); color: rgba(232,238,252,0.92); font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; }
+  @media (max-width: 720px){ .energyHud{ bottom: 184px; }  #objectiveSummary{ max-width: 46vw; } }
 
 </style>
 </head>
@@ -643,16 +646,20 @@
 
 <div class="drawer" id="drawer">
     <div class="drawerTop" style="margin-bottom:6px;">
-      <div class="sub" id="goalLine">Goal: —</div>
-      <div class="sub" id="objectiveSummary">—</div>
+      <div class="sub" id="goalLine">Current: —</div>
+      <div class="sub" id="objectiveSummary">Next: —</div>
     </div>
     <div class="ctrl" id="ctrlPanel">
       <div class="ctrlRow" id="ctrlRow">
-        <button class="btn" id="btnSpinZero">Set Spin 0</button>
-        <span class="sub" id="costSpinZero">—</span>
+        <div class="ctrlPair">
+          <button class="btn" id="btnSpinZero">Set Spin 0</button>
+          <span class="sub costLabel" id="costSpinZero">—</span>
+        </div>
 
-        <button class="btn" id="btnZeroPair">Set Pair Spin 0</button>
-        <span class="sub" id="costZeroPair">—</span>
+        <div class="ctrlPair">
+          <button class="btn" id="btnZeroPair">Set Pair Spin 0</button>
+          <span class="sub costLabel" id="costZeroPair">—</span>
+        </div>
       </div>
       </div>
 
