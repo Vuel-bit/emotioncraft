@@ -246,9 +246,9 @@ function computeZeroPairCost(i) {
     function applyPreviewToSim(i, prev) {
       const cost = prev.cost || 0;
       if (!prev.changed) return { ok: false, reason: 'nochange', cost };
-      if ((SIM.energy || 0) < pairCost) return { ok: false, reason: 'noenergy', cost };
+      if ((SIM.energy || 0) < cost) return { ok: false, reason: 'noenergy', cost };
 
-      SIM.energy = Math.max(0, (SIM.energy || 0) - pairCost);
+      SIM.energy = Math.max(0, (SIM.energy || 0) - cost);
 
       // Apply to selected well (absolute targets; clamped)
       SIM.wellsA[i] = prev.A1;
