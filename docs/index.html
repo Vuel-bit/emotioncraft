@@ -487,9 +487,9 @@
 
     /* MVP redesign controls panel (Chunk 5) */
     .ctrl{ margin-top:8px; padding:8px; border-radius:12px; background: rgba(12,16,26,0.55); border: 1px solid rgba(232,238,252,0.08); }
-    .ctrlRow{ display:flex; flex-wrap:wrap; gap:10px; align-items:center; }
+    .ctrlRow{ display:flex; flex-wrap:nowrap; gap:10px; align-items:center; }
     .ctrlPair{ display:flex; align-items:center; gap:8px; white-space:nowrap; }
-    .costLabel{ display:inline-block; min-width:82px; text-align:left; }
+    .costLabel{ display:inline-block; min-width:82px; text-align:left; font-variant-numeric: tabular-nums; }
 
     .ctrlRow label{ display:flex; gap:6px; align-items:center; font-size:12px; color: rgba(232,238,252,0.88); }
     .ctrlRow input[type="range"]{ accent-color: #7aa2ff; width: 120px; }
@@ -568,7 +568,7 @@
   .miniBar > div{ height:100%; width:0%; background: rgba(122,162,255,0.95); border-radius: 999px; }
 
   /* Controls: tighter + wrap on narrow screens */
-  .ctrlRow{ display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
+  .ctrlRow{ display:flex; gap:10px; align-items:center; flex-wrap:nowrap; }
   .ctrlRow label{ display:flex; align-items:center; gap:8px; }
   #deltaA{ width: 180px; }
   #deltaS{ width: 300px; }
@@ -651,15 +651,10 @@
     </div>
     <div class="ctrl" id="ctrlPanel">
       <div class="ctrlRow" id="ctrlRow">
-        <div class="ctrlPair">
-          <button class="btn" id="btnSpinZero">Set Spin 0</button>
-          <span class="sub costLabel" id="costSpinZero">—</span>
-        </div>
-
-        <div class="ctrlPair">
-          <button class="btn" id="btnZeroPair">Set Pair Spin 0</button>
-          <span class="sub costLabel" id="costZeroPair">—</span>
-        </div>
+        <button class="btn" id="btnSpinZero">Set Spin 0</button>
+        <span class="sub costLabel" id="costSpinZero">—</span>
+        <span class="sub costLabel" id="costZeroPair">—</span>
+        <button class="btn" id="btnZeroPair">Set Pair Spin 0</button>
       </div>
       </div>
 

@@ -79,37 +79,29 @@ function computeApplyPreview(i, A1In, S1In) {
 // Returns {cost: number}.
 function computeZeroPairCost(i) {
   const SIM = EC.SIM;
-  const UI = EC.UI || {};
   const T = EC.TUNE || {};
-  if (!SIM || !SIM.wellsA || !SIM.wellsS) return { cost: 0 };
+  if (!SIM || !SIM.wellsA || !SIM.wellsS) return { cost: 0, j: _oppIndex(i) };
 
-  const A_MIN = (typeof T.A_MIN === 'number') ? T.A_MIN : 0;
-  const A_MAX = (typeof T.A_MAX === 'number') ? T.A_MAX : 100;
-  const S_MIN = (typeof T.S_MIN === 'number') ? T.S_MIN : -100;
-  const S_MAX = (typeof T.S_MAX === 'number') ? T.S_MAX : 100;
   const COST_NORM = (typeof T.COST_NORM === 'number' && T.COST_NORM !== 0) ? T.COST_NORM : 100;
+  const j = _oppIndex(i);
+  if (!(j >= 0 && j < 6) || !(i >= 0 && i < 6)) return { cost: 0, j };
 
-  const j = (typeof UI.zeroPairOpp === 'number') ? UI.zeroPairOpp : _oppIndex(i);
+  // Pair action: set spins of selected well and its opposite to 0 (amounts unchanged).
+  // Compute cost state-based (not UI target-based) so it stays valid with sliders removed.
+  const A0i = (SIM.wellsA[i] || 0);
+  const A0j = (SIM.wellsA[j] || 0);
 
-  const A0i = SIM.wellsA[i], S0i = SIM.wellsS[i];
-  const A0j = SIM.wellsA[j], S0j = SIM.wellsS[j];
+  const cI = computeApplyPreview(i, A0i, 0);
+  const cJ = computeApplyPreview(j, A0j, 0);
 
-  const A1i = _clamp(UI.targetA, A_MIN, A_MAX);
-  const S1i = _clamp(UI.targetS, S_MIN, S_MAX);
-  const A1j = _clamp(UI.targetA2, A_MIN, A_MAX);
-  const S1j = _clamp(UI.targetS2, S_MIN, S_MAX);
+  const costI = (cI && cI.changed) ? (cI.cost || 0) : 0;
+  const costJ = (cJ && cJ.changed) ? (cJ.cost || 0) : 0;
 
-  const dFluxi = _fluxCost(A1i, S1i, T) - _fluxCost(A0i, S0i, T);
-  const dFluxj = _fluxCost(A1j, S1j, T) - _fluxCost(A0j, S0j, T);
+  const cost = costI + costJ;
 
-  const impulseCost = Math.abs(dFluxi) + Math.abs(dFluxj);
-  const cost = Math.abs(impulseCost) / COST_NORM;
-
-  // Include fields for possible debug display (keeps compatibility)
-  const impulseSim = (_fluxSim(A1i, S1i) - _fluxSim(A0i, S0i)) + (_fluxSim(A1j, S1j) - _fluxSim(A0j, S0j));
-  const push = (typeof T.OPPOSITE_PUSH_K === 'number' ? T.OPPOSITE_PUSH_K : 0) * impulseSim;
-
-  return { cost, impulseCost, push, j };
+  // Keep compatibility fields for debug display if anything reads them later.
+  const impulseCost = cost * COST_NORM;
+  return { cost, impulseCost, push: 0, j };
 }
 
   MOD.init = function init(ctxIn) {
@@ -431,20 +423,27 @@ function computeZeroPairCost(i) {
     }
 if (btnZeroPairEl) {
       btnZeroPairEl.addEventListener('click', () => {
-        const i = (typeof SIM.selectedWellIndex === 'number') ? SIM.selectedWellIndex : -1;
-        if (i < 0) return;
-        const j = OPP[i];
+        // Resolve selection robustly (matches render + avoids selection mismatch UI bugs)
+        let sel = (typeof SIM.selectedWellIndex === 'number') ? SIM.selectedWellIndex : -1;
+        if (!(sel >= 0 && sel < 6)) {
+          const ps = (UI_STATE && typeof UI_STATE.prevSel === 'number') ? UI_STATE.prevSel : -1;
+          if (ps >= 0 && ps < 6) sel = ps;
+        }
+        if (sel < 0) return;
+
+        const j = OPP[sel];
         if (j == null || j < 0 || j >= 6) return;
 
-        // Immediate execute: atomic dual-spin-to-zero update (same behavior as prior Zero Pair Apply).
-        const c = computeZeroPairCost(i);
+        // Immediate execute: atomic dual-spin-to-zero update.
+        const c = computeZeroPairCost(sel);
         const cost = c.cost || 0;
-        const changed = (Math.abs(SIM.wellsS[i] || 0) > 1e-9) || (Math.abs(SIM.wellsS[j] || 0) > 1e-9);
+
+        const changed = (Math.abs(SIM.wellsS[sel] || 0) > 1e-9) || (Math.abs(SIM.wellsS[j] || 0) > 1e-9);
         if (!changed) return;
         if ((SIM.energy || 0) < cost) return;
 
         SIM.energy = Math.max(0, (SIM.energy || 0) - cost);
-        SIM.wellsS[i] = 0;
+        SIM.wellsS[sel] = 0;
         SIM.wellsS[j] = 0;
       });
     }
