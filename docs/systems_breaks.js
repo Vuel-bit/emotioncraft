@@ -42,38 +42,63 @@
     const msg = String(text || '');
     UI.uiMsg = msg;
     UI.uiMsgT = msgSec;
+    UI.uiMsgKind = '';
+    UI.uiMsgReason = '';
+  }
 
-    // A2: tag mental-break messages so HUD can flash + show a short reason line.
-    // Do NOT create new break logic; just derive presentation from existing message text.
-    if (/^\s*Mental\s+Break\s*:/i.test(msg)) {
-      UI.uiMsgKind = 'break';
-      UI.uiMsgFlashT = 0.80; // brief attention grab
-      UI.uiMsgT = 2.0; // short-lived, auto-clears unless replaced by win/lose
+  function _pushBreakMsg(reasonText) {
+    const UI = EC.UI_STATE || (EC.UI_STATE = {});
+    const msgSec = (typeof T().BREAK_MSG_SECONDS === 'number') ? T().BREAK_MSG_SECONDS : 4.5;
+    UI.uiMsgKind = 'break';
+    UI.uiMsgFlashT = 0.80; // brief attention grab
+    UI.uiMsgT = msgSec;
+    UI.uiMsg = 'Mental Break';
+    UI.uiMsgReason = String(reasonText || '').trim();
+  }
 
-      // Derive a concise reason from the existing break message.
-      // Examples of msg patterns in this build:
-      //  - "Mental Break: Red psyche > 500 (..)")
-      //  - "Mental Break: Total psyche > 2000 (..)")
-      let reason = msg.replace(/^\s*Mental\s+Break\s*:\s*/i, '');
-      reason = reason.replace(/\s*\(.*?\)\s*$/,'').trim();
-      // Map to player-friendly phrasing if we can recognize it.
-      if (/^Total\s+psyche\s*>\s*\d+/i.test(reason)) {
-        const m = reason.match(/\d+/);
-        reason = `Total psyche exceeded ${m ? m[0] : 'cap'}`;
-      } else if (/psyche\s*>\s*\d+/i.test(reason)) {
-        // "<Hue> psyche > 500" -> "<Hue> exceeded 500"
-        const m = reason.match(/^(.*?)\s+psyche\s*>\s*(\d+)/i);
-        if (m) reason = `${m[1].trim()} exceeded ${m[2]}`;
-      } else if (/psyche\s*<\s*0/i.test(reason)) {
-        const m = reason.match(/^(.*?)\s+psyche\s*<\s*0/i);
-        if (m) reason = `${m[1].trim()} dropped below 0`;
-      }
-      UI.uiMsgReason = reason;
-    } else {
-      // Non-break messages
-      UI.uiMsgKind = '';
-      UI.uiMsgReason = '';
+  function _snap(sim) {
+    const psy = new Array(6);
+    const spin = new Array(6);
+    for (let i = 0; i < 6; i++) {
+      psy[i] = Number((sim.psyP && sim.psyP[i]) || 0);
+      spin[i] = Number((sim.wellsS && sim.wellsS[i]) || 0);
     }
+    return { psy, spin };
+  }
+
+  function _formatPsycheDelta(before, after) {
+    const parts = [];
+    for (let i = 0; i < 6; i++) {
+      const d = Math.round((after[i] || 0) - (before[i] || 0));
+      if (!d) continue;
+      parts.push(`${_hueName(i)} ${d > 0 ? '+' : ''}${d}`);
+    }
+    return parts.length ? ('Psyche: ' + parts.join(', ')) : 'Psyche: (no change)';
+  }
+
+  function _formatSpinDelta(before, after) {
+    const deltas = new Array(6);
+    for (let i = 0; i < 6; i++) deltas[i] = (after[i] || 0) - (before[i] || 0);
+
+    // If all deltas are identical (and non-zero), summarize.
+    let same = true;
+    for (let i = 1; i < 6; i++) {
+      if (Math.abs(deltas[i] - deltas[0]) > 1e-6) { same = false; break; }
+    }
+    if (same && Math.abs(deltas[0]) > 1e-6) {
+      const d = deltas[0];
+      const v = (Math.round(d * 10) / 10);
+      return `Spin: ALL ${v >= 0 ? '+' : ''}${v}`;
+    }
+
+    const parts = [];
+    for (let i = 0; i < 6; i++) {
+      const d = deltas[i];
+      if (Math.abs(d) <= 1e-6) continue;
+      const v = (Math.round(d * 10) / 10);
+      parts.push(`${_hueName(i)} ${v >= 0 ? '+' : ''}${v}`);
+    }
+    return parts.length ? ('Spin: ' + parts.join(', ')) : 'Spin: (no change)';
   }
 
   function _cancelDispositions() {
@@ -124,6 +149,7 @@
 
   function _triggerHueBreak(sim, h, kind, val) {
     // kind: 'LOW' or 'HIGH'
+    const before = _snap(sim);
     const opp = _opp(h);
     const [L, R] = _neighbors(h);
     const oldS = (sim.wellsS && sim.wellsS[h] != null) ? Number(sim.wellsS[h]) : 0;
@@ -159,13 +185,20 @@
       sim.wellsS[opp] = (sim.wellsS[opp] || 0) + 25;
     }
 
-    const msg = `Mental Break: ${_hueName(h)} psyche ${kind === 'LOW' ? '< 0' : '> 500'} (v=${val.toFixed(1)})`;
-    _pushUiMsg(msg);
-    _record(sim.mvpTime || 0, kind === 'LOW' ? 'PSY_HUE_LOW' : 'PSY_HUE_HIGH', { hue: h, value: val }, msg);
+    const after = _snap(sim);
+    const typeLine = `Mental Break: Hue Break — ${_hueName(h)} ${kind === 'LOW' ? 'below 0' : 'above cap'}`;
+    const msgLines = [
+      typeLine,
+      _formatPsycheDelta(before.psy, after.psy),
+      _formatSpinDelta(before.spin, after.spin),
+    ].join('\n');
+    _pushBreakMsg(msgLines);
+    _record(sim.mvpTime || 0, kind === 'LOW' ? 'PSY_HUE_LOW' : 'PSY_HUE_HIGH', { hue: h, value: val }, msgLines);
     _maybeTriggerLose(sim);
   }
 
   function _triggerTotalBreak(sim, total) {
+    const before = _snap(sim);
     // Relief: halve max psyche hue
     let maxI = 0;
     let maxV = -Infinity;
@@ -180,9 +213,15 @@
       sim.wellsS[i] = (sim.wellsS[i] || 0) - 25;
     }
 
-    const msg = `Mental Break: Total psyche > 2000 (total=${total.toFixed(1)}), halved ${_hueName(maxI)}`;
-    _pushUiMsg(msg);
-    _record(sim.mvpTime || 0, 'PSY_TOTAL_HIGH', { total: total, halvedHue: maxI, halvedFrom: maxV }, msg);
+    const after = _snap(sim);
+    const typeLine = `Mental Break: Total Break — total psyche above cap`;
+    const msgLines = [
+      typeLine,
+      _formatPsycheDelta(before.psy, after.psy),
+      _formatSpinDelta(before.spin, after.spin),
+    ].join('\n');
+    _pushBreakMsg(msgLines);
+    _record(sim.mvpTime || 0, 'PSY_TOTAL_HIGH', { total: total, halvedHue: maxI, halvedFrom: maxV }, msgLines);
     _maybeTriggerLose(sim);
   }
 
@@ -194,6 +233,7 @@
   // ---------------------------------------------------------------------
   function _triggerJam(sim, cause, details) {
     // End dispositions immediately
+    const before = _snap(sim);
     _cancelDispositions();
 
     function _addRandomPsyche(total) {
@@ -289,10 +329,17 @@
       msg = `Mental Break: Jam (${cause})`;
     }
 
-    _pushUiMsg(msg);
+    const after = _snap(sim);
+    const typeLine = `Mental Break: Jam Break — ${String(cause || '').replace(/_/g, ' ')}`;
+    const msgLines = [
+      typeLine,
+      _formatPsycheDelta(before.psy, after.psy),
+      _formatSpinDelta(before.spin, after.spin),
+    ].join('\n');
+    _pushBreakMsg(msgLines);
     const recDetails = details ? Object.assign({}, details) : {};
     if (penaltyDetails) recDetails.penalty = penaltyDetails;
-    _record(sim.mvpTime || 0, cause, recDetails, msg);
+    _record(sim.mvpTime || 0, cause, recDetails, msgLines);
     _maybeTriggerLose(sim);
   }
 

@@ -593,12 +593,30 @@
     if (EC.UI_STATE) EC.UI_STATE._lobbyDirtyStamp = (EC.UI_STATE._lobbyDirtyStamp || 0) + 1;
   }
 
-  // Hook Reset: when in a patient session, Reset returns to Lobby.
+  // Soft lobby open: pause the simulation behind the lobby overlay without resetting.
+  function openLobbyPause() {
+    SIM.inLobby = true;
+    // Keep SIM._patientActive + current sim state intact for Resume.
+    if (EC.UI_STATE) EC.UI_STATE._lobbyDirtyStamp = (EC.UI_STATE._lobbyDirtyStamp || 0) + 1;
+  }
+
+  function resumeFromLobby() {
+    SIM.inLobby = false;
+    if (EC.UI_STATE) EC.UI_STATE._lobbyDirtyStamp = (EC.UI_STATE._lobbyDirtyStamp || 0) + 1;
+  }
+
+  // Restart the currently active patient session from scratch.
+  function restartActive() {
+    if (!SIM._patientActive || !SIM._patientId) return;
+    start(SIM._patientId);
+  }
+
+  // Hook Reset: when in a patient session, Reset restarts the same patient (not Lobby).
   if (!EC.PAT && typeof EC.resetRun === 'function') {
     const _baseReset = EC.resetRun;
-    EC.resetRun = function resetRunWithLobby() {
+    EC.resetRun = function resetRunPatientsAware() {
       if (SIM && SIM._patientActive) {
-        backToLobby();
+        restartActive();
         return;
       }
       _baseReset();
@@ -610,6 +628,9 @@
     get: getById,
     start,
     backToLobby,
+    openLobbyPause,
+    resumeFromLobby,
+    restartActive,
     _buildPlan: buildTreatmentPlan,
   };
 })();

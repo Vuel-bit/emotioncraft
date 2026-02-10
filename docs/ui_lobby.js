@@ -15,6 +15,7 @@
       overlay: $("lobbyOverlay"),
       list: $("patientList"),
       startBtn: $("btnLobbyStart"),
+      resumeBtn: $("btnLobbyResume"),
       hint: $("lobbyHint"),
     };
   }
@@ -123,6 +124,18 @@
     EC.UI_STATE = EC.UI_STATE || {};
     EC.UI_STATE.selectedPatientId = EC.UI_STATE.selectedPatientId || null;
     renderList(els);
+
+    // Resume button (only shown when a session is paused and resumable)
+    if (els.resumeBtn) {
+      els.resumeBtn.addEventListener('click', () => {
+        if (EC.PAT && typeof EC.PAT.resumeFromLobby === 'function') {
+          EC.PAT.resumeFromLobby();
+        } else {
+          SIM.inLobby = false;
+        }
+        hide(els);
+      });
+    }
     if (els.startBtn) {
       // Disabled until a patient is selected (renderList may auto-select first).
       els.startBtn.disabled = !EC.UI_STATE.selectedPatientId;
@@ -145,6 +158,24 @@
     if (!els.overlay) return;
     const want = !!(SIM && SIM.inLobby);
     if (want) {
+      // Toggle Resume visibility based on whether there's a paused, resumable session.
+      const isWin = (SIM.levelState === 'win') || !!SIM.mvpWin;
+      const isLose = (SIM.levelState === 'lose') || !!SIM.mvpLose || !!SIM.gameOver;
+      const resumable = !!(SIM._patientActive && !isWin && !isLose);
+      if (els.resumeBtn) {
+        els.resumeBtn.style.display = resumable ? '' : 'none';
+      }
+      if (els.startBtn) {
+        els.startBtn.textContent = resumable ? 'Start New Session' : 'Start Session';
+      }
+      // Update subtitle to reflect pause mode.
+      try {
+        const subEl = els.overlay.querySelector('.sub');
+        if (subEl && subEl.tagName && subEl.tagName.toLowerCase() === 'div') {
+          subEl.textContent = resumable ? 'Session paused. Resume or start a new patient.' : 'Select a patient to begin a session.';
+        }
+      } catch (_) { /* ignore */ }
+
       // Ensure list stays current.
       const stamp = (EC.UI_STATE && EC.UI_STATE._lobbyDirtyStamp) ? EC.UI_STATE._lobbyDirtyStamp : 0;
       if (EC.UI_STATE && EC.UI_STATE._lobbyLastStamp !== stamp) {

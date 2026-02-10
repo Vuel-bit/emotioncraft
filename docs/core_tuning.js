@@ -123,7 +123,7 @@
     PSY_TOTAL_CAP: 2000,
 
     // Mental Breaks (psyche-based triggers)
-    BREAK_MSG_SECONDS: 4.0,
+    BREAK_MSG_SECONDS: 6.0,
     BREAK_REDIRECT_DELTA: 20,
     BREAK_PENALTY_SPIN: 25,
     BREAK_NEIGHBOR_SPILL_DIV: 2,

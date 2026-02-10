@@ -42,6 +42,51 @@
       return `${label} — ${stepName}: Hold: ${holdCur.toFixed(1)} / ${holdReq.toFixed(1)}s`;
     }
 
+    // Patient treatment plans (PLAN_CHAIN)
+    if (def && def.win && def.win.type === 'PLAN_CHAIN' && Array.isArray(def.win.steps)) {
+      const steps = def.win.steps;
+      const total = steps.length || 1;
+      const step = (typeof SIM.planStep === 'number') ? SIM.planStep : 0;
+      const idx = Math.max(0, Math.min(total - 1, step));
+      const st = steps[idx] || {};
+      const kind = String(st.kind || '').toUpperCase();
+      const holdReq = (typeof st.holdSec === 'number') ? st.holdSec : 0;
+      const holdCur = (typeof SIM.planHoldSec === 'number') ? SIM.planHoldSec : 0;
+      const rawText = String(st.text || `Step ${idx+1}`);
+      const clean = rawText.replace(/^\s*Step\s*\d+\s*:\s*/i, '').trim();
+
+      let prog = '';
+      if (holdReq > 0) {
+        prog = ` — Hold: ${holdCur.toFixed(1)} / ${holdReq.toFixed(1)}s`;
+      } else if (kind === 'SPIN_ZERO') {
+        const eps = (typeof EC.TUNE.PAT_SPIN_ZERO_EPS === 'number') ? EC.TUNE.PAT_SPIN_ZERO_EPS : 1.0;
+        let n = 0;
+        for (let i = 0; i < 6; i++) if (Math.abs((SIM.wellsS && SIM.wellsS[i]) || 0) <= eps) n++;
+        prog = ` — Spins at 0: ${n}/6`;
+      } else {
+        // Psyche goals: count satisfied hues based on current goalViz.
+        const goals = (SIM.goalViz && Array.isArray(SIM.goalViz.perHue)) ? SIM.goalViz.perHue : null;
+        if (goals) {
+          let done = 0;
+          let tot = 0;
+          for (let i = 0; i < 6; i++) {
+            const g = goals[i];
+            if (!g) continue;
+            tot++;
+            const v = Math.round((SIM.psyP && SIM.psyP[i]) || 0);
+            let ok = true;
+            if (g.type === 'OVER') ok = v >= g.target;
+            else if (g.type === 'UNDER') ok = v <= g.target;
+            else if (g.type === 'BAND') ok = (v >= g.low) && (v <= g.high);
+            if (ok) done++;
+          }
+          if (tot > 0) prog = ` — Progress: ${done}/${tot}`;
+        }
+      }
+
+      return `${label} — Step ${idx + 1}/${total} — ${clean}${prog}`;
+    }
+
     // Legacy Zen-style hold timer
     if (def && def.win && def.win.type === 'ALL_BAND_HOLD') {
       const holdReq = (typeof def.win.holdSec === 'number') ? def.win.holdSec : EC.TUNE.ZEN_HOLD_SECONDS;
@@ -91,6 +136,19 @@
       return `Step ${nextStep + 1}/${total}`;
     }
 
+    // PLAN_CHAIN: show next step's instruction if any.
+    if (win.type === 'PLAN_CHAIN' && Array.isArray(win.steps)) {
+      const steps = win.steps;
+      const total = steps.length || 1;
+      const step = (typeof SIM.planStep === 'number') ? SIM.planStep : 0;
+      const next = step + 1;
+      if (next >= total) return '';
+      const st = steps[next] || {};
+      const rawText = String(st.text || `Step ${next+1}`);
+      const clean = rawText.replace(/^\s*Step\s*\d+\s*:\s*/i, '').trim();
+      return `Step ${next + 1}/${total} — ${clean}`;
+    }
+
     // Other win types don't have an explicit next step in current design.
     return '';
   };
@@ -130,6 +188,15 @@
       UI_STATE._lobbyWired = true;
       btnLobbyEl.addEventListener('click', () => {
         try {
+          const SIM = EC.SIM || {};
+          const isWin = (SIM.levelState === 'win') || !!SIM.mvpWin;
+          const isLose = (SIM.levelState === 'lose') || !!SIM.mvpLose || !!SIM.gameOver;
+          const resumable = !!(SIM._patientActive && !isWin && !isLose);
+
+          if (resumable && EC.PAT && typeof EC.PAT.openLobbyPause === 'function') {
+            EC.PAT.openLobbyPause();
+            return;
+          }
           if (EC.PAT && typeof EC.PAT.backToLobby === 'function') EC.PAT.backToLobby();
         } catch (_) { /* ignore */ }
       });
@@ -273,6 +340,7 @@
         notifyBarEl.classList.toggle('isBanner', !!(isWin || isLose));
         notifyBarEl.classList.toggle('bannerWin', !!isWin);
         notifyBarEl.classList.toggle('bannerLose', !!isLose);
+        notifyBarEl.classList.toggle('breakMode', !!isBreak);
         notifyBarEl.classList.toggle('flashBreak', !!(isBreak && UI_STATE.uiMsgFlashT > 0));
       }
 

@@ -480,9 +480,8 @@ if (btnZeroPairEl) {
     const goalLineEl = dom.goalLineEl || document.getElementById('goalLine');
     if (goalLineEl && EC.UI_HUD && typeof EC.UI_HUD.getObjectiveSummaryText === 'function') {
       const raw = String(EC.UI_HUD.getObjectiveSummaryText() || '').replace(/^\s*Goal:\s*/i, '');
-      const maxLen = 72;
-      const txt = raw.length > maxLen ? (raw.slice(0, maxLen - 1) + '…') : raw;
-      goalLineEl.textContent = 'Current: ' + txt;
+      // Do not hard-truncate: the drawer clamps/wraps via CSS so plan steps stay readable.
+      goalLineEl.textContent = 'Current: ' + raw;
     }
 
     // Keep apply validity fresh

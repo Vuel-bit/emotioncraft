@@ -544,9 +544,22 @@
   #objectiveSummary{
     max-width: 56vw;
     text-align: right;
-    white-space: nowrap;
+    /* Allow next-step text to wrap/clamp instead of truncating to uselessness. */
+    white-space: normal;
     overflow: hidden;
-    text-overflow: ellipsis;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+  }
+
+  /* Current-step instruction can be long; wrap/clamp instead of hard truncation. */
+  #goalLine{
+    max-width: 56vw;
+    white-space: normal;
+    overflow: hidden;
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
   }
   #costSpinZero, #costZeroPair{
     display: inline-block;
@@ -566,9 +579,14 @@
     background: rgba(14, 70, 34, 0.62);
     border-color: rgba(80, 220, 140, 0.20);
   }
-  .notifyBar.isBanner .notifyControls{ display:none; }
+  /* Keep controls visible in banner mode (WIN/LOSE must always be escapable). */
+  .notifyBar.isBanner .notifyControls{ display:flex; }
   .notifyBar.isBanner .notifyText{ color: rgba(255,255,255,0.90); }
   .notifyBar.isBanner .patientInfo{ font-weight: 800; letter-spacing: 0.6px; }
+
+  /* Break messages can be longer; allow more lines only for break mode. */
+  .notifyBar.breakMode .notifyText{ -webkit-line-clamp: 4; white-space: pre-line; }
+  .notifyText{ white-space: pre-line; }
 
   @keyframes breakFlash {
     0%{ box-shadow: 0 0 0 rgba(255,0,0,0); }
@@ -633,6 +651,7 @@
       </div>
       <div id="patientList" class="patientList"></div>
       <div class="lobbyActions">
+        <button id="btnLobbyResume" class="lobbyBtn" style="display:none;">Resume</button>
         <button id="btnLobbyStart" class="lobbyBtn primary">Start Session</button>
       </div>
     </div>
