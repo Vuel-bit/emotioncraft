@@ -1452,15 +1452,20 @@ function renderPsyche() {
       drawAnnularWedge(shadeG, 0, 0, rin, rout, start, end);
       shadeG.endFill();
 
-      // Boundary lines for readability
-      shadeG.lineStyle({ width: lineW, color: col, alpha: lineAlpha });
-      if (typeof b0 === 'number') {
-        drawAnnularWedge(shadeG, 0, 0, b0, b0 + 0.01, start, end);
-      }
-      if (typeof b1 === 'number') {
-        drawAnnularWedge(shadeG, 0, 0, b1, b1 + 0.01, start, end);
-      }
-      shadeG.lineStyle();
+      // Boundary lines for readability (drawn ON TOP of hue fill).
+      // Use high-contrast lines so UNDER/BAND goals remain visible even when the wedge is fully saturated.
+      const drawBoundary = (b) => {
+        if (typeof b !== 'number') return;
+        // Dark outline
+        shadeG.lineStyle({ width: (lineW + 2), color: 0x000000, alpha: 0.55 });
+        drawAnnularWedge(shadeG, 0, 0, b, b + 0.01, start, end);
+        // White inner line
+        shadeG.lineStyle({ width: lineW, color: 0xFFFFFF, alpha: 0.85 });
+        drawAnnularWedge(shadeG, 0, 0, b, b + 0.01, start, end);
+        shadeG.lineStyle();
+      };
+      drawBoundary(b0);
+      drawBoundary(b1);
     }
   }
 

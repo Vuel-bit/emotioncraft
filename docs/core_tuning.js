@@ -214,6 +214,9 @@
 
     // Treatment plan evaluation
     PAT_BAND_HOLD_SECONDS: 10,
+    // NEW: After each plan step is satisfied, require a confirmation hold
+    // for this many seconds before advancing to the next step.
+    PLAN_POST_STEP_HOLD_SEC: 10,
     PAT_SPIN_ZERO_EPS: 1.0,
 
     // Plan step: "all spins = 0" epsilon

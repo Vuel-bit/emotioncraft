@@ -384,8 +384,11 @@ const SIM = (EC.SIM = EC.SIM || {
 
     if (winDef && winDef.type === 'PLAN_CHAIN' && Array.isArray(winDef.steps)) {
       const eps = (typeof T.PAT_SPIN_ZERO_EPS === 'number') ? T.PAT_SPIN_ZERO_EPS : 1.0;
+      const POST_HOLD_REQ = (typeof T.PLAN_POST_STEP_HOLD_SEC === 'number') ? T.PLAN_POST_STEP_HOLD_SEC : 10;
       if (typeof SIM.planStep !== 'number') SIM.planStep = 0;
       if (typeof SIM.planHoldSec !== 'number') SIM.planHoldSec = 0;
+      if (typeof SIM.planPostHoldActive !== 'boolean') SIM.planPostHoldActive = false;
+      if (typeof SIM.planPostHoldRemaining !== 'number') SIM.planPostHoldRemaining = 0;
 
       const stepIdx = Math.max(0, Math.min(winDef.steps.length - 1, SIM.planStep));
       const st = winDef.steps[stepIdx];
@@ -443,6 +446,21 @@ const SIM = (EC.SIM = EC.SIM || {
         SIM.planHoldSec = 0;
       }
 
+      // NEW: post-step confirmation hold (does NOT advance step index).
+      // If the step condition is broken at any point, cancel/reset the confirmation.
+      const stepHeld = ok && (holdReq <= 0 || SIM.planHoldSec >= holdReq);
+      if (!stepHeld) {
+        SIM.planPostHoldActive = false;
+        SIM.planPostHoldRemaining = 0;
+      } else {
+        if (!SIM.planPostHoldActive) {
+          SIM.planPostHoldActive = true;
+          SIM.planPostHoldRemaining = POST_HOLD_REQ;
+        } else {
+          SIM.planPostHoldRemaining = Math.max(0, (SIM.planPostHoldRemaining || 0) - _dt);
+        }
+      }
+
       // Objective completion bookkeeping
       if (!Array.isArray(SIM.objectives) || SIM.objectives.length !== winDef.steps.length) {
         SIM.objectives = winDef.steps.map((_, i) => ({ id: `PLAN_STEP_${i+1}`, text: `Step ${i+1}`, complete: false }));
@@ -450,20 +468,29 @@ const SIM = (EC.SIM = EC.SIM || {
       for (let i = 0; i < winDef.steps.length; i++) {
         if (!SIM.objectives[i]) continue;
         if (i < SIM.planStep) SIM.objectives[i].complete = true;
-        else if (i === SIM.planStep) SIM.objectives[i].complete = ok && (holdReq <= 0 || SIM.planHoldSec >= holdReq);
+        else if (i === SIM.planStep) {
+          // Only mark current step complete once the post-hold confirmation finishes.
+          SIM.objectives[i].complete = stepHeld && SIM.planPostHoldActive && (SIM.planPostHoldRemaining <= 0);
+        }
         else SIM.objectives[i].complete = false;
       }
 
-      if (ok && (holdReq <= 0 || SIM.planHoldSec >= holdReq)) {
+      // Advance ONLY after confirmation hold is complete.
+      if (stepHeld && SIM.planPostHoldActive && (SIM.planPostHoldRemaining <= 0)) {
         SIM.planStep += 1;
         SIM.planHoldSec = 0;
+        SIM.planPostHoldActive = false;
+        SIM.planPostHoldRemaining = 0;
       }
 
       didWin = (SIM.planStep >= winDef.steps.length);
     } else if (winDef && winDef.type === 'ZEN_CHAIN' && Array.isArray(winDef.steps)) {
       // 3-step Zen chain: advance when each condition is held.
+      const POST_HOLD_REQ = (typeof T.PLAN_POST_STEP_HOLD_SEC === 'number') ? T.PLAN_POST_STEP_HOLD_SEC : 10;
       if (typeof SIM.zenChainStep !== 'number') SIM.zenChainStep = 0;
       if (typeof SIM.zenChainHoldSec !== 'number') SIM.zenChainHoldSec = 0;
+      if (typeof SIM.zenPostHoldActive !== 'boolean') SIM.zenPostHoldActive = false;
+      if (typeof SIM.zenPostHoldRemaining !== 'number') SIM.zenPostHoldRemaining = 0;
 
       const stepIdx = Math.max(0, Math.min(winDef.steps.length - 1, SIM.zenChainStep));
       const st = winDef.steps[stepIdx];
@@ -492,22 +519,43 @@ const SIM = (EC.SIM = EC.SIM || {
 
       SIM.zenChainHoldSec = ok ? (SIM.zenChainHoldSec + _dt) : 0;
 
+      // NEW: post-step confirmation hold (does NOT advance step index).
+      const stepHeld = ok && (SIM.zenChainHoldSec >= holdReq);
+      if (!stepHeld) {
+        SIM.zenPostHoldActive = false;
+        SIM.zenPostHoldRemaining = 0;
+      } else {
+        if (!SIM.zenPostHoldActive) {
+          SIM.zenPostHoldActive = true;
+          SIM.zenPostHoldRemaining = POST_HOLD_REQ;
+        } else {
+          SIM.zenPostHoldRemaining = Math.max(0, (SIM.zenPostHoldRemaining || 0) - _dt);
+        }
+      }
+
       // Objective completion bookkeeping (side panel)
       if (!Array.isArray(SIM.objectives) || SIM.objectives.length !== winDef.steps.length) {
         // Fallback: core_model normally sets these; keep safe.
         SIM.objectives = winDef.steps.map((_, i) => ({ id: `ZEN_STEP_${i+1}`, text: `Zen Step ${i+1}`, complete: false }));
       }
       for (let i = 0; i < winDef.steps.length; i++) {
-        if (SIM.objectives[i]) SIM.objectives[i].complete = (i < SIM.zenChainStep) ? true : (i === SIM.zenChainStep && (SIM.zenChainHoldSec >= holdReq));
+        if (!SIM.objectives[i]) continue;
+        if (i < SIM.zenChainStep) SIM.objectives[i].complete = true;
+        else if (i === SIM.zenChainStep) {
+          SIM.objectives[i].complete = stepHeld && SIM.zenPostHoldActive && (SIM.zenPostHoldRemaining <= 0);
+        } else SIM.objectives[i].complete = false;
       }
 
-      if (SIM.zenChainHoldSec >= holdReq) {
+      if (stepHeld && SIM.zenPostHoldActive && (SIM.zenPostHoldRemaining <= 0)) {
         SIM.zenChainStep += 1;
         SIM.zenChainHoldSec = 0;
+        SIM.zenPostHoldActive = false;
+        SIM.zenPostHoldRemaining = 0;
       }
 
       didWin = (SIM.zenChainStep >= winDef.steps.length);
     } else if (winDef && winDef.type === 'WEEKLY_HOLD' && Array.isArray(winDef.focusHues)) {
+      const POST_HOLD_REQ = (typeof T.PLAN_POST_STEP_HOLD_SEC === 'number') ? T.PLAN_POST_STEP_HOLD_SEC : 10;
       const hi = (typeof winDef.focusHi === 'number') ? winDef.focusHi : 300;
       const lo = (typeof winDef.otherLo === 'number') ? winDef.otherLo : 150;
       const holdReq = (typeof winDef.holdSec === 'number') ? winDef.holdSec : 10;
@@ -524,15 +572,31 @@ const SIM = (EC.SIM = EC.SIM || {
         }
       }
       if (typeof SIM.weeklyHoldSec !== 'number') SIM.weeklyHoldSec = 0;
+      if (typeof SIM.weeklyPostHoldActive !== 'boolean') SIM.weeklyPostHoldActive = false;
+      if (typeof SIM.weeklyPostHoldRemaining !== 'number') SIM.weeklyPostHoldRemaining = 0;
       SIM.weeklyHoldSec = ok ? (SIM.weeklyHoldSec + _dt) : 0;
+
+      const stepHeld = ok && (SIM.weeklyHoldSec >= holdReq);
+      if (!stepHeld) {
+        SIM.weeklyPostHoldActive = false;
+        SIM.weeklyPostHoldRemaining = 0;
+      } else {
+        if (!SIM.weeklyPostHoldActive) {
+          SIM.weeklyPostHoldActive = true;
+          SIM.weeklyPostHoldRemaining = POST_HOLD_REQ;
+        } else {
+          SIM.weeklyPostHoldRemaining = Math.max(0, (SIM.weeklyPostHoldRemaining || 0) - _dt);
+        }
+      }
 
       if (!Array.isArray(SIM.objectives) || SIM.objectives.length < 1) {
         SIM.objectives = [{ id: 'WEEKLY', text: 'Weekly', complete: false }];
       }
-      if (SIM.objectives[0]) SIM.objectives[0].complete = (SIM.weeklyHoldSec >= holdReq);
+      if (SIM.objectives[0]) SIM.objectives[0].complete = stepHeld && SIM.weeklyPostHoldActive && (SIM.weeklyPostHoldRemaining <= 0);
 
-      didWin = (SIM.weeklyHoldSec >= holdReq);
+      didWin = stepHeld && SIM.weeklyPostHoldActive && (SIM.weeklyPostHoldRemaining <= 0);
     } else if (winDef && winDef.type === 'ALL_BAND_HOLD') {
+      const POST_HOLD_REQ = (typeof T.PLAN_POST_STEP_HOLD_SEC === 'number') ? T.PLAN_POST_STEP_HOLD_SEC : 10;
       const low = (typeof winDef.low === 'number') ? winDef.low : ((typeof T.ZEN_LOW === 'number') ? T.ZEN_LOW : 100);
       const high = (typeof winDef.high === 'number') ? winDef.high : ((typeof T.ZEN_HIGH === 'number') ? T.ZEN_HIGH : 120);
       const holdReq = (typeof winDef.holdSec === 'number') ? winDef.holdSec : ((typeof T.ZEN_HOLD_SECONDS === 'number') ? T.ZEN_HOLD_SECONDS : 10);
@@ -544,15 +608,30 @@ const SIM = (EC.SIM = EC.SIM || {
       }
 
       if (typeof SIM.zenHoldSec !== 'number') SIM.zenHoldSec = 0;
+      if (typeof SIM.zenPostHoldActive !== 'boolean') SIM.zenPostHoldActive = false;
+      if (typeof SIM.zenPostHoldRemaining !== 'number') SIM.zenPostHoldRemaining = 0;
       SIM.zenHoldSec = bandOk ? (SIM.zenHoldSec + _dt) : 0;
+
+      const stepHeld = bandOk && (SIM.zenHoldSec >= holdReq);
+      if (!stepHeld) {
+        SIM.zenPostHoldActive = false;
+        SIM.zenPostHoldRemaining = 0;
+      } else {
+        if (!SIM.zenPostHoldActive) {
+          SIM.zenPostHoldActive = true;
+          SIM.zenPostHoldRemaining = POST_HOLD_REQ;
+        } else {
+          SIM.zenPostHoldRemaining = Math.max(0, (SIM.zenPostHoldRemaining || 0) - _dt);
+        }
+      }
 
       // Minimal objective tracking
       if (!Array.isArray(SIM.objectives) || SIM.objectives.length < 1 || (SIM.objectives[0] && SIM.objectives[0].id !== 'L3_ZEN')) {
         SIM.objectives = [{ id: 'L3_ZEN', text: `Zen: keep all hues ${low}–${high} for ${holdReq}s`, complete: false }];
       }
-      if (SIM.objectives[0]) SIM.objectives[0].complete = (SIM.zenHoldSec >= holdReq);
+      if (SIM.objectives[0]) SIM.objectives[0].complete = stepHeld && SIM.zenPostHoldActive && (SIM.zenPostHoldRemaining <= 0);
 
-      didWin = (SIM.zenHoldSec >= holdReq);
+      didWin = stepHeld && SIM.zenPostHoldActive && (SIM.zenPostHoldRemaining <= 0);
     } else if (winDef && winDef.type === 'SOME_OVER' && Array.isArray(winDef.hues)) {
       const thr = (typeof winDef.threshold === 'number') ? winDef.threshold : L2_TARGET;
 

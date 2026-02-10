@@ -15,14 +15,15 @@
     return String(i);
   }
 
-  // Objective summary text (used in bottom panel; kept identical)
+  // Objective summary text (used in bottom panel)
   MOD.getObjectiveSummaryText = function getObjectiveSummaryText() {
     const SIM = EC.SIM || {};
     const lvl = SIM.levelId || 1;
     const def = (typeof EC.getActiveLevelDef === 'function') ? EC.getActiveLevelDef() : ((EC.LEVELS && typeof EC.LEVELS.get === 'function') ? EC.LEVELS.get(lvl) : null);
 
-    // Prefer explicit short label if present, else reuse existing strings
-    const label = def ? (def.label || `Level ${lvl}`) : `Level ${lvl}`;
+    const stripStepPrefix = (s) => String(s || '').replace(/^\s*Step\s*\d+\s*:\s*/i, '').trim();
+
+    // Keep bottom panel treatment-plan only (no patient name / level label / step counter).
     const objText = def ? (def.objectiveText || def.name || '') : '';
 
     // Patient Weekly hold timer
@@ -30,7 +31,10 @@
       const holdReq = (typeof def.win.holdSec === 'number') ? def.win.holdSec : 10;
       const holdCur = (typeof SIM.weeklyHoldSec === 'number') ? SIM.weeklyHoldSec : 0;
       const shortName = (def && def.objectiveShort) ? def.objectiveShort : (objText || 'Weekly');
-      return `${label} — ${shortName}: Hold: ${holdCur.toFixed(1)} / ${holdReq.toFixed(1)}s`;
+      const postOn = !!SIM.weeklyPostHoldActive;
+      const postLeft = (typeof SIM.weeklyPostHoldRemaining === 'number') ? SIM.weeklyPostHoldRemaining : 0;
+      const extra = postOn ? ` — Confirm: ${postLeft.toFixed(1)}s left` : '';
+      return `${shortName} — Hold: ${holdCur.toFixed(1)} / ${holdReq.toFixed(1)}s${extra}`;
     }
 
     // Patient Zen chain (3-step)
@@ -38,8 +42,12 @@
       const step = (typeof SIM.zenChainStep === 'number') ? SIM.zenChainStep : 0;
       const holdReq = (def.win.steps && def.win.steps[step] && typeof def.win.steps[step].holdSec === 'number') ? def.win.steps[step].holdSec : 10;
       const holdCur = (typeof SIM.zenChainHoldSec === 'number') ? SIM.zenChainHoldSec : 0;
-      const stepName = (def.objectiveShort || 'Zen') + ` Step ${step + 1}/` + String((def.win.steps && def.win.steps.length) || 3);
-      return `${label} — ${stepName}: Hold: ${holdCur.toFixed(1)} / ${holdReq.toFixed(1)}s`;
+      const stepName = (def.objectiveShort || 'Zen');
+      // If Zen uses post-step confirmation holds, show Confirm countdown.
+      const postOn = !!SIM.zenPostHoldActive;
+      const postLeft = (typeof SIM.zenPostHoldRemaining === 'number') ? SIM.zenPostHoldRemaining : 0;
+      const extra = postOn ? ` — Confirm: ${postLeft.toFixed(1)}s left` : '';
+      return `${stepName} — Hold: ${holdCur.toFixed(1)} / ${holdReq.toFixed(1)}s${extra}`;
     }
 
     // Patient treatment plans (PLAN_CHAIN)
@@ -53,10 +61,15 @@
       const holdReq = (typeof st.holdSec === 'number') ? st.holdSec : 0;
       const holdCur = (typeof SIM.planHoldSec === 'number') ? SIM.planHoldSec : 0;
       const rawText = String(st.text || `Step ${idx+1}`);
-      const clean = rawText.replace(/^\s*Step\s*\d+\s*:\s*/i, '').trim();
+      const clean = stripStepPrefix(rawText);
 
       let prog = '';
-      if (holdReq > 0) {
+      const postOn = !!SIM.planPostHoldActive;
+      const postLeft = (typeof SIM.planPostHoldRemaining === 'number') ? SIM.planPostHoldRemaining : 0;
+
+      if (postOn) {
+        prog = ` — Confirm: ${postLeft.toFixed(1)}s left`;
+      } else if (holdReq > 0) {
         prog = ` — Hold: ${holdCur.toFixed(1)} / ${holdReq.toFixed(1)}s`;
       } else if (kind === 'SPIN_ZERO') {
         const eps = (typeof EC.TUNE.PAT_SPIN_ZERO_EPS === 'number') ? EC.TUNE.PAT_SPIN_ZERO_EPS : 1.0;
@@ -84,7 +97,7 @@
         }
       }
 
-      return `${label} — Step ${idx + 1}/${total} — ${clean}${prog}`;
+      return `${clean}${prog}`;
     }
 
     // Legacy Zen-style hold timer
@@ -92,7 +105,10 @@
       const holdReq = (typeof def.win.holdSec === 'number') ? def.win.holdSec : EC.TUNE.ZEN_HOLD_SECONDS;
       const holdCur = (typeof SIM.zenHoldSec === 'number') ? SIM.zenHoldSec : 0;
       const shortName = (def && def.objectiveShort) ? def.objectiveShort : (objText || 'Zen');
-      return `${label} — ${shortName}: Hold: ${holdCur.toFixed(1)} / ${holdReq.toFixed(1)}s`;
+      const postOn = !!SIM.zenPostHoldActive;
+      const postLeft = (typeof SIM.zenPostHoldRemaining === 'number') ? SIM.zenPostHoldRemaining : 0;
+      const extra = postOn ? ` — Confirm: ${postLeft.toFixed(1)}s left` : '';
+      return `${shortName} — Hold: ${holdCur.toFixed(1)} / ${holdReq.toFixed(1)}s${extra}`;
     }
 
     // Level 1 style “All hues ≥ 200” progress
@@ -112,10 +128,10 @@
         if (ok) done++;
       }
       const shortName = (def && def.objectiveShort) ? def.objectiveShort : (objText || 'Objective');
-      if (total > 0) return `${label} — ${shortName} (${done}/${total})`;
+      if (total > 0) return `${shortName} (${done}/${total})`;
     }
 
-    return `${label}${objText ? ` — ${objText}` : ''}`;
+    return stripStepPrefix(objText || '');
   };
 
   // Next objective hint (UI only). If a level has no explicit "next", return empty and UI will show —.
@@ -127,13 +143,17 @@
     if (!def || !def.win) return '';
     const win = def.win;
 
-    // ZEN_CHAIN: show the next step index if not complete.
+    const stripStepPrefix = (s) => String(s || '').replace(/^\s*Step\s*\d+\s*:\s*/i, '').trim();
+
+    // ZEN_CHAIN: show the next step instruction if present.
     if (win.type === 'ZEN_CHAIN') {
       const step = (typeof SIM.zenChainStep === 'number') ? SIM.zenChainStep : 0;
       const total = (win.steps && Array.isArray(win.steps)) ? win.steps.length : 3;
       const nextStep = step + 1;
       if (nextStep >= total) return '';
-      return `Step ${nextStep + 1}/${total}`;
+      const st = (win.steps && win.steps[nextStep]) ? win.steps[nextStep] : null;
+      const raw = st && st.text ? String(st.text) : `Step ${nextStep+1}`;
+      return stripStepPrefix(raw);
     }
 
     // PLAN_CHAIN: show next step's instruction if any.
@@ -145,8 +165,8 @@
       if (next >= total) return '';
       const st = steps[next] || {};
       const rawText = String(st.text || `Step ${next+1}`);
-      const clean = rawText.replace(/^\s*Step\s*\d+\s*:\s*/i, '').trim();
-      return `Step ${next + 1}/${total} — ${clean}`;
+      const clean = stripStepPrefix(rawText);
+      return clean;
     }
 
     // Other win types don't have an explicit next step in current design.
