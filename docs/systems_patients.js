@@ -380,7 +380,7 @@
     id: 'sally', levelId: 201,
     name: 'Sally Sadeyes',
     tagline: '“What’s the point?”',
-    portrait: 'placeholder',
+    portrait: 'assets/patients/sally_sadeyes.png',
     mood: { label: 'Drained', template: 'Tilted' },
     vibe: { label: 'Blah' },
     planKey: 'INTAKE',
@@ -557,6 +557,10 @@
     const p = getById(id);
     if (!p) return;
 
+    // Cache active patient portrait path for rendering (so render code doesn't chase defs).
+    const pr = (p && typeof p.portrait === 'string') ? (p.portrait || '') : '';
+    SIM._patientPortrait = (pr && pr !== 'placeholder') ? pr : '';
+
     const ss = genStartState(p);
     const plan = buildTreatmentPlan(p.planKey);
     const def = buildPatientLevelDef(p, ss, plan);
@@ -584,6 +588,8 @@
     SIM._patientActive = false;
     SIM._patientId = null;
     SIM._patientLevelId = null;
+    SIM._patientPortrait = '';
+    SIM._patientPortrait = '';
 
     if (SIM && typeof SIM.initMVP === 'function') {
       SIM.initMVP(1);

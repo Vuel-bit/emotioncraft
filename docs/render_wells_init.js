@@ -591,6 +591,22 @@
       EC.RENDER.mvpWellLayer = layer;
       EC.RENDER.root.addChild(layer);
     }
+
+    // Patient portrait sprite (board overlay, non-interactive)
+    if (!EC.RENDER.patientPortraitSprite) {
+      const spr = new PIXI.Sprite(PIXI.Texture.EMPTY);
+      spr.name = 'patientPortrait';
+      spr.anchor && spr.anchor.set(0.5, 0.5);
+      spr.eventMode = 'none';
+      spr.visible = false;
+      EC.RENDER.patientPortraitSprite = spr;
+      try {
+        // Insert below interactive wells so it never blocks taps.
+        EC.RENDER.mvpWellLayer.addChildAt(spr, 0);
+      } catch (e) {
+        EC.RENDER.mvpWellLayer.addChild(spr);
+      }
+    }
     if (!EC.RENDER.mvpWells) {
       EC.RENDER.mvpWells = [];
       const hues = (EC.CONST && EC.CONST.HUES) || EC.HUES || ['red','purple','blue','green','yellow','orange'];

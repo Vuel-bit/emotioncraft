@@ -130,6 +130,12 @@
     BREAK_RELIEF_LOW_TO: 20,
     BREAK_RELIEF_HIGH_TO: 480,
 
+    // Mental-break WARNING visuals (UI-only)
+    BREAK_WARN_HUE_HIGH: 450,
+    BREAK_WARN_HUE_LOW: 50,
+    BREAK_WARN_TOTAL: 1900,
+    BREAK_WARN_FLASH_SEC: 1.0,
+
     // Zen level (Level 3) band + hold
     ZEN_LOW: 100,
     ZEN_HIGH: 120,

@@ -17,7 +17,49 @@
       startBtn: $("btnLobbyStart"),
       resumeBtn: $("btnLobbyResume"),
       hint: $("lobbyHint"),
+      portraitImg: $("lobbyPortraitImg"),
+      detailsName: $("lobbyDetailsName"),
+      detailsTagline: $("lobbyDetailsTagline"),
+      detailsMeta: $("lobbyDetailsMeta"),
+      detailsQuirks: $("lobbyDetailsQuirks"),
     };
+  }
+
+  function _hasPortrait(p) {
+    const src = (p && typeof p.portrait === 'string') ? p.portrait : '';
+    if (!src) return false;
+    if (src === 'placeholder') return false;
+    return true;
+  }
+
+  function renderDetails(els, p) {
+    if (!p) return;
+    try {
+      if (els.detailsName) els.detailsName.textContent = p.name || '—';
+      if (els.detailsTagline) els.detailsTagline.textContent = p.tagline || '';
+
+      const mv = [];
+      if (p.mindsetLabel) mv.push(`Mood: ${(p.moodLabel || p.mindsetLabel)} (${(p.moodTemplate || p.mindsetTemplate || 'Flat')})`);
+      if (p.vibeLabel) mv.push(`Vibe: ${p.vibeLabel}`);
+      if (p.planName) mv.push(`Plan: ${p.planName}`);
+      if (els.detailsMeta) els.detailsMeta.textContent = mv.join(' • ');
+
+      const qLines = [];
+      qLines.push(`Quirks: ${p.quirkSummary || '—'}`);
+      if (p.quirkLineTexts && p.quirkLineTexts.length) qLines.push(...p.quirkLineTexts);
+      if (els.detailsQuirks) els.detailsQuirks.innerHTML = qLines.join('<br>');
+
+      if (els.portraitImg) {
+        if (_hasPortrait(p)) {
+          els.portraitImg.src = p.portrait;
+          els.portraitImg.style.opacity = '1';
+        } else {
+          // Neutral placeholder (no new artwork)
+          els.portraitImg.removeAttribute('src');
+          els.portraitImg.style.opacity = '0';
+        }
+      }
+    } catch (_) {}
   }
 
   function renderList(els) {
@@ -60,19 +102,7 @@
         rows.forEach((r) => r.classList.remove('selected'));
         row.classList.add('selected');
         if (els.startBtn) els.startBtn.disabled = false;
-        if (els.hint) {
-          const lines = [];
-          lines.push(`Selected: ${p.name}`);
-          if (p.tagline) lines.push(p.tagline);
-          const mv = [];
-          if (p.mindsetLabel) mv.push(`Mood: ${(p.moodLabel || p.mindsetLabel)} (${(p.moodTemplate || p.mindsetTemplate || 'Flat')})`);
-          if (p.vibeLabel) mv.push(`Vibe: ${p.vibeLabel}`);
-          if (p.planName) mv.push(`Plan: ${p.planName}`);
-          if (mv.length) lines.push(mv.join(' • '));
-          lines.push(`Quirks: ${p.quirkSummary || '—'}`);
-          if (p.quirkLineTexts && p.quirkLineTexts.length) lines.push(...p.quirkLineTexts);
-          els.hint.innerHTML = lines.join('<br>');
-        }
+        renderDetails(els, p);
       });
 
       // Auto-select first item if none selected.
@@ -83,28 +113,18 @@
           EC.UI_STATE.selectedPatientId = p.id;
           row.classList.add('selected');
           if (els.startBtn) els.startBtn.disabled = false;
-          if (els.hint) {
-            const lines = [];
-            lines.push(`Selected: ${p.name}`);
-            if (p.tagline) lines.push(p.tagline);
-            const mv = [];
-            if (p.mindsetLabel) mv.push(`Mood: ${(p.moodLabel || p.mindsetLabel)} (${(p.moodTemplate || p.mindsetTemplate || 'Flat')})`);
-            if (p.vibeLabel) mv.push(`Vibe: ${p.vibeLabel}`);
-            if (p.planName) mv.push(`Plan: ${p.planName}`);
-            if (mv.length) lines.push(mv.join(' • '));
-            lines.push(`Quirks: ${p.quirkSummary || '—'}`);
-            if (p.quirkLineTexts && p.quirkLineTexts.length) lines.push(...p.quirkLineTexts);
-            els.hint.innerHTML = lines.join('<br>');
-          }
+          renderDetails(els, p);
         } else if (sel === p.id) {
           row.classList.add('selected');
           if (els.startBtn) els.startBtn.disabled = false;
+          renderDetails(els, p);
         }
       } else {
         const sel = (EC.UI_STATE && EC.UI_STATE.selectedPatientId) ? EC.UI_STATE.selectedPatientId : null;
         if (sel === p.id) {
           row.classList.add('selected');
           if (els.startBtn) els.startBtn.disabled = false;
+          renderDetails(els, p);
         }
       }
 

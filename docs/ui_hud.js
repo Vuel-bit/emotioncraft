@@ -193,15 +193,10 @@
     const levelSelectEl = dom.levelSelectEl || document.getElementById('levelSelect');
     const mvpHudEl = dom.mvpHudEl || document.getElementById('mvpHud');
 
-    const btnResetEl = dom.btnResetEl || document.getElementById('btnReset');
     const btnDebugEl = dom.btnDebugEl || document.getElementById('btnDebug');
     const btnLobbyEl = dom.btnLobbyEl || document.getElementById('btnLobby');
 
-    // Reset button
-    if (btnResetEl && !UI_STATE._resetWired) {
-      UI_STATE._resetWired = true;
-      btnResetEl.addEventListener('click', () => EC.resetRun && EC.resetRun());
-    }
+    // Reset button removed (Lobby + Debug cover reset flows)
 
     // Lobby button (must work even after WIN/LOSE freeze)
     if (btnLobbyEl && !UI_STATE._lobbyWired) {

@@ -216,6 +216,13 @@
     let _wgAnyValid = false;
     let _wgMinR = 1e9;
     let _wgMaxR = 0;
+
+    // Store per-well centers/radius for other board UI (e.g., patient portrait)
+    const MVP_GEOM = (RSTATE.mvpWellGeom = RSTATE.mvpWellGeom || {
+      cx: new Array(6).fill(NaN),
+      cy: new Array(6).fill(NaN),
+      r: new Array(6).fill(NaN),
+    });
   
     const hues = (EC.CONST && EC.CONST.HUES) || EC.HUES || ['red','purple','blue','green','yellow','orange'];
     const A_MIN = EC.TUNE.A_MIN;
@@ -283,6 +290,20 @@
       const cy = geom.cy + Math.sin(ang) * geom.ringR;
   
       const r = computeMvpWellRadius(SIM.wellsA[i], geom.wellMinR, geom.wellMaxR, Amax);
+
+      // Cache geometry for other overlay elements.
+      try {
+        MVP_GEOM.cx[i] = cx;
+        MVP_GEOM.cy[i] = cy;
+        MVP_GEOM.r[i] = r;
+      } catch (_) {}
+
+      // Cache for other overlay elements
+      try {
+        MVP_GEOM.cx[i] = cx;
+        MVP_GEOM.cy[i] = cy;
+        MVP_GEOM.r[i] = r;
+      } catch (_) {}
 
       // Update authoritative DOM hit-testing geometry.
       // Slightly inside the visible rim so taps are conservative.
@@ -771,6 +792,46 @@
       spinText.position.set(-totalW * 0.5 + wA + wS * 0.5, yAS);
   
     }
+
+    // ------------------------------------------------------------
+    // Patient portrait overlay positioning (non-interactive)
+    // ------------------------------------------------------------
+    try {
+      const spr = (EC.RENDER && EC.RENDER.patientPortraitSprite) ? EC.RENDER.patientPortraitSprite : null;
+      const src = (SIM && typeof SIM._patientPortrait === 'string') ? SIM._patientPortrait : '';
+      if (spr) {
+        if (src) {
+          if (spr._ecSrc !== src) {
+            spr._ecSrc = src;
+            try { spr.texture = PIXI.Texture.from(src); } catch (e) {}
+          }
+          spr.visible = true;
+
+          const app = EC.RENDER.app;
+          const sw = (app && app.screen) ? app.screen.width : 0;
+          const sh = (app && app.screen) ? app.screen.height : 0;
+          const wR = (geom && typeof geom.wellMaxR === 'number') ? geom.wellMaxR : 60;
+          const sizePx = clamp(wR * 1.6, 72, 140);
+          spr.width = sizePx;
+          spr.height = sizePx;
+
+          const cx0 = MVP_GEOM.cx[0], cy0 = MVP_GEOM.cy[0];
+          const cx5 = MVP_GEOM.cx[5], cy5 = MVP_GEOM.cy[5];
+          let x = Math.min(cx0, cx5) - (wR + sizePx * 0.55);
+          let y = (cy0 + cy5) * 0.5 - wR * 0.15;
+
+          const topRes = (geom && typeof geom.topReserved === 'number') ? geom.topReserved : 0;
+          const botRes = (geom && typeof geom.bottomReserved === 'number') ? geom.bottomReserved : 0;
+          const m = 6;
+          if (sw) x = clamp(x, sizePx * 0.5 + m, sw - sizePx * 0.5 - m);
+          if (sh) y = clamp(y, topRes + sizePx * 0.5 + m, sh - botRes - sizePx * 0.5 - m);
+          spr.position.set(x, y);
+        } else {
+          spr.visible = false;
+          spr._ecSrc = '';
+        }
+      }
+    } catch (_) {}
 
     // Finalize authoritative geometry + debug line (always-visible in snapshot)
     try {

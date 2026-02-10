@@ -1222,6 +1222,15 @@ function ensurePsycheView() {
     EC.RENDER.psycheLayer.addChild(gg);
   }
 
+  // Red warning ring overlay (per-wedge + center pulse)
+  // Rendered above the goal rings so it reads clearly.
+  if (!EC.RENDER.psycheWarnRingG) {
+    const wg = new Graphics();
+    wg.eventMode = 'none';
+    EC.RENDER.psycheWarnRingG = wg;
+    EC.RENDER.psycheLayer.addChild(wg);
+  }
+
   // Per-wedge numeric readouts (psyche values)
   if (!EC.RENDER.psycheWedgeValueTexts) {
     const arr = [];
@@ -1527,9 +1536,74 @@ function renderPsyche() {
       ringG.lineStyle();
     }
   }
+
+  // ------------------------------------------------------------
+  // Mental-break WARNING visuals (UI-only)
+  // ------------------------------------------------------------
+  const warnG = EC.RENDER.psycheWarnRingG;
+  if (warnG) warnG.clear();
+
+  const HIGH = (EC.TUNE && typeof EC.TUNE.BREAK_WARN_HUE_HIGH === 'number') ? EC.TUNE.BREAK_WARN_HUE_HIGH : 450;
+  const LOW = (EC.TUNE && typeof EC.TUNE.BREAK_WARN_HUE_LOW === 'number') ? EC.TUNE.BREAK_WARN_HUE_LOW : 50;
+  const WARN_TOTAL = (EC.TUNE && typeof EC.TUNE.BREAK_WARN_TOTAL === 'number') ? EC.TUNE.BREAK_WARN_TOTAL : 1900;
+  const FLASH_SEC = (EC.TUNE && typeof EC.TUNE.BREAK_WARN_FLASH_SEC === 'number') ? EC.TUNE.BREAK_WARN_FLASH_SEC : 1.0;
+
+  const bw = (SIM._breakWarn = SIM._breakWarn || {
+    zone: new Array(6).fill('ok'),
+    flashT: new Array(6).fill(0),
+    tPrev: null,
+  });
+  const nowSec = ((typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now()) / 1000;
+  const dtWarn = (typeof bw.tPrev === 'number') ? Math.max(0, Math.min(0.25, nowSec - bw.tPrev)) : 0;
+  bw.tPrev = nowSec;
+
+  // Update per-wedge one-shot flash timers (crossing ok -> danger)
+  for (let i = 0; i < 6; i++) {
+    const v = (typeof P[i] === 'number' && isFinite(P[i])) ? P[i] : 0;
+    let z = 'ok';
+    if (v > HIGH) z = 'high';
+    else if (v < LOW) z = 'low';
+
+    const prevZ = bw.zone[i] || 'ok';
+    if (prevZ === 'ok' && z !== 'ok') {
+      bw.flashT[i] = FLASH_SEC;
+      bw.zone[i] = z;
+    } else if (z === 'ok' && prevZ !== 'ok') {
+      bw.zone[i] = 'ok';
+    } else {
+      bw.zone[i] = z;
+    }
+
+    if (bw.flashT[i] > 0) bw.flashT[i] = Math.max(0, bw.flashT[i] - dtWarn);
+  }
+
+  // Draw wedge flashes (single pulse)
+  const warnCol = 0xff3b3b;
+  for (let i = 0; i < N; i++) {
+    const t = bw.flashT[i] || 0;
+    if (!warnG || t <= 0) continue;
+    const start = base + i * slice + gap / 2;
+    const end = start + span;
+    const k = 1 - clamp(t / FLASH_SEC, 0, 1);
+    const alpha = Math.max(0, Math.min(0.92, Math.sin(k * Math.PI) * 0.92));
+    if (alpha <= 0.01) continue;
+    warnG.lineStyle({ width: ringW, color: warnCol, alpha: alpha });
+    drawAnnularWedge(warnG, 0, 0, r0, r1, start, end);
+    warnG.closePath();
+    warnG.endFill && warnG.endFill();
+    warnG.lineStyle();
+  }
   // Center core (total fill 0..TOTAL_CAP): background disc + radial fill sector + centered total number
   let total = 0;
   for (let i = 0; i < 6; i++) total += (P[i] || 0);
+
+  // Center pulse when total psyche is above warning threshold
+  if (warnG && total > WARN_TOTAL) {
+    const pulse = 0.35 + 0.35 * Math.max(0, Math.sin(nowSec * 4.2));
+    warnG.lineStyle({ width: Math.max(2, ringW * 1.1), color: warnCol, alpha: pulse });
+    warnG.drawCircle(0, 0, r0 * 0.90);
+    warnG.lineStyle();
+  }
 
   const coreR = r0 * 0.90; // keep core smaller than r0 so wedges start cleanly
   const TOTAL_CAP = EC.TUNE.PSY_TOTAL_CAP;
@@ -1642,6 +1716,9 @@ if (SIM && SIM.wellsA && Array.isArray(SIM.wellsA) && SIM.wellsA.length === 6) {
     wellMinR,
     wellMaxR,
     baseAngle: -Math.PI / 2, // start at top
+    // Layout reservations for non-board UI (used by overlay clamping)
+    topReserved,
+    bottomReserved,
   };
 
   // Psyche centered

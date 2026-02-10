@@ -45,7 +45,6 @@ const btnSpinZeroEl = document.getElementById('btnSpinZero');
 const btnZeroPairEl = document.getElementById('btnZeroPair');
 const energyMiniFillEl = document.getElementById('energyMiniFill');
 
-const btnResetEl = document.getElementById('btnReset');
 const btnDebugEl = document.getElementById('btnDebug');
 
 // Apply MVP layout toggles exactly as before
@@ -97,7 +96,7 @@ ctx.dom = {
   topbarEl, legacyMetersEl, mvpHudEl, debugEl, objectivePanelEl, levelSelectEl,
   selectedWellPillEl, energyCostPillEl, deltaAEl, deltaAValEl, deltaSEl, deltaSValEl,
   costPillEl, previewPillEl, objectiveSummaryEl, btnApplyEl, btnSpinZeroEl, btnZeroPairEl,
-  energyMiniFillEl, btnResetEl, btnDebugEl,
+  energyMiniFillEl, btnDebugEl,
 };
 
 // Init split modules (idempotent)

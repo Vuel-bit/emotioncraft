@@ -245,9 +245,43 @@
       padding: 14px;
       box-shadow: 0 18px 60px rgba(0,0,0,0.45);
     }
-    .lobbyHeader{ display:flex; align-items:flex-end; justify-content:space-between; gap:12px; margin-bottom: 10px; }
+    .lobbyHeader{ display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom: 10px; }
     .lobbyHeader h2{ margin:0; font-size: 16px; letter-spacing: 0.2px; }
-    .lobbyHeader .sub{ font-size: 12px; color: rgba(232,238,252,0.72); }
+    .lobbyHeader .sub{ font-size: 12px; color: rgba(232,238,252,0.72); text-align:right; }
+
+    .lobbyDetails{
+      display:flex;
+      gap: 12px;
+      align-items: stretch;
+      padding: 10px;
+      border-radius: 16px;
+      background: rgba(12, 16, 26, 0.58);
+      border: 1px solid rgba(255,255,255,0.10);
+      margin-bottom: 12px;
+    }
+    .lobbyPortraitWrap{
+      width: 104px;
+      height: 104px;
+      border-radius: 16px;
+      background: rgba(255,255,255,0.06);
+      border: 1px solid rgba(255,255,255,0.10);
+      overflow: hidden;
+      flex: 0 0 auto;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+    }
+    #lobbyPortraitImg{
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display:block;
+    }
+    .lobbyDetailsText{ flex: 1 1 auto; min-width: 0; }
+    .lobbyDetailsName{ font-size: 14px; color: rgba(232,238,252,0.95); margin-bottom: 4px; }
+    .lobbyDetailsTagline{ font-size: 12px; color: rgba(232,238,252,0.82); margin-bottom: 6px; }
+    .lobbyDetailsMeta{ font-size: 12px; color: rgba(232,238,252,0.76); margin-bottom: 6px; line-height: 1.25; }
+    .lobbyDetailsQuirks{ font-size: 12px; color: rgba(232,238,252,0.76); line-height: 1.25; }
     .patientList{ display:grid; grid-template-columns: 1fr; gap: 10px; }
     .patientItem{
       display:grid;
@@ -643,11 +677,20 @@
   <div id="lobbyOverlay" class="lobbyOverlay" aria-hidden="true">
     <div class="lobbyCard">
       <div class="lobbyHeader">
-        <div>
-          <h2>Patient Lobby</h2>
-          <div class="sub">Select a patient to begin a session.</div>
-        </div>
+        <h2>Patient Lobby</h2>
         <div class="sub" id="lobbyHint"></div>
+      </div>
+
+      <div class="lobbyDetails" id="lobbyDetails" aria-hidden="false">
+        <div class="lobbyPortraitWrap">
+          <img id="lobbyPortraitImg" alt="Patient portrait" />
+        </div>
+        <div class="lobbyDetailsText">
+          <div class="lobbyDetailsName" id="lobbyDetailsName">—</div>
+          <div class="lobbyDetailsTagline" id="lobbyDetailsTagline"></div>
+          <div class="lobbyDetailsMeta" id="lobbyDetailsMeta"></div>
+          <div class="lobbyDetailsQuirks" id="lobbyDetailsQuirks"></div>
+        </div>
       </div>
       <div id="patientList" class="patientList"></div>
       <div class="lobbyActions">
@@ -662,7 +705,6 @@
     <div class="patientInfo" id="patientInfo"></div>
     <div class="notifyText" id="notifyText"></div>
     <div class="notifyControls" id="notifyControls">
-      <button class="btn" id="btnReset">Reset</button>
       <button class="btn" id="btnDebug">Debug</button>
       <button class="btn" id="btnLobby">Lobby</button>
     </div>
