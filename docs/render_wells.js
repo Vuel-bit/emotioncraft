@@ -1566,7 +1566,8 @@ function renderPsyche() {
 
     const prevZ = bw.zone[i] || 'ok';
     if (prevZ === 'ok' && z !== 'ok') {
-      bw.flashT[i] = FLASH_SEC;
+      // Flash 3 times (one-shot) over the same per-flash duration.
+      bw.flashT[i] = FLASH_SEC * 3;
       bw.zone[i] = z;
     } else if (z === 'ok' && prevZ !== 'ok') {
       bw.zone[i] = 'ok';
@@ -1577,15 +1578,17 @@ function renderPsyche() {
     if (bw.flashT[i] > 0) bw.flashT[i] = Math.max(0, bw.flashT[i] - dtWarn);
   }
 
-  // Draw wedge flashes (single pulse)
+  // Draw wedge flashes (3 pulses)
   const warnCol = 0xff3b3b;
   for (let i = 0; i < N; i++) {
     const t = bw.flashT[i] || 0;
     if (!warnG || t <= 0) continue;
     const start = base + i * slice + gap / 2;
     const end = start + span;
-    const k = 1 - clamp(t / FLASH_SEC, 0, 1);
-    const alpha = Math.max(0, Math.min(0.92, Math.sin(k * Math.PI) * 0.92));
+    const T3 = FLASH_SEC * 3;
+    const elapsed = Math.max(0, Math.min(T3, T3 - t));
+    const cycle = ((elapsed % FLASH_SEC) / FLASH_SEC);
+    const alpha = Math.max(0, Math.min(0.92, Math.sin(Math.PI * cycle) * 0.92));
     if (alpha <= 0.01) continue;
     warnG.lineStyle({ width: ringW, color: warnCol, alpha: alpha });
     drawAnnularWedge(warnG, 0, 0, r0, r1, start, end);
@@ -1597,16 +1600,23 @@ function renderPsyche() {
   let total = 0;
   for (let i = 0; i < 6; i++) total += (P[i] || 0);
 
-  // Center pulse when total psyche is above warning threshold
-  if (warnG && total > WARN_TOTAL) {
-    const pulse = 0.35 + 0.35 * Math.max(0, Math.sin(nowSec * 4.2));
-    warnG.lineStyle({ width: Math.max(2, ringW * 1.1), color: warnCol, alpha: pulse });
+  // Center pulse when total psyche is above warning threshold.
+  // Ramps (freq + brightness + swing) as total approaches TOTAL_CAP.
+  const TOTAL_CAP = EC.TUNE.PSY_TOTAL_CAP;
+  if (warnG && total > WARN_TOTAL && TOTAL_CAP > WARN_TOTAL) {
+    const totalFrac = clamp((total - WARN_TOTAL) / (TOTAL_CAP - WARN_TOTAL), 0, 1);
+    const freq = 4.2 + (10.0 - 4.2) * totalFrac;
+    const baseAlpha = 0.45 + (0.95 - 0.45) * totalFrac;
+    const swing = 0.20 + (0.55 - 0.20) * totalFrac;
+    const s = 0.5 + 0.5 * Math.sin(nowSec * freq);
+    const alpha = clamp((baseAlpha - swing) + (swing * s), 0, 0.98);
+    const lw = Math.max(2, ringW * (1.1 + 0.25 * totalFrac));
+    warnG.lineStyle({ width: lw, color: warnCol, alpha: alpha });
     warnG.drawCircle(0, 0, r0 * 0.90);
     warnG.lineStyle();
   }
 
   const coreR = r0 * 0.90; // keep core smaller than r0 so wedges start cleanly
-  const TOTAL_CAP = EC.TUNE.PSY_TOTAL_CAP;
   const tTotal = clamp(total, 0, TOTAL_CAP) / TOTAL_CAP;
 
   // Background core disc

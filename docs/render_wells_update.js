@@ -817,8 +817,32 @@
 
           const cx0 = MVP_GEOM.cx[0], cy0 = MVP_GEOM.cy[0];
           const cx5 = MVP_GEOM.cx[5], cy5 = MVP_GEOM.cy[5];
-          let x = Math.min(cx0, cx5) - (wR + sizePx * 0.55);
-          let y = (cy0 + cy5) * 0.5 - wR * 0.15;
+          // Compute a conservative "redOuterR" (maximum visual outer radius) so the portrait
+          // alignment is stable regardless of current selection/quirk/telegraph state.
+          const r = wR;
+
+          // Selection ring worst-case (selected): drawCircle(r + max(6, r*0.12))
+          // with stroke width max(2, r*0.055).
+          const selPad = Math.max(6, r * 0.12);
+          const selW = Math.max(2, r * 0.055);
+          const selOuter = (r + selPad) + selW * 0.5;
+
+          // Disposition/quirk halo worst-case: haloR = r + R.DISP_HALO_PAD with stroke width
+          // approx max(R.DISP_HALO_W_MIN, r*R.DISP_HALO_W_SCALE).
+          const haloPad = (typeof R.DISP_HALO_PAD === 'number') ? R.DISP_HALO_PAD : 0;
+          const haloWMin = (typeof R.DISP_HALO_W_MIN === 'number') ? R.DISP_HALO_W_MIN : 0;
+          const haloWScale = (typeof R.DISP_HALO_W_SCALE === 'number') ? R.DISP_HALO_W_SCALE : 0;
+          const haloR = r + haloPad;
+          const haloW = Math.max(haloWMin, r * haloWScale);
+          const haloOuter = haloR + haloW * 0.5;
+
+          const redOuterR = Math.max(r, selOuter, haloOuter);
+          const redTopY = cy0 - redOuterR;
+
+          // Shift right compared to previous build (was sizePx*0.55).
+          let x = Math.min(cx0, cx5) - (wR + sizePx * 0.25);
+          // Align portrait top edge to redTopY.
+          let y = redTopY + sizePx * 0.5;
 
           const topRes = (geom && typeof geom.topReserved === 'number') ? geom.topReserved : 0;
           const botRes = (geom && typeof geom.bottomReserved === 'number') ? geom.bottomReserved : 0;

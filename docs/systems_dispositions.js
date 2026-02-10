@@ -49,6 +49,10 @@
   }
 
   function hueName(idx) {
+    const N = (EC.CONST && EC.CONST.WELL_DISPLAY_NAMES) || null;
+    if (N && N[idx]) return String(N[idx]);
+
+    // Fallback to legacy hue names (Title Case)
     const H = EC.HUES || (EC.CONST && EC.CONST.HUES) || [];
     const s = (H && H[idx]) ? String(H[idx]) : `Hue${idx}`;
     return s.charAt(0).toUpperCase() + s.slice(1);
