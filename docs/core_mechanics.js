@@ -396,6 +396,7 @@ const SIM = (EC.SIM = EC.SIM || {
 
       let ok = true;
       const kind = st ? String(st.kind || '').toUpperCase() : '';
+      const isSpinZeroStep = (kind === 'SPIN_ZERO');
       if (kind === 'ALL_OVER') {
         const thr = (typeof st.threshold === 'number') ? st.threshold : 0;
         for (let k = 0; k < 6; k++) { if ((SIM.psyP[k] || 0) < thr) { ok = false; break; } }
@@ -449,19 +450,26 @@ const SIM = (EC.SIM = EC.SIM || {
       // NEW: post-step confirmation hold (does NOT advance step index).
       // If the step condition is broken at any point, cancel/reset the confirmation.
       const stepHeld = ok && (holdReq <= 0 || SIM.planHoldSec >= holdReq);
-      if (!stepHeld) {
+
+      // Exception: SPIN_ZERO steps advance immediately once satisfied (no post-step hold).
+      if (isSpinZeroStep) {
         SIM.planPostHoldActive = false;
         SIM.planPostHoldRemaining = 0;
       } else {
-        if (!SIM.planPostHoldActive) {
-          SIM.planPostHoldActive = true;
-          SIM.planPostHoldRemaining = POST_HOLD_REQ;
+        if (!stepHeld) {
+          SIM.planPostHoldActive = false;
+          SIM.planPostHoldRemaining = 0;
         } else {
-          SIM.planPostHoldRemaining = Math.max(0, (SIM.planPostHoldRemaining || 0) - _dt);
+          if (!SIM.planPostHoldActive) {
+            SIM.planPostHoldActive = true;
+            SIM.planPostHoldRemaining = POST_HOLD_REQ;
+          } else {
+            SIM.planPostHoldRemaining = Math.max(0, (SIM.planPostHoldRemaining || 0) - _dt);
+          }
         }
       }
 
-      // Objective completion bookkeeping
+// Objective completion bookkeeping
       if (!Array.isArray(SIM.objectives) || SIM.objectives.length !== winDef.steps.length) {
         SIM.objectives = winDef.steps.map((_, i) => ({ id: `PLAN_STEP_${i+1}`, text: `Step ${i+1}`, complete: false }));
       }
@@ -470,13 +478,13 @@ const SIM = (EC.SIM = EC.SIM || {
         if (i < SIM.planStep) SIM.objectives[i].complete = true;
         else if (i === SIM.planStep) {
           // Only mark current step complete once the post-hold confirmation finishes.
-          SIM.objectives[i].complete = stepHeld && SIM.planPostHoldActive && (SIM.planPostHoldRemaining <= 0);
+          SIM.objectives[i].complete = isSpinZeroStep ? stepHeld : (stepHeld && SIM.planPostHoldActive && (SIM.planPostHoldRemaining <= 0));
         }
         else SIM.objectives[i].complete = false;
       }
 
-      // Advance ONLY after confirmation hold is complete.
-      if (stepHeld && SIM.planPostHoldActive && (SIM.planPostHoldRemaining <= 0)) {
+      // Advance: SPIN_ZERO steps advance immediately; others advance only after confirmation hold completes.
+      if ((isSpinZeroStep && stepHeld) || (!isSpinZeroStep && stepHeld && SIM.planPostHoldActive && (SIM.planPostHoldRemaining <= 0))) {
         SIM.planStep += 1;
         SIM.planHoldSec = 0;
         SIM.planPostHoldActive = false;

@@ -519,6 +519,15 @@ if (btnZeroPairEl) {
       const costZeroPairEl2 = dom.costZeroPairEl || document.getElementById('costZeroPair');
       if (costSpinZeroEl2) costSpinZeroEl2.textContent = `Cost ${cost1.toFixed(2)}`;
 
+      if (btnSpinZeroEl2) {
+        const changedSpin = (c1 && c1.changed);
+        const spinCost = changedSpin ? cost1 : 0;
+        const canSpin = hasSel && changedSpin && ((SIM.energy || 0) >= spinCost);
+        btnSpinZeroEl2.disabled = !canSpin;
+        btnSpinZeroEl2.style.opacity = canSpin ? '1' : '0.55';
+      }
+
+
       const c2 = computeZeroPairCost(sel);
       const j = _oppIndex(sel);
       const changedPair = (j != null && j >= 0 && j < 6) && ((Math.abs(SIM.wellsS[sel] || 0) > 1e-9) || (Math.abs(SIM.wellsS[j] || 0) > 1e-9));
@@ -527,7 +536,11 @@ if (btnZeroPairEl) {
       if (costZeroPairEl2) costZeroPairEl2.textContent = `Cost ${pairCost.toFixed(2)}`;
 
       // Gating must match displayed cost exactly.
-      if (btnZeroPairEl2) btnZeroPairEl2.disabled = !hasSel || !changedPair || ((SIM.energy || 0) < pairCost);
+      if (btnZeroPairEl2) {
+        const canPair = hasSel && changedPair && ((SIM.energy || 0) >= pairCost);
+        btnZeroPairEl2.disabled = !canPair;
+        btnZeroPairEl2.style.opacity = canPair ? '1' : '0.55';
+      }
     }
   };
 

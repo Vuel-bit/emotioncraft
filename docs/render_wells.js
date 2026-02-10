@@ -1456,13 +1456,12 @@ function renderPsyche() {
       // Use high-contrast lines so UNDER/BAND goals remain visible even when the wedge is fully saturated.
       const drawBoundary = (b) => {
         if (typeof b !== 'number') return;
-        // Dark outline
-        shadeG.lineStyle({ width: (lineW + 2), color: 0x000000, alpha: 0.55 });
-        drawAnnularWedge(shadeG, 0, 0, b, b + 0.01, start, end);
-        // White inner line
-        shadeG.lineStyle({ width: lineW, color: 0xFFFFFF, alpha: 0.85 });
-        drawAnnularWedge(shadeG, 0, 0, b, b + 0.01, start, end);
-        shadeG.lineStyle();
+        // Use a thin FILLED band (no stroke) to avoid "black rails" / anti-alias seams that can look
+        // like the fill hits a wall. Keep it crisp and bright, but non-occluding.
+        const bandW = Math.max(1.5, Math.min(3.0, lineW));
+        shadeG.beginFill(0xFFFFFF, 0.86);
+        drawAnnularWedge(shadeG, 0, 0, b - (bandW * 0.5), b + (bandW * 0.5), start, end);
+        shadeG.endFill();
       };
       drawBoundary(b0);
       drawBoundary(b1);
