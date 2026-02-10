@@ -503,6 +503,12 @@ try { if (EC.SIM) EC.SIM.selectedWellIndex = w; } catch (e) {}
               if (!ok) {
                 applied = 'fail';
                 applyReason = (res && res.reason) ? res.reason : 'apply_failed';
+                // SFX: error beep ONLY for lack-of-energy swipe/drag attempts.
+                try {
+                  if (applyReason === 'noenergy' && EC.SFX && typeof EC.SFX.play === 'function') {
+                    EC.SFX.play('bong_001');
+                  }
+                } catch (_) {}
               }
             } catch (e) {
               applied = 'fail';

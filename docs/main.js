@@ -444,6 +444,8 @@ function _domArmHookLog(e, label) {
 
   // Pointer events on the canvas element (raw DOM instrumentation)
   view.addEventListener('pointerdown', (e) => {
+    // Mobile autoplay restrictions: unlock audio inside a real user gesture.
+    try { if (EC.SFX && typeof EC.SFX.unlock === 'function') EC.SFX.unlock(); } catch (_) {}
     _recordDomPointer(e,'pd');
     let armed = false;
     try { e.preventDefault(); } catch (_) {}
@@ -655,6 +657,9 @@ app.stage.on('pointermove', (ev) => { _stageDbg(ev,'pointermove'); });
   window.addEventListener('orientationchange', () => EC.resize && EC.resize());
 
   if (EC.tick) app.ticker.add(EC.tick);
+
+  // SFX init (safe no-op until unlocked by user gesture)
+  try { if (EC.SFX && typeof EC.SFX.init === 'function') EC.SFX.init(); } catch (_) {}
 
   // -----------------------------
   // Start

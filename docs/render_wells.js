@@ -1551,8 +1551,15 @@ function renderPsyche() {
   const bw = (SIM._breakWarn = SIM._breakWarn || {
     zone: new Array(6).fill('ok'),
     flashT: new Array(6).fill(0),
+    // Per-wedge pulse index tracker so SFX only plays once per flash pulse.
+    lastPulse: new Array(6).fill(-1),
+    // Total psyche threshold-cross tracking (one-shot SFX on upward cross).
+    totalWasHigh: false,
     tPrev: null,
   });
+  // Backward-compat: if older saved state exists, ensure required fields.
+  if (!bw.lastPulse || bw.lastPulse.length !== 6) bw.lastPulse = new Array(6).fill(-1);
+  if (typeof bw.totalWasHigh !== 'boolean') bw.totalWasHigh = false;
   const nowSec = ((typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now()) / 1000;
   const dtWarn = (typeof bw.tPrev === 'number') ? Math.max(0, Math.min(0.25, nowSec - bw.tPrev)) : 0;
   bw.tPrev = nowSec;
@@ -1575,18 +1582,32 @@ function renderPsyche() {
       bw.zone[i] = z;
     }
 
-    if (bw.flashT[i] > 0) bw.flashT[i] = Math.max(0, bw.flashT[i] - dtWarn);
+    if (bw.flashT[i] > 0) {
+      bw.flashT[i] = Math.max(0, bw.flashT[i] - dtWarn);
+      if (bw.flashT[i] === 0) bw.lastPulse[i] = -1;
+    } else {
+      bw.lastPulse[i] = -1;
+    }
   }
 
   // Draw wedge flashes (3 pulses)
   const warnCol = 0xff3b3b;
   for (let i = 0; i < N; i++) {
     const t = bw.flashT[i] || 0;
-    if (!warnG || t <= 0) continue;
+    if (!warnG || t <= 0) {
+      // Reset pulse tracker once flash ends so next warning crossing can play again.
+      if (t <= 0) bw.lastPulse[i] = -1;
+      continue;
+    }
     const start = base + i * slice + gap / 2;
     const end = start + span;
     const T3 = FLASH_SEC * 3;
     const elapsed = Math.max(0, Math.min(T3, T3 - t));
+    const pulseIdx = Math.floor(elapsed / FLASH_SEC); // 0,1,2
+    if (pulseIdx !== (bw.lastPulse[i] | 0)) {
+      bw.lastPulse[i] = pulseIdx;
+      try { if (EC.SFX && typeof EC.SFX.play === 'function') EC.SFX.play('drop_001'); } catch (_) {}
+    }
     const cycle = ((elapsed % FLASH_SEC) / FLASH_SEC);
     const alpha = Math.max(0, Math.min(0.92, Math.sin(Math.PI * cycle) * 0.92));
     if (alpha <= 0.01) continue;
@@ -1599,6 +1620,15 @@ function renderPsyche() {
   // Center core (total fill 0..TOTAL_CAP): background disc + radial fill sector + centered total number
   let total = 0;
   for (let i = 0; i < 6; i++) total += (P[i] || 0);
+
+  // SFX: one-shot when total psyche crosses upward over the warning threshold.
+  try {
+    const isHigh = total > WARN_TOTAL;
+    if (!bw.totalWasHigh && isHigh) {
+      if (EC.SFX && typeof EC.SFX.play === 'function') EC.SFX.play('highup');
+    }
+    bw.totalWasHigh = isHigh;
+  } catch (_) {}
 
   // Center pulse when total psyche is above warning threshold.
   // Ramps (freq + brightness + swing) as total approaches TOTAL_CAP.
