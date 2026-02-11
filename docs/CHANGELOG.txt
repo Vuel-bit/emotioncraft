@@ -1,0 +1,7 @@
+- FIX: Lobby plan choice overlay no longer auto-hides each tick; Start works for intake-complete patients.
+- NEW: One-time Intake Complete popup on return to lobby.
+- UI: Bottom drawer header shows 3-line current step + next step indicator.
+- UI: Top bar shows patient name + colored quirk tags; active/telegraph quirk pulses; no quirk text line.
+- SFX: Implemented EC.SFX.error() for no-energy swipe.
+- FIX: Set Pair to 0 cost symmetric across either well selection; spend matches display.
+- v0.2.97 (Chunk 3B): Removed total psyche cap/warning system; center shows treatment hold progress ring; jam break relief/penalty updated; breaks pause sim with modal popup.

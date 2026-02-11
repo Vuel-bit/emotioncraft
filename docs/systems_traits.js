@@ -2,7 +2,7 @@
    Provides simple per-run modifiers driven by the active patient.
    - sensitive: quirk strength x1.5
    - stubborn: energy costs x1.2
-   - fragile: total psyche cap 1600
+   - fragile: (deprecated) total psyche cap was removed
 
    Guardrails:
    - No ES modules; attaches to window.EC.
@@ -57,9 +57,9 @@
     return MOD.has(simIn, 'stubborn') ? 1.2 : 1.0;
   };
 
-  MOD.getPsyTotalCap = function getPsyTotalCap(simIn) {
-    if (MOD.has(simIn, 'fragile')) return 1600;
-    const T = EC.TUNE || {};
-    return (typeof T.PSY_TOTAL_CAP === 'number') ? T.PSY_TOTAL_CAP : 2000;
+  // Deprecated: total psyche cap system removed (Chunk 3B).
+  // Kept only for compatibility; returns null so callers can ignore.
+  MOD.getPsyTotalCap = function getPsyTotalCap(_simIn) {
+    return null;
   };
 })();

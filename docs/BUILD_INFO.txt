@@ -1,0 +1,8 @@
+Emotioncraft Psyche MVP
+Build: v0_2_96 (from v0_2_95_warncap_enumfix)
+Changes: Lobby plan-choice start fix; intake success popup; bottom drawer plan formatting; top bar quirk pills; no-energy SFX error(); zero-pair symmetric cost.
+Chunk 3B:
+- Removed Total Psyche cap/warning/break system (per-hue cap only).
+- Center donut core now shows yellow treatment hold progress (PLAN_CHAIN holdSec) with brief flash on completion.
+- Jam break rules updated (Amount High: set jammed Amount=85 + Spin +15 all; Spin Max penalty now +100 to two lowest psyche hues).
+- Any mental break pauses the sim and shows an OK modal with well-name adjustments.

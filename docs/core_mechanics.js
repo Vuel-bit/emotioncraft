@@ -63,10 +63,20 @@ const SIM = (EC.SIM = EC.SIM || {
       return;
     }
 
+    // Break modal pause: freeze simulation until player acknowledges.
+    if (SIM._breakPaused) {
+      return;
+    }
+
     // Stable tick id for single-break-per-tick guards (used by EC.BREAK)
     SIM._tickId = (typeof SIM._tickId === 'number') ? (SIM._tickId + 1) : 1;
 
     SIM.mvpTime = (SIM.mvpTime || 0) + dt;
+
+    // UI-only plan step flash timer (set when a hold completes)
+    if (typeof SIM._planStepFlashT === 'number' && SIM._planStepFlashT > 0) {
+      SIM._planStepFlashT = Math.max(0, SIM._planStepFlashT - dt);
+    }
 
     // Zen timed run (15:00). Only active when the level's planKey is ZEN.
     if (String(SIM._activePlanKey || '').toUpperCase() === 'ZEN') {
@@ -368,6 +378,9 @@ const SIM = (EC.SIM = EC.SIM || {
       }
     })(dt);
 
+    // If a break modal paused the sim, stop the tick immediately.
+    if (SIM._breakPaused) return;
+
     // If a break triggered the lose condition, stop the tick immediately.
     if (SIM.levelState === 'lose' || SIM.mvpLose || SIM.gameOver) {
       return;
@@ -478,6 +491,8 @@ const SIM = (EC.SIM = EC.SIM || {
           if (!SIM.planPostHoldActive) {
             SIM.planPostHoldActive = true;
             SIM.planPostHoldRemaining = POST_HOLD_REQ;
+            // UI-only flash when the step hold first completes.
+            SIM._planStepFlashT = (typeof T.PLAN_STEP_FLASH_SEC === 'number') ? T.PLAN_STEP_FLASH_SEC : 0.45;
           } else {
             SIM.planPostHoldRemaining = Math.max(0, (SIM.planPostHoldRemaining || 0) - _dt);
           }

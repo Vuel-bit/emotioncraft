@@ -1222,15 +1222,6 @@ function ensurePsycheView() {
     EC.RENDER.psycheLayer.addChild(gg);
   }
 
-  // Red warning ring overlay (per-wedge + center pulse)
-  // Rendered above the goal rings so it reads clearly.
-  if (!EC.RENDER.psycheWarnRingG) {
-    const wg = new Graphics();
-    wg.eventMode = 'none';
-    EC.RENDER.psycheWarnRingG = wg;
-    EC.RENDER.psycheLayer.addChild(wg);
-  }
-
   // Per-wedge numeric readouts (psyche values)
   if (!EC.RENDER.psycheWedgeValueTexts) {
     const arr = [];
@@ -1276,22 +1267,6 @@ function ensurePsycheView() {
       if (EC.RENDER.psycheTotalText.destroy) EC.RENDER.psycheTotalText.destroy();
     } catch (e) {}
     EC.RENDER.psycheTotalText = null;
-  }
-
-  // Center total text inside the donut core
-  if (!EC.RENDER.psycheCenterText) {
-    const ct = new Text('0', {
-      fontFamily: 'system-ui, -apple-system, Segoe UI, Roboto, Arial',
-      fontSize: 22,
-      fill: 0xffffff,
-      stroke: 0x000000,
-      strokeThickness: 4,
-      align: 'center',
-    });
-    ct.anchor && ct.anchor.set(0.5, 0.5);
-    ct.eventMode = 'none';
-    EC.RENDER.psycheCenterText = ct;
-    EC.RENDER.psycheTextLayer.addChild(ct);
   }
 }
 
@@ -1508,6 +1483,11 @@ function renderPsyche() {
   const textR = r0 + (r1 - r0) * 0.62;
   const fontSize = Math.max(12, Math.min(22, safeR * 0.16));
 
+  // UI-only flash when a treatment hold completes
+  const flashDur = (EC.TUNE && typeof EC.TUNE.PLAN_STEP_FLASH_SEC === 'number') ? EC.TUNE.PLAN_STEP_FLASH_SEC : 0.45;
+  const flashT = (SIM && typeof SIM._planStepFlashT === 'number') ? SIM._planStepFlashT : 0;
+  const flash = clamp(flashT / Math.max(0.001, flashDur), 0, 1);
+
   for (let i = 0; i < N; i++) {
     const start = base + i * slice + gap / 2;
     const end = start + span;
@@ -1529,7 +1509,7 @@ function renderPsyche() {
     // Gold ring if this wedge currently satisfies its objective condition
     const ok = goalPerHue ? goalOk(goalPerHue[i], P[i]) : false;
     if (ok && ringG) {
-      ringG.lineStyle({ width: ringW, color: gold, alpha: 0.92 });
+      ringG.lineStyle({ width: ringW, color: gold, alpha: (0.92 + 0.38 * flash) });
       drawAnnularWedge(ringG, 0, 0, r0, r1, start, end);
       ringG.closePath();
       ringG.endFill && ringG.endFill();
@@ -1537,172 +1517,41 @@ function renderPsyche() {
     }
   }
 
+  // Center core: Treatment hold progress (yellow)
   // ------------------------------------------------------------
-  // Mental-break WARNING visuals (UI-only)
-  // ------------------------------------------------------------
-  const warnG = EC.RENDER.psycheWarnRingG;
-  if (warnG) warnG.clear();
-
-  const HIGH = (EC.TUNE && typeof EC.TUNE.BREAK_WARN_HUE_HIGH === 'number') ? EC.TUNE.BREAK_WARN_HUE_HIGH : 450;
-  const LOW = (EC.TUNE && typeof EC.TUNE.BREAK_WARN_HUE_LOW === 'number') ? EC.TUNE.BREAK_WARN_HUE_LOW : 50;
-
-  // Total psyche warning threshold must scale with the *active* total psyche cap (traits can change cap).
-  // The tuning pair BREAK_WARN_TOTAL / PSY_TOTAL_CAP defines the ratio (default ~0.95).
-  const _tuneCap = (EC.TUNE && typeof EC.TUNE.PSY_TOTAL_CAP === 'number' && isFinite(EC.TUNE.PSY_TOTAL_CAP) && EC.TUNE.PSY_TOTAL_CAP > 0) ? EC.TUNE.PSY_TOTAL_CAP : 2000;
-  const _tuneWarn = (EC.TUNE && typeof EC.TUNE.BREAK_WARN_TOTAL === 'number' && isFinite(EC.TUNE.BREAK_WARN_TOTAL)) ? EC.TUNE.BREAK_WARN_TOTAL : 1900;
-  const _ratio = clamp(_tuneWarn / Math.max(1, _tuneCap), 0, 0.999);
-
-  // Prefer the same cap used for center-core fill; fall back to trait helper so Fragile works immediately.
-  let TOTAL_CAP_ACTIVE = (SIM && typeof SIM._psyTotalCapUsed === 'number' && isFinite(SIM._psyTotalCapUsed) && SIM._psyTotalCapUsed > 0) ? SIM._psyTotalCapUsed : null;
-  if (!TOTAL_CAP_ACTIVE) {
-    try {
-      if (EC.TRAITS && typeof EC.TRAITS.getPsyTotalCap === 'function') {
-        const c = EC.TRAITS.getPsyTotalCap(SIM);
-        if (typeof c === 'number' && isFinite(c) && c > 0) TOTAL_CAP_ACTIVE = c;
-      }
-    } catch (_) {}
-  }
-  if (!TOTAL_CAP_ACTIVE) TOTAL_CAP_ACTIVE = _tuneCap;
-
-  let WARN_TOTAL = TOTAL_CAP_ACTIVE * _ratio;
-  // Clamp to sensible range (never >= cap, never negative).
-  WARN_TOTAL = Math.max(0, Math.min(WARN_TOTAL, Math.max(0, TOTAL_CAP_ACTIVE - 1)));
-  // Debug: expose computed threshold/cap so QA can verify Fragile (cap 1600 => warn ~1520).
-  try { SIM._breakWarnTotalUsed = WARN_TOTAL; SIM._psyTotalCapUsed = TOTAL_CAP_ACTIVE; } catch (_) {}
-  const FLASH_SEC = (EC.TUNE && typeof EC.TUNE.BREAK_WARN_FLASH_SEC === 'number') ? EC.TUNE.BREAK_WARN_FLASH_SEC : 1.0;
-
-  const bw = (SIM._breakWarn = SIM._breakWarn || {
-    zone: new Array(6).fill('ok'),
-    flashT: new Array(6).fill(0),
-    // Per-wedge pulse index tracker so SFX only plays once per flash pulse.
-    lastPulse: new Array(6).fill(-1),
-    // Total psyche threshold-cross tracking (one-shot SFX on upward cross).
-    totalWasHigh: false,
-    tPrev: null,
-  });
-  // Backward-compat: if older saved state exists, ensure required fields.
-  if (!bw.lastPulse || bw.lastPulse.length !== 6) bw.lastPulse = new Array(6).fill(-1);
-  if (typeof bw.totalWasHigh !== 'boolean') bw.totalWasHigh = false;
-  const nowSec = ((typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now()) / 1000;
-  const dtWarn = (typeof bw.tPrev === 'number') ? Math.max(0, Math.min(0.25, nowSec - bw.tPrev)) : 0;
-  bw.tPrev = nowSec;
-
-  // Update per-wedge one-shot flash timers (crossing ok -> danger)
-  for (let i = 0; i < 6; i++) {
-    const v = (typeof P[i] === 'number' && isFinite(P[i])) ? P[i] : 0;
-    let z = 'ok';
-    if (v > HIGH) z = 'high';
-    else if (v < LOW) z = 'low';
-
-    const prevZ = bw.zone[i] || 'ok';
-    if (prevZ === 'ok' && z !== 'ok') {
-      // Flash 3 times (one-shot) over the same per-flash duration.
-      bw.flashT[i] = FLASH_SEC * 3;
-      bw.zone[i] = z;
-    } else if (z === 'ok' && prevZ !== 'ok') {
-      bw.zone[i] = 'ok';
-    } else {
-      bw.zone[i] = z;
-    }
-
-    if (bw.flashT[i] > 0) {
-      bw.flashT[i] = Math.max(0, bw.flashT[i] - dtWarn);
-      if (bw.flashT[i] === 0) bw.lastPulse[i] = -1;
-    } else {
-      bw.lastPulse[i] = -1;
-    }
-  }
-
-  // Draw wedge flashes (3 pulses)
-  const warnCol = 0xff3b3b;
-  for (let i = 0; i < N; i++) {
-    const t = bw.flashT[i] || 0;
-    if (!warnG || t <= 0) {
-      // Reset pulse tracker once flash ends so next warning crossing can play again.
-      if (t <= 0) bw.lastPulse[i] = -1;
-      continue;
-    }
-    const start = base + i * slice + gap / 2;
-    const end = start + span;
-    const T3 = FLASH_SEC * 3;
-    const elapsed = Math.max(0, Math.min(T3, T3 - t));
-    const pulseIdx = Math.floor(elapsed / FLASH_SEC); // 0,1,2
-    if (pulseIdx !== (bw.lastPulse[i] | 0)) {
-      bw.lastPulse[i] = pulseIdx;
-      try { if (EC.SFX && typeof EC.SFX.play === 'function') EC.SFX.play('drop_001'); } catch (_) {}
-    }
-    const cycle = ((elapsed % FLASH_SEC) / FLASH_SEC);
-    const alpha = Math.max(0, Math.min(0.92, Math.sin(Math.PI * cycle) * 0.92));
-    if (alpha <= 0.01) continue;
-    warnG.lineStyle({ width: ringW, color: warnCol, alpha: alpha });
-    drawAnnularWedge(warnG, 0, 0, r0, r1, start, end);
-    warnG.closePath();
-    warnG.endFill && warnG.endFill();
-    warnG.lineStyle();
-  }
-  // Center core (total fill 0..TOTAL_CAP): background disc + radial fill sector + centered total number
-  let total = 0;
-  for (let i = 0; i < 6; i++) total += (P[i] || 0);
-
-  // SFX: one-shot when total psyche crosses upward over the warning threshold.
-  try {
-    const isHigh = total > WARN_TOTAL;
-    if (!bw.totalWasHigh && isHigh) {
-      if (EC.SFX && typeof EC.SFX.play === 'function') EC.SFX.play('highup');
-    }
-    bw.totalWasHigh = isHigh;
-  } catch (_) {}
-
-  // Center pulse when total psyche is above warning threshold.
-  // Ramps (freq + brightness + swing) as total approaches TOTAL_CAP.
-  const TOTAL_CAP = TOTAL_CAP_ACTIVE;
-  if (warnG && total > WARN_TOTAL && TOTAL_CAP > WARN_TOTAL) {
-    const totalFrac = clamp((total - WARN_TOTAL) / (TOTAL_CAP - WARN_TOTAL), 0, 1);
-    const freq = 4.2 + (10.0 - 4.2) * totalFrac;
-    const baseAlpha = 0.45 + (0.95 - 0.45) * totalFrac;
-    const swing = 0.20 + (0.55 - 0.20) * totalFrac;
-    const s = 0.5 + 0.5 * Math.sin(nowSec * freq);
-    const alpha = clamp((baseAlpha - swing) + (swing * s), 0, 0.98);
-    const lw = Math.max(2, ringW * (1.1 + 0.25 * totalFrac));
-    warnG.lineStyle({ width: lw, color: warnCol, alpha: alpha });
-    warnG.drawCircle(0, 0, r0 * 0.90);
-    warnG.lineStyle();
-  }
-
-  const coreR = r0 * 0.90; // keep core smaller than r0 so wedges start cleanly
-  const tTotal = clamp(total, 0, TOTAL_CAP) / TOTAL_CAP;
-
-  // Background core disc
-  g.beginFill(0x000000, 0.46);
+  const coreR = r0 * 0.92;
+  g.beginFill(0x0b1020, 0.92);
   g.drawCircle(0, 0, coreR);
   g.endFill();
 
-  // Filled pie sector (0..1000)
-  if (tTotal > 0) {
-    const fillCol = (total > TOTAL_CAP) ? 0xff3b3b : 0xffffff;
-    const fillAlpha = (total > TOTAL_CAP) ? 0.22 : 0.18;
-    g.beginFill(fillCol, fillAlpha);
+  // Compute hold fraction for active PLAN_CHAIN step
+  let frac = 0;
+  try {
+    const lvlDef = (typeof EC.getActiveLevelDef === 'function') ? EC.getActiveLevelDef() : ((EC.LEVELS && typeof EC.LEVELS.get === 'function') ? EC.LEVELS.get(SIM.levelId) : null);
+    const winDef = (lvlDef && lvlDef.win) ? lvlDef.win : null;
+    if (winDef && winDef.type === 'PLAN_CHAIN' && Array.isArray(winDef.steps)) {
+      const stepIdx = Math.max(0, Math.min(winDef.steps.length - 1, (typeof SIM.planStep === 'number' ? SIM.planStep : 0)));
+      const st = winDef.steps[stepIdx];
+      const holdReq = (st && typeof st.holdSec === 'number') ? st.holdSec : 0;
+      const holdNow = (typeof SIM.planHoldSec === 'number') ? SIM.planHoldSec : 0;
+      frac = (holdReq > 0) ? clamp(holdNow / holdReq, 0, 1) : 0;
+    }
+  } catch (_) { frac = 0; }
+
+  if (frac > 0) {
+    const col = 0xffd166;
+    const a = 0.28 + 0.34 * flash;
+    g.beginFill(col, a);
     g.moveTo(0, 0);
-    g.arc(0, 0, coreR, -Math.PI / 2, -Math.PI / 2 + tTotal * Math.PI * 2, false);
+    g.arc(0, 0, coreR, -Math.PI / 2, -Math.PI / 2 + frac * Math.PI * 2, false);
     g.closePath();
     g.endFill();
   }
 
-  // Thin outline
-  g.lineStyle(1, 0xffffff, 0.12);
+  // Subtle outline
+  g.lineStyle(1, 0xffffff, 0.12 + 0.16 * flash);
   g.drawCircle(0, 0, coreR);
   g.lineStyle(0, 0, 0);
-
-  // Center total text
-  const ct = EC.RENDER.psycheCenterText;
-  if (ct) {
-    const fs = clamp(Math.round(coreR * 0.62), 12, 40);
-    if (ct.style && ct.style.fontSize !== fs) ct.style.fontSize = fs;
-    ct.text = '' + Math.round(total);
-    ct.position.set(0, 0);
-    ct.alpha = 0.95;
-    ct.tint = (total >= TOTAL_CAP) ? 0xffc7c7 : 0xffffff;
-  }
 }
 
 

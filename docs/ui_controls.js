@@ -168,6 +168,18 @@ function computeZeroPairCost(i) {
   return { cost: total, i: idx, j, baseCost1, pushCost1, baseCost2, pushCost2 };
 }
 
+// Canonical zero-pair cost: averaged across both selection directions for symmetry.
+function computeZeroPairCostCanonical(i) {
+  const idx = (typeof i === 'number') ? i : (EC.SIM && typeof EC.SIM.selectedWellIndex === 'number' ? EC.SIM.selectedWellIndex : -1);
+  const j = _oppIndex(idx);
+  const c1 = computeZeroPairCost(idx);
+  const c2 = computeZeroPairCost(j);
+  const a = (c1 && typeof c1.cost === 'number') ? c1.cost : 0;
+  const b = (c2 && typeof c2.cost === 'number') ? c2.cost : 0;
+  const cost = 0.5 * (a + b);
+  return { cost, i: idx, j: j, dirA: a, dirB: b };
+}
+
   MOD.init = function init(ctxIn) {
     const ctx = _getCtx(ctxIn);
     const SIM = ctx.SIM || EC.SIM;
@@ -367,7 +379,7 @@ function computeZeroPairCost(i) {
         if (i < 0) return { cost: 0, changed: false, push: 0, A0: 0, S0: 0, A1: 0, S1: 0, zeroPair: false, j: -1 };
         if (UI.zeroPairArmed) {
           const j = (typeof UI.zeroPairOpp === 'number') ? UI.zeroPairOpp : _oppIndex(i);
-          const c = computeZeroPairCost(i);
+          const c = computeZeroPairCostCanonical(i);
           const cost = c.cost || 0;
           return { cost, changed: true, push: 0, A0: SIM.wellsA[i]||0, S0: SIM.wellsS[i]||0, A1: SIM.wellsA[i]||0, S1: 0, zeroPair: true, j };
         }
@@ -391,12 +403,23 @@ function computeZeroPairCost(i) {
       if (costPillEl) costPillEl.textContent = 'Cost: ' + (costFinal.toFixed(2));
 
       if (objectiveSummaryEl) {
-        const getNext = (EC.UI_HUD && typeof EC.UI_HUD.getNextObjectiveText === 'function')
-          ? EC.UI_HUD.getNextObjectiveText
-          : null;
-        const rawNext = getNext ? String(getNext() || '') : '';
-        const nextTxt = rawNext && rawNext.trim() ? rawNext.trim() : '—';
-        objectiveSummaryEl.textContent = 'Next: ' + nextTxt;
+        // PLAN_CHAIN layout is handled in the drawer header block above.
+        try {
+          const lvl = SIM.levelId || 1;
+          const def = (typeof EC.getActiveLevelDef === 'function') ? EC.getActiveLevelDef()
+            : ((EC.LEVELS && typeof EC.LEVELS.get === 'function') ? EC.LEVELS.get(lvl) : null);
+          const win = def && def.win ? def.win : null;
+          if (win && win.type === 'PLAN_CHAIN') {
+            // no-op here
+          } else {
+            const getNext = (EC.UI_HUD && typeof EC.UI_HUD.getNextObjectiveText === 'function')
+              ? EC.UI_HUD.getNextObjectiveText
+              : null;
+            const rawNext = getNext ? String(getNext() || '') : '';
+            const nextTxt = rawNext && rawNext.trim() ? rawNext.trim() : '—';
+            objectiveSummaryEl.textContent = 'Next: ' + nextTxt;
+          }
+        } catch (_) {}
       }
 
       if (previewPillEl) {
@@ -492,7 +515,7 @@ if (btnZeroPairEl) {
 
         // Immediate execute: atomic dual-spin-to-zero update.
         // Charges integer HUD units (display/gating/deduction unified).
-        const c = computeZeroPairCost(sel);
+        const c = computeZeroPairCostCanonical(sel);
         const pairCostRaw = c.cost || 0;
         const mult = _getEnergyCostMult(SIM);
         const pairCostFloatFinal = pairCostRaw * mult;
@@ -555,12 +578,49 @@ if (btnZeroPairEl) {
     }
 
     const goalLineEl = dom.goalLineEl || document.getElementById('goalLine');
-    if (goalLineEl && EC.UI_HUD && typeof EC.UI_HUD.getObjectiveSummaryText === 'function') {
-      const raw = String(EC.UI_HUD.getObjectiveSummaryText() || '').replace(/^\s*Goal:\s*/i, '');
-      // Do not hard-truncate: the drawer clamps/wraps via CSS so plan steps stay readable.
-      goalLineEl.textContent = 'Current: ' + raw;
-    }
 
+    // Bottom drawer top: current step (left, 3 lines) + next step (right).
+    try {
+      const lvl = SIM.levelId || 1;
+      const def = (typeof EC.getActiveLevelDef === 'function') ? EC.getActiveLevelDef()
+        : ((EC.LEVELS && typeof EC.LEVELS.get === 'function') ? EC.LEVELS.get(lvl) : null);
+      const win = def && def.win ? def.win : null;
+
+      if (win && win.type === 'PLAN_CHAIN' && Array.isArray(win.steps)) {
+        const steps = win.steps;
+        const total = steps.length || 1;
+        const step = (typeof SIM.planStep === 'number') ? SIM.planStep : 0;
+        const curIdx = Math.max(0, Math.min(total - 1, step));
+        const st = steps[curIdx] || {};
+        const raw = String(st.text || '').replace(/^\s*Step\s*\d+\s*:\s*/i, '').trim();
+        const parts = raw.split(';').map(s => String(s || '').trim()).filter(Boolean);
+        const line1 = `Treatment step ${curIdx + 1}/${total}`;
+        const line2 = parts[0] || '';
+        const line3 = parts[1] || '';
+
+        if (goalLineEl) goalLineEl.textContent = [line1, line2, line3].join('\n');
+
+        if (objectiveSummaryEl) {
+          const next = curIdx + 1;
+          objectiveSummaryEl.textContent = (next >= total) ? 'Treatment complete' : `Treatment step ${next + 1}/${total}`;
+        }
+      } else {
+        if (goalLineEl && EC.UI_HUD && typeof EC.UI_HUD.getObjectiveSummaryText === 'function') {
+          const raw = String(EC.UI_HUD.getObjectiveSummaryText() || '').replace(/^\s*Goal:\s*/i, '');
+          goalLineEl.textContent = 'Current: ' + raw;
+        }
+        if (objectiveSummaryEl) {
+          const getNext = (EC.UI_HUD && typeof EC.UI_HUD.getNextObjectiveText === 'function')
+            ? EC.UI_HUD.getNextObjectiveText
+            : null;
+          const rawNext = getNext ? String(getNext() || '') : '';
+          const nextTxt = rawNext && rawNext.trim() ? rawNext.trim() : '—';
+          objectiveSummaryEl.textContent = 'Next: ' + nextTxt;
+        }
+      }
+    } catch (_) {}
+
+    
     // Keep apply validity fresh
     if (typeof MOD._syncDeltaLabels === 'function') MOD._syncDeltaLabels();
 
@@ -609,7 +669,7 @@ if (btnZeroPairEl) {
       }
 
 
-      const c2 = computeZeroPairCost(sel);
+      const c2 = computeZeroPairCostCanonical(sel);
       const j = _oppIndex(sel);
       const changedPair = (j != null && j >= 0 && j < 6) && ((Math.abs(SIM.wellsS[sel] || 0) > 1e-9) || (Math.abs(SIM.wellsS[j] || 0) > 1e-9));
       const pairCostRaw = changedPair ? (c2.cost || 0) : 0;

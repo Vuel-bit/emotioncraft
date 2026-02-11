@@ -11,9 +11,13 @@
   // Plan-pick flow: when intake is done, Start opens plan choice without reserving/removing.
   let pendingPlanPickPatientId = null;
 
+  // Plan choice overlay state: prevents render tick from auto-hiding while open.
+  let _planChoiceOpen = false;
+
   // Post-run progression modals
   let _rewardShowingFor = null;
   let _congratsShowingFor = null;
+  let _intakeCongratsShowingFor = null;
 
   function $(id) { return document.getElementById(id); }
 
@@ -295,7 +299,95 @@
 
   function hideZenCongrats(els) {
     ensureZenCongratsUI(els);
-    if (els.congratsOverlay) els.congratsOverlay.style.display = 'none';
+    if (els.congratsOverlay) els.cong
+  function ensureIntakeCongratsUI(els) {
+    if (!els) return;
+    let ov = document.getElementById('intakeCongratsOverlay');
+    if (ov) { els.intakeCongratsOverlay = ov; return; }
+
+    ov = document.createElement('div');
+    ov.id = 'intakeCongratsOverlay';
+    ov.style.display = 'none';
+    ov.style.position = 'fixed';
+    ov.style.left = '0';
+    ov.style.top = '0';
+    ov.style.right = '0';
+    ov.style.bottom = '0';
+    ov.style.zIndex = '70';
+    ov.style.background = 'rgba(0,0,0,0.72)';
+    ov.style.alignItems = 'center';
+    ov.style.justifyContent = 'center';
+
+    const card = document.createElement('div');
+    card.style.width = 'min(520px, 94vw)';
+    card.style.maxHeight = 'min(70vh, 520px)';
+    card.style.overflow = 'auto';
+    card.style.background = 'rgba(20, 28, 43, 0.96)';
+    card.style.border = '1px solid rgba(255,255,255,0.12)';
+    card.style.borderRadius = '16px';
+    card.style.padding = '18px 18px 14px 18px';
+    card.style.boxShadow = '0 16px 60px rgba(0,0,0,0.55)';
+
+    const title = document.createElement('div');
+    title.style.fontSize = '20px';
+    title.style.fontWeight = '800';
+    title.style.letterSpacing = '0.2px';
+    title.style.marginBottom = '10px';
+    title.textContent = 'Intake Complete';
+
+    const body = document.createElement('div');
+    body.id = 'intakeCongratsBody';
+    body.style.fontSize = '14px';
+    body.style.lineHeight = '1.35';
+    body.style.opacity = '0.92';
+    body.style.marginBottom = '14px';
+    body.textContent = 'Intake complete.';
+
+    const btnRow = document.createElement('div');
+    btnRow.style.display = 'flex';
+    btnRow.style.justifyContent = 'flex-end';
+    btnRow.style.gap = '10px';
+
+    const ok = document.createElement('button');
+    ok.className = 'btn primary';
+    ok.textContent = 'OK';
+    ok.addEventListener('click', () => {
+      if (EC.PAT && EC.PAT.clearPendingIntakeCongrats) EC.PAT.clearPendingIntakeCongrats();
+      hideIntakeCongrats(els);
+    });
+
+    btnRow.appendChild(ok);
+    card.appendChild(title);
+    card.appendChild(body);
+    card.appendChild(btnRow);
+    ov.appendChild(card);
+    document.body.appendChild(ov);
+
+    els.intakeCongratsOverlay = ov;
+    els.intakeCongratsBodyEl = body;
+  }
+
+  function showIntakeCongrats(els, pid) {
+    ensureIntakeCongratsUI(els);
+    if (!els || !els.intakeCongratsOverlay) return;
+    let name = '';
+    try {
+      const p = (EC.PAT && typeof EC.PAT.get === 'function') ? EC.PAT.get(pid) : null;
+      name = p && p.name ? String(p.name) : '';
+    } catch (_) {}
+    if (els.intakeCongratsBodyEl) {
+      els.intakeCongratsBodyEl.textContent = name
+        ? `Intake complete. ${name} is now ready for Weekly Treatment (or Zen).`
+        : 'Intake complete. This patient is now ready for Weekly Treatment (or Zen).';
+    }
+    els.intakeCongratsOverlay.style.display = 'flex';
+  }
+
+  function hideIntakeCongrats(els) {
+    ensureIntakeCongratsUI(els);
+    if (els.intakeCongratsOverlay) els.intakeCongratsOverlay.style.display = 'none';
+  }
+ratsOverlay.style.display = 'none';
   }
 
   function authLabel(u) {
@@ -741,17 +833,20 @@
       els.planTitleEl.textContent = patientName ? `Choose a plan for ${patientName}` : 'Choose a plan';
     }
     els.planOverlay.style.display = 'flex';
+    _planChoiceOpen = true;
   }
 
   function hidePlanChoice(els) {
     ensurePlanChoiceUI(els);
     if (!els || !els.planOverlay) return;
     els.planOverlay.style.display = 'none';
+    _planChoiceOpen = false;
   }
 
   function show(els) {
     if (els.overlay) els.overlay.classList.add('show');
-    hidePlanChoice(els);
+    // Do NOT auto-hide the plan choice overlay every tick; only hide when not open.
+    if (!_planChoiceOpen) hidePlanChoice(els);
   }
 
   function hide(els) {
@@ -816,6 +911,17 @@ function render() {
           _congratsShowingFor = null;
           hideZenCongrats(els);
         }
+        // Intake completion congrats (one-time)
+        const iid = (EC.PAT && EC.PAT.getPendingIntakeCongratsId) ? EC.PAT.getPendingIntakeCongratsId() : null;
+        if (iid) {
+          if (_intakeCongratsShowingFor !== iid) {
+            _intakeCongratsShowingFor = iid;
+            showIntakeCongrats(els, iid);
+          }
+        } else if (_intakeCongratsShowingFor) {
+          _intakeCongratsShowingFor = null;
+          hideIntakeCongrats(els);
+        }
       } catch (_) {}
       show(els);
     } else {
@@ -823,6 +929,7 @@ function render() {
       // Ensure modals are closed when lobby is hidden.
       try { hideWeeklyReward(els); } catch (_) {}
       try { hideZenCongrats(els); } catch (_) {}
+      try { hideIntakeCongrats(els); } catch (_) {}
       _rewardShowingFor = null;
       _congratsShowingFor = null;
     }

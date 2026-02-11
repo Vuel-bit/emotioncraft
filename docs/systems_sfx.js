@@ -133,7 +133,15 @@
 
     // Compatibility no-ops for legacy guarded calls.
     tick() {},
-    error() {},
+
+    // Simple error helper (used by render_wells no-energy path).
+    error() {
+      // Prefer bong_001 if bundled; otherwise fall back to any known id.
+      if (_MAP.bong_001) return SFX.play('bong_001');
+      if (_MAP.error_003) return SFX.play('error_003');
+      const k = Object.keys(_MAP)[0];
+      if (k) SFX.play(k);
+    },
   };
 
   EC.SFX = SFX;

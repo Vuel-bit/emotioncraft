@@ -378,7 +378,8 @@
         if (notifyTextEl) notifyTextEl.textContent = reason;
       } else {
         // Normal mode: show disposition HUD or short message + gesture debug line.
-        const short = (act || tele) || ((UI_STATE.uiMsgT > 0 && UI_STATE.uiMsg) ? UI_STATE.uiMsg : '');
+        // Hide disposition telegraph/active text from HUD; keep only UI messages.
+        const short = ((UI_STATE.uiMsgT > 0 && UI_STATE.uiMsg) ? UI_STATE.uiMsg : '');
         if (notifyTextEl) notifyTextEl.textContent = g ? (short ? (short + "\n" + g) : g) : short;
       }
 
@@ -409,15 +410,62 @@
         stepLine = 'Step 1/1';
       }
       if (patientInfoEl) {
-        let txt = `${pName}\n${stepLine}`;
-        const pk = (def && def.win && def.win.planKey) ? String(def.win.planKey).toUpperCase() : '';
-        if (pk === 'ZEN' && typeof SIM.zenTimeRemainingSec === 'number' && isFinite(SIM.zenTimeRemainingSec)) {
-          const t = Math.max(0, Math.floor(SIM.zenTimeRemainingSec));
-          const mm = String(Math.floor(t / 60)).padStart(2, '0');
-          const ss = String(t % 60).padStart(2, '0');
-          txt += `\nTime ${mm}:${ss}`;
+        // Top bar: patient name + quirk tags (no plan/step text).
+        let patientId = (def && def._patientId) ? def._patientId : null;
+        let quirks = [];
+        try {
+          const p = (EC.PAT && typeof EC.PAT.get === 'function' && patientId) ? EC.PAT.get(patientId) : null;
+          quirks = (p && Array.isArray(p.quirks)) ? p.quirks : [];
+        } catch (_) {}
+
+        // Determine which quirk is telegraphing/active (for pulse/glow).
+        const activeTypes = Object.create(null);
+        const teleTypes = Object.create(null);
+        try {
+          const list = (EC.DISP && typeof EC.DISP.getRenderStates === 'function') ? EC.DISP.getRenderStates() : [];
+          if (Array.isArray(list)) {
+            for (const it of list) {
+              const ph = (it && it.phase) ? String(it.phase) : '';
+              const ty = (it && it.type) ? String(it.type).toUpperCase() : '';
+              if (!ty) continue;
+              if (ph === 'active') activeTypes[ty] = true;
+              if (ph === 'telegraph') teleTypes[ty] = true;
+            }
+          }
+        } catch (_) {}
+
+        const tierColor = (t) => {
+          const n = (typeof t === 'number') ? t : 0;
+          if (n >= 2) return 'rgba(255, 92, 92, 0.95)';
+          if (n === 1) return 'rgba(230, 216, 92, 0.95)';
+          return 'rgba(123, 220, 123, 0.95)';
+        
+    try { if (MOD.updateBreakModal) MOD.updateBreakModal(); } catch (_) {}
+  };
+
+
+        const quirkTag = (type) => {
+          const s = String(type || '').toUpperCase();
+          if (s === 'LOCKS_IN') return 'Lock';
+          if (s === 'CRASHES') return 'Crash';
+          if (s === 'SPIRALS') return 'Spiral';
+          if (s === 'AMPED') return 'Amp';
+          return s ? s.charAt(0) + s.slice(1).toLowerCase() : 'Quirk';
+        };
+
+        let html = `<span class="hudPatientName">${String(pName || '').replace(/</g,'&lt;')}</span>`;
+        if (quirks && quirks.length) {
+          for (const q of quirks) {
+            const ty = q && q.type ? String(q.type).toUpperCase() : '';
+            const tier = (q && typeof q.intensityTier === 'number') ? q.intensityTier : 0;
+            const cls = ['hudQuirkPill'];
+            if (ty && activeTypes[ty]) cls.push('hudQuirkActive');
+            else if (ty && teleTypes[ty]) cls.push('hudQuirkTele');
+            const style = `background:${tierColor(tier)};`;
+            html += ` <span class="${cls.join(' ')}" style="${style}">${quirkTag(ty)}</span>`;
+          }
         }
-        patientInfoEl.textContent = txt;
+        patientInfoEl.innerHTML = html;
       }
       }
     } catch (_) { /* ignore */ }
@@ -571,9 +619,6 @@ try {
   const traits = (EC.TRAITS && typeof EC.TRAITS.list === 'function') ? EC.TRAITS.list(SIM) : [];
   const eMult = (EC.TRAITS && typeof EC.TRAITS.getEnergyCostMult === 'function') ? (EC.TRAITS.getEnergyCostMult(SIM) || 1.0) : 1.0;
   const qMult = (EC.TRAITS && typeof EC.TRAITS.getQuirkStrengthMult === 'function') ? (EC.TRAITS.getQuirkStrengthMult(SIM) || 1.0) : 1.0;
-  const cap = (EC.TRAITS && typeof EC.TRAITS.getPsyTotalCap === 'function') ? (EC.TRAITS.getPsyTotalCap(SIM) || 2000) : (SIM._psyTotalCapUsed || (EC.TUNE ? EC.TUNE.PSY_TOTAL_CAP : 2000) || 2000);
-  parts.push(`Traits: ${traits.length ? traits.join(', ') : 'none'}`);
-  parts.push(`EnergyCostMult: ${eMult.toFixed(2)}  QuirkStrengthMult: ${qMult.toFixed(2)}  PsyTotalCap: ${cap}`);
 
   const lr = (typeof SIM._dbgLastCostRaw === 'number' && isFinite(SIM._dbgLastCostRaw)) ? SIM._dbgLastCostRaw : 0;
   const lm = (typeof SIM._dbgLastCostMult === 'number' && isFinite(SIM._dbgLastCostMult)) ? SIM._dbgLastCostMult : 1;
@@ -684,5 +729,49 @@ if (debugEl) {
 
   MOD.onResize = function onResize() {
     if (typeof EC.resize === 'function') EC.resize();
+  };
+})();
+
+
+// Break modal overlay (pauses sim until acknowledged)
+(function(){
+  const EC = (window.EC = window.EC || {});
+  function qs(id){ return document.getElementById(id); }
+  function ensure(){
+    const ov = qs('breakOverlay');
+    if (!ov) return null;
+    const t = qs('breakTitle');
+    const b = qs('breakBody');
+    const ok = qs('breakOk');
+    return { ov, t, b, ok };
+  }
+  EC.UI_HUD = EC.UI_HUD || {};
+  EC.UI_HUD.updateBreakModal = function(){
+    const SIM = EC.SIM;
+    const el = ensure();
+    if (!SIM || !el) return;
+    const modal = SIM._breakModal;
+    if (modal) {
+      el.ov.classList.add('show');
+      el.ov.setAttribute('aria-hidden','false');
+      if (el.t) el.t.textContent = String(modal.title || 'Mental Break');
+      if (el.b) {
+        const lines = Array.isArray(modal.lines) ? modal.lines : [String(modal.lines||'')];
+        el.b.textContent = lines.join('\n');
+      }
+      if (el.ok && !el.ok._ecBound) {
+        el.ok._ecBound = true;
+        el.ok.addEventListener('click', function(){
+          try { SIM._breakModal = null; } catch(_){}
+          try { SIM._breakPaused = false; } catch(_){}
+          try { const ov = qs('breakOverlay'); if (ov){ ov.classList.remove('show'); ov.setAttribute('aria-hidden','true'); } } catch(_){}
+        });
+      }
+    } else {
+      if (el.ov.classList.contains('show')) {
+        el.ov.classList.remove('show');
+        el.ov.setAttribute('aria-hidden','true');
+      }
+    }
   };
 })();

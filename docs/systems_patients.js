@@ -521,6 +521,7 @@
     // Post-run progression UI state
     pendingWeeklyRewardId: null,
     pendingZenCongratsId: null,
+    pendingIntakeCongratsId: null,
     pendingStartId: null,
     activePatientId: null,
   };
@@ -975,6 +976,8 @@
         if (planKey === 'INTAKE' && isWin) {
           p.intakeDone = true;
           p.lastOutcome = 'Intake complete.';
+          // Show one-time lobby popup on return.
+          STATE.pendingIntakeCongratsId = p.id;
 
           // Return to rotation.
           if (!isTranscended(p.id)) {
@@ -1254,7 +1257,9 @@ function openLobbyPause() {
   // UI hooks for progression modals
   function getPendingWeeklyRewardId() { return STATE.pendingWeeklyRewardId; }
   function getPendingZenCongratsId() { return STATE.pendingZenCongratsId; }
+  function getPendingIntakeCongratsId() { return STATE.pendingIntakeCongratsId; }
   function clearPendingZenCongrats() { STATE.pendingZenCongratsId = null; }
+  function clearPendingIntakeCongrats() { STATE.pendingIntakeCongratsId = null; }
 
   EC.PAT = {
     list,
@@ -1277,7 +1282,9 @@ function openLobbyPause() {
     applyWeeklyReward,
     getPendingWeeklyRewardId,
     getPendingZenCongratsId,
+    getPendingIntakeCongratsId,
     clearPendingZenCongrats,
+    clearPendingIntakeCongrats,
     _buildPlan: buildTreatmentPlan,
   };
 })();

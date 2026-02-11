@@ -6,7 +6,6 @@
    Causes implemented (v0.2.3):
      1) Psyche hue < 0
      2) Psyche hue > PSY_HUE_CAP (default 500)
-     3) Psyche total > PSY_TOTAL_CAP (default 2000)
 */
 (() => {
   const EC = (window.EC = window.EC || {});
@@ -21,6 +20,11 @@
 
   let _cooldownMsgT = 0;
   let _lastTickId = -1;
+
+  function _wellName(i) {
+    if (EC.CONST && Array.isArray(EC.CONST.WELL_DISPLAY_NAMES)) return EC.CONST.WELL_DISPLAY_NAMES[i] || String(i);
+    return _hueName(i);
+  }
 
   function _hueName(i) {
     if (EC.CONST && Array.isArray(EC.CONST.HUE_NAMES)) return EC.CONST.HUE_NAMES[i] || String(i);
@@ -56,6 +60,43 @@
     UI.uiMsgReason = String(reasonText || '').trim();
   
     try { if (EC.SFX && typeof EC.SFX.play === 'function') EC.SFX.play('error_003'); } catch (_) {}
+  function _setBreakModal(sim, title, reason, before, after) {
+    if (!sim) return;
+    const lines = [];
+    if (reason) lines.push(String(reason));
+    // Adjusted wells (amount/spin)
+    const adj = [];
+    for (let i = 0; i < 6; i++) {
+      const n = _wellName(i);
+      const a0 = before && before.a ? before.a[i] : null;
+      const a1 = after && after.a ? after.a[i] : null;
+      const s0 = before && before.s ? before.s[i] : null;
+      const s1 = after && after.s ? after.s[i] : null;
+      if (a0 != null && a1 != null && Math.round(a0) !== Math.round(a1)) adj.push(`${n}: Amount ${Math.round(a0)}→${Math.round(a1)}`);
+      if (s0 != null && s1 != null && Math.round(s0) !== Math.round(s1)) adj.push(`${n}: Spin ${Math.round(s0)}→${Math.round(s1)}`);
+    }
+    if (adj.length) {
+      lines.push('');
+      lines.push('Wells adjusted:');
+      for (const t of adj) lines.push('• ' + t);
+    }
+    // Psyche changes
+    const psy = [];
+    for (let i = 0; i < 6; i++) {
+      const n = _wellName(i);
+      const p0 = before && before.psy ? before.psy[i] : null;
+      const p1 = after && after.psy ? after.psy[i] : null;
+      if (p0 != null && p1 != null && Math.round(p0) !== Math.round(p1)) psy.push(`${n}: Psyche ${Math.round(p0)}→${Math.round(p1)}`);
+    }
+    if (psy.length) {
+      lines.push('');
+      lines.push('Psyche changes:');
+      for (const t of psy) lines.push('• ' + t);
+    }
+    sim._breakModal = { title: String(title || 'Mental Break'), lines: lines };
+    sim._breakPaused = true;
+  }
+
 }
 
   function _snap(sim) {
@@ -73,7 +114,7 @@
     for (let i = 0; i < 6; i++) {
       const d = Math.round((after[i] || 0) - (before[i] || 0));
       if (!d) continue;
-      parts.push(`${_hueName(i)} ${d > 0 ? '+' : ''}${d}`);
+      parts.push(`${_wellName(i)} ${d > 0 ? '+' : ''}${d}`);
     }
     return parts.length ? ('Psyche: ' + parts.join(', ')) : 'Psyche: (no change)';
   }
@@ -98,7 +139,7 @@
       const d = deltas[i];
       if (Math.abs(d) <= 1e-6) continue;
       const v = (Math.round(d * 10) / 10);
-      parts.push(`${_hueName(i)} ${v >= 0 ? '+' : ''}${v}`);
+      parts.push(`${_wellName(i)} ${v >= 0 ? '+' : ''}${v}`);
     }
     return parts.length ? ('Spin: ' + parts.join(', ')) : 'Spin: (no change)';
   }
@@ -188,48 +229,20 @@
     }
 
     const after = _snap(sim);
-    const typeLine = `Mental Break: Hue Break — ${_hueName(h)} ${kind === 'LOW' ? 'below 0' : 'above cap'}`;
+    const typeLine = `Mental Break: Hue Break — ${_wellName(h)} ${kind === 'LOW' ? 'below 0' : 'above cap'}`;
     const msgLines = [
       typeLine,
       _formatPsycheDelta(before.psy, after.psy),
       _formatSpinDelta(before.spin, after.spin),
     ].join('\n');
     _pushBreakMsg(msgLines);
+    _setBreakModal(sim, 'Mental Break', typeLine, before, after);
     _record(sim.mvpTime || 0, kind === 'LOW' ? 'PSY_HUE_LOW' : 'PSY_HUE_HIGH', { hue: h, value: val }, msgLines);
     _maybeTriggerLose(sim);
   }
-
-  function _triggerTotalBreak(sim, total) {
-    const before = _snap(sim);
-    // Relief: halve max psyche hue
-    let maxI = 0;
-    let maxV = -Infinity;
-    for (let i = 0; i < 6; i++) {
-      const v = Number(sim.psyP[i] || 0);
-      if (v > maxV) { maxV = v; maxI = i; }
-    }
-    sim.psyP[maxI] = (sim.psyP[maxI] || 0) * 0.5;
-
-    // Redirect/Penalty: all well spins -= 25
-    for (let i = 0; i < 6; i++) {
-      sim.wellsS[i] = (sim.wellsS[i] || 0) - 25;
-    }
-
-    const after = _snap(sim);
-    const typeLine = `Mental Break: Total Break — total psyche above cap`;
-    const msgLines = [
-      typeLine,
-      _formatPsycheDelta(before.psy, after.psy),
-      _formatSpinDelta(before.spin, after.spin),
-    ].join('\n');
-    _pushBreakMsg(msgLines);
-    _record(sim.mvpTime || 0, 'PSY_TOTAL_HIGH', { total: total, halvedHue: maxI, halvedFrom: maxV }, msgLines);
-    _maybeTriggerLose(sim);
-  }
-
-  // ---------------------------------------------------------------------
+    // ---------------------------------------------------------------------
   // Jam breaks (v0.2.5): triggered when spill propagation cannot resolve
-  // overflow/underflow. Relief + Redirect only (no penalties for jams).
+  // overflow/underflow. Relief + Redirect + penalty (as specified).
   // Causes:
   //   AMOUNT_HIGH_JAM, AMOUNT_LOW_JAM, SPIN_MAX_JAM, SPIN_MIN_JAM
   // ---------------------------------------------------------------------
@@ -292,19 +305,42 @@
       return [i1, i2];
     }
 
+  function _addToLowest2Psyche(sim, addEach) {
+    const amt = (typeof addEach === 'number' && isFinite(addEach)) ? addEach : 0;
+    // Find two lowest distinct hues (ties: any).
+    let a = 0, b = 1;
+    for (let i = 0; i < 6; i++) {
+      for (let j = i + 1; j < 6; j++) {
+        const si = Number(sim.psyP[i] || 0);
+        const sj = Number(sim.psyP[j] || 0);
+        const sa = Number(sim.psyP[a] || 0);
+        const sbv = Number(sim.psyP[b] || 0);
+        if ((si + sj) < (sa + sbv)) { a = i; b = j; }
+      }
+    }
+    const PSY_HUE_CAP = (typeof T().PSY_HUE_CAP === 'number') ? T().PSY_HUE_CAP : 500;
+    const before = [Number(sim.psyP[a] || 0), Number(sim.psyP[b] || 0)];
+    sim.psyP[a] = Math.min(PSY_HUE_CAP, Number(sim.psyP[a] || 0) + amt);
+    sim.psyP[b] = Math.min(PSY_HUE_CAP, Number(sim.psyP[b] || 0) + amt);
+    return { idx: [a, b], before: before, after: [Number(sim.psyP[a] || 0), Number(sim.psyP[b] || 0)], add: amt };
+  }
+
     // Relief + Redirect, then Penalty (jams only):
     // Redirects/penalties may overshoot; spillover will resolve this in the same tick.
     let msg = '';
     let penaltySummary = '';
     let penaltyDetails = null;
     if (cause === 'AMOUNT_HIGH_JAM') {
-      for (let i = 0; i < 6; i++) sim.wellsA[i] = 80;
-      for (let i = 0; i < 6; i++) sim.wellsS[i] = (sim.wellsS[i] || 0) + 20;
-      // Penalty: +200 total psyche distributed randomly
-      const dist = _addRandomPsyche(200);
-      penaltySummary = 'Penalty: +200 psyche (random)';
-      penaltyDetails = { psyAdd: dist };
-      msg = 'Mental Break: Amount High Jam → A=80, Spin +20, ' + penaltySummary;
+      const j = (details && typeof details.index === 'number') ? (details.index|0) : 0;
+      // Relief: set JAMMED well's amount to 85
+      sim.wellsA[j] = 85;
+      // Redirect: +15 spin to ALL wells
+      for (let i = 0; i < 6; i++) sim.wellsS[i] = (sim.wellsS[i] || 0) + 15;
+      // Penalty: +100 to each of the two lowest psyche hues
+      const low2 = _addToLowest2Psyche(sim, 100);
+      penaltySummary = 'Penalty: +100 to two lowest hues';
+      penaltyDetails = { psyAddLow2: low2 };
+      msg = 'Mental Break: Amount High Jam → ' + _wellName(j) + ' Amount=85, Spin +15 all, ' + penaltySummary;
     } else if (cause === 'AMOUNT_LOW_JAM') {
       for (let i = 0; i < 6; i++) sim.wellsA[i] = 40;
       for (let i = 0; i < 6; i++) sim.wellsS[i] = (sim.wellsS[i] || 0) - 15;
@@ -316,9 +352,10 @@
     } else if (cause === 'SPIN_MAX_JAM') {
       for (let i = 0; i < 6; i++) sim.wellsS[i] = 80;
       for (let i = 0; i < 6; i++) sim.wellsA[i] = (sim.wellsA[i] || 0) + 20;
-      const dist = _addRandomPsyche(200);
-      penaltySummary = 'Penalty: +200 psyche (random)';
-      penaltyDetails = { psyAdd: dist };
+      // Penalty: +100 to each of the two lowest psyche hues
+      const low2 = _addToLowest2Psyche(sim, 100);
+      penaltySummary = 'Penalty: +100 to two lowest hues';
+      penaltyDetails = { psyAddLow2: low2 };
       msg = 'Mental Break: Spin Max Jam → S=+80, Amount +20, ' + penaltySummary;
     } else if (cause === 'SPIN_MIN_JAM') {
       for (let i = 0; i < 6; i++) sim.wellsS[i] = -80;
@@ -339,6 +376,7 @@
       _formatSpinDelta(before.spin, after.spin),
     ].join('\n');
     _pushBreakMsg(msgLines);
+    _setBreakModal(sim, 'Mental Break', typeLine, before, after);
     const recDetails = details ? Object.assign({}, details) : {};
     if (penaltyDetails) recDetails.penalty = penaltyDetails;
     _record(sim.mvpTime || 0, cause, recDetails, msgLines);
@@ -384,19 +422,6 @@
 
     const Tn = T();
     const PSY_HUE_CAP = (typeof Tn.PSY_HUE_CAP === 'number') ? Tn.PSY_HUE_CAP : 500;
-    const capDefault = (typeof Tn.PSY_TOTAL_CAP === 'number') ? Tn.PSY_TOTAL_CAP : 2000;
-
-    // Trait-driven total psyche cap (fragile).
-    let PSY_TOTAL_CAP = capDefault;
-    try {
-      if (EC.TRAITS && typeof EC.TRAITS.getPsyTotalCap === 'function') {
-        const c = EC.TRAITS.getPsyTotalCap(SIM);
-        if (typeof c === 'number' && isFinite(c) && c > 0) PSY_TOTAL_CAP = c;
-      }
-    } catch (_) { /* ignore */ }
-
-    // Expose for renderer + debug
-    SIM._psyTotalCapUsed = PSY_TOTAL_CAP;
 
     // Scan hues (priority: hue bounds first)
     for (let i = 0; i < 6; i++) {
@@ -411,15 +436,6 @@
         _triggerHueBreak(SIM, i, 'HIGH', v);
         return EC.BREAK.history[EC.BREAK.history.length - 1] || null;
       }
-    }
-
-    // Total check
-    let total = 0;
-    for (let i = 0; i < 6; i++) total += Number(SIM.psyP[i] || 0);
-    if (total > PSY_TOTAL_CAP) {
-      _cancelDispositions();
-      _triggerTotalBreak(SIM, total);
-      return EC.BREAK.history[EC.BREAK.history.length - 1] || null;
     }
 
     return null;

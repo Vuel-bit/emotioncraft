@@ -120,9 +120,7 @@
     PSY_HUE_CAP: 500,
 
     // Total psyche capacity (UI core fill / overload threshold)
-    PSY_TOTAL_CAP: 2000,
-
-    // Mental Breaks (psyche-based triggers)
+// Mental Breaks (psyche-based triggers)
     BREAK_MSG_SECONDS: 6.0,
     BREAK_REDIRECT_DELTA: 20,
     BREAK_PENALTY_SPIN: 25,
@@ -131,10 +129,7 @@
     BREAK_RELIEF_HIGH_TO: 480,
 
     // Mental-break WARNING visuals (UI-only)
-    BREAK_WARN_HUE_HIGH: 450,
-    BREAK_WARN_HUE_LOW: 50,
-    BREAK_WARN_TOTAL: 1900,
-    BREAK_WARN_FLASH_SEC: 1.0,
+BREAK_WARN_FLASH_SEC: 1.0,
 
     // Zen level (Level 3) band + hold
     ZEN_LOW: 100,

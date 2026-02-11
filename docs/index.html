@@ -64,6 +64,35 @@
       overflow: hidden;
       text-overflow: ellipsis;
     }
+    .hudPatientName{
+      font-weight: 800;
+      margin-right: 6px;
+    }
+    .hudQuirkPill{
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 999px;
+      font-size: 11px;
+      font-weight: 800;
+      letter-spacing: 0.2px;
+      color: rgba(15,18,24,0.92);
+      border: 1px solid rgba(255,255,255,0.18);
+      box-shadow: 0 1px 6px rgba(0,0,0,0.25);
+      transform: translateZ(0);
+    }
+    @keyframes quirkPulse{
+      0%{ filter: brightness(1); box-shadow: 0 1px 6px rgba(0,0,0,0.25); }
+      50%{ filter: brightness(1.25); box-shadow: 0 0 14px rgba(255,255,255,0.28); }
+      100%{ filter: brightness(1); box-shadow: 0 1px 6px rgba(0,0,0,0.25); }
+    }
+    @keyframes quirkPulseSoft{
+      0%{ filter: brightness(1); }
+      50%{ filter: brightness(1.12); }
+      100%{ filter: brightness(1); }
+    }
+    .hudQuirkActive{ animation: quirkPulse 0.9s ease-in-out infinite; }
+    .hudQuirkTele{ animation: quirkPulseSoft 1.2s ease-in-out infinite; }
+
     .notifyText{
       grid-column: 1;
       grid-row: 2;
@@ -594,11 +623,9 @@
   /* Current-step instruction can be long; wrap/clamp instead of hard truncation. */
   #goalLine{
     max-width: 56vw;
-    white-space: normal;
+    white-space: pre-line;
     overflow: hidden;
-    display: -webkit-box;
-    -webkit-line-clamp: 3;
-    -webkit-box-orient: vertical;
+    display: block;
   }
   #costSpinZero, #costZeroPair{
     display: inline-block;
@@ -673,6 +700,9 @@
   .energyHud{ position: fixed; left: 12px; bottom: 180px; z-index: 25; font-size: 13px; padding: 6px 10px; border-radius: 999px; background: rgba(18,22,35,0.70); border: 1px solid rgba(255,255,255,0.10); color: rgba(232,238,252,0.92); font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; }
   @media (max-width: 720px){ .energyHud{ bottom: 184px; }  #objectiveSummary{ max-width: 46vw; } }
 
+
+    .breakCard{ width: min(640px, 100%); max-height: min(70vh, 520px); }
+    .breakBody{ margin: 8px 0 10px; white-space: pre-wrap; font-size: 13px; line-height: 1.35; color: rgba(255,255,255,0.92); }
 </style>
 </head>
 <body>
@@ -814,4 +844,18 @@
 <script src="./ui_app.js"></script>
 <script src="./main.js"></script>
 </body>
-</html>
+</html
+  <!-- Break modal overlay (gameplay pause) -->
+  <div id="breakOverlay" class="lobbyOverlay" aria-hidden="true">
+    <div class="lobbyCard breakCard">
+      <div class="lobbyHeader">
+        <h2 id="breakTitle">Mental Break</h2>
+      </div>
+      <pre id="breakBody" class="breakBody"></pre>
+      <div class="lobbyFooter">
+        <button id="breakOk" class="lobbyBtn">OK</button>
+      </div>
+    </div>
+  </div>
+
+>
