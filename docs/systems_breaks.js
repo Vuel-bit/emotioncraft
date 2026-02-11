@@ -54,7 +54,9 @@
     UI.uiMsgT = msgSec;
     UI.uiMsg = 'Mental Break';
     UI.uiMsgReason = String(reasonText || '').trim();
-  }
+  
+    try { if (EC.SFX && typeof EC.SFX.play === 'function') EC.SFX.play('error_003'); } catch (_) {}
+}
 
   function _snap(sim) {
     const psy = new Array(6);

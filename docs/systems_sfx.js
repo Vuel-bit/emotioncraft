@@ -12,6 +12,7 @@
     drop_001: 'assets/sfx/drop_001.ogg',
     pluck_002: 'assets/sfx/pluck_002.ogg',
     highup: 'assets/sfx/highup.ogg',
+    error_003: 'assets/sfx/error_003.ogg',
   };
 
   const _COOLDOWN_MS = {
@@ -19,6 +20,7 @@
     drop_001: 80,
     pluck_002: 120,
     highup: 400,
+    error_003: 500,
   };
 
   const _POOL_N = 3;

@@ -9,7 +9,7 @@ Emotioncraft — bootstrap + hardening helpers (no gameplay behavior changes)
   const EC = (window.EC = window.EC || {});
 
   // Central build id (packaging convention)
-  EC.BUILD_ID = EC.BUILD_ID || 'v0_2_86_sfx_system_hooks';
+  EC.BUILD_ID = EC.BUILD_ID || 'v0_2_87_sfx_bong_fix_break_error003';
 
   // Persistent cross-frame containers (hardening only; no gameplay/UI behavior changes)
   // Anything that must survive across frames/reset/level changes should live here.
