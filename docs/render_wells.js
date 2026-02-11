@@ -1545,7 +1545,30 @@ function renderPsyche() {
 
   const HIGH = (EC.TUNE && typeof EC.TUNE.BREAK_WARN_HUE_HIGH === 'number') ? EC.TUNE.BREAK_WARN_HUE_HIGH : 450;
   const LOW = (EC.TUNE && typeof EC.TUNE.BREAK_WARN_HUE_LOW === 'number') ? EC.TUNE.BREAK_WARN_HUE_LOW : 50;
-  const WARN_TOTAL = (EC.TUNE && typeof EC.TUNE.BREAK_WARN_TOTAL === 'number') ? EC.TUNE.BREAK_WARN_TOTAL : 1900;
+
+  // Total psyche warning threshold must scale with the *active* total psyche cap (traits can change cap).
+  // The tuning pair BREAK_WARN_TOTAL / PSY_TOTAL_CAP defines the ratio (default ~0.95).
+  const _tuneCap = (EC.TUNE && typeof EC.TUNE.PSY_TOTAL_CAP === 'number' && isFinite(EC.TUNE.PSY_TOTAL_CAP) && EC.TUNE.PSY_TOTAL_CAP > 0) ? EC.TUNE.PSY_TOTAL_CAP : 2000;
+  const _tuneWarn = (EC.TUNE && typeof EC.TUNE.BREAK_WARN_TOTAL === 'number' && isFinite(EC.TUNE.BREAK_WARN_TOTAL)) ? EC.TUNE.BREAK_WARN_TOTAL : 1900;
+  const _ratio = clamp(_tuneWarn / Math.max(1, _tuneCap), 0, 0.999);
+
+  // Prefer the same cap used for center-core fill; fall back to trait helper so Fragile works immediately.
+  let TOTAL_CAP_ACTIVE = (SIM && typeof SIM._psyTotalCapUsed === 'number' && isFinite(SIM._psyTotalCapUsed) && SIM._psyTotalCapUsed > 0) ? SIM._psyTotalCapUsed : null;
+  if (!TOTAL_CAP_ACTIVE) {
+    try {
+      if (EC.TRAITS && typeof EC.TRAITS.getPsyTotalCap === 'function') {
+        const c = EC.TRAITS.getPsyTotalCap(SIM);
+        if (typeof c === 'number' && isFinite(c) && c > 0) TOTAL_CAP_ACTIVE = c;
+      }
+    } catch (_) {}
+  }
+  if (!TOTAL_CAP_ACTIVE) TOTAL_CAP_ACTIVE = _tuneCap;
+
+  let WARN_TOTAL = TOTAL_CAP_ACTIVE * _ratio;
+  // Clamp to sensible range (never >= cap, never negative).
+  WARN_TOTAL = Math.max(0, Math.min(WARN_TOTAL, Math.max(0, TOTAL_CAP_ACTIVE - 1)));
+  // Debug: expose computed threshold/cap so QA can verify Fragile (cap 1600 => warn ~1520).
+  try { SIM._breakWarnTotalUsed = WARN_TOTAL; SIM._psyTotalCapUsed = TOTAL_CAP_ACTIVE; } catch (_) {}
   const FLASH_SEC = (EC.TUNE && typeof EC.TUNE.BREAK_WARN_FLASH_SEC === 'number') ? EC.TUNE.BREAK_WARN_FLASH_SEC : 1.0;
 
   const bw = (SIM._breakWarn = SIM._breakWarn || {
@@ -1632,9 +1655,7 @@ function renderPsyche() {
 
   // Center pulse when total psyche is above warning threshold.
   // Ramps (freq + brightness + swing) as total approaches TOTAL_CAP.
-  const TOTAL_CAP = (SIM && typeof SIM._psyTotalCapUsed === 'number' && isFinite(SIM._psyTotalCapUsed) && SIM._psyTotalCapUsed > 0)
-    ? SIM._psyTotalCapUsed
-    : EC.TUNE.PSY_TOTAL_CAP;
+  const TOTAL_CAP = TOTAL_CAP_ACTIVE;
   if (warnG && total > WARN_TOTAL && TOTAL_CAP > WARN_TOTAL) {
     const totalFrac = clamp((total - WARN_TOTAL) / (TOTAL_CAP - WARN_TOTAL), 0, 1);
     const freq = 4.2 + (10.0 - 4.2) * totalFrac;

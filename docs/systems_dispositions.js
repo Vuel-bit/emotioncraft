@@ -770,7 +770,7 @@
         if (inst.state === 'telegraph') {
           if (_t < inst.fireAt) {
             const hi = inst.hueIndex;
-            teleLines.push(`${inst.type} — ${hueName(hi)} (${dirText(inst.type)})`);
+            teleLines.push(`${typeDisplayName(inst.type)} — ${hueName(hi)} (${dirText(inst.type)})`);
             const rp = ringParamsForType(inst.type);
 
             // Telegraph timeline (total length = tele):
@@ -837,7 +837,7 @@
             const w = Object.assign({}, inst.tpl, { hueIndex: inst.hueIndex, type: inst.type });
             if (typeof inst._strengthEff === 'number' && isFinite(inst._strengthEff)) w.strength = inst._strengthEff;
             applyWaveToWell(SIM, w, dt, sh);
-            activeLines.push(`${inst.type} — ${hueName(inst.hueIndex)} (${intensityLabel(sh)})`);
+            activeLines.push(`${typeDisplayName(inst.type)} — ${hueName(inst.hueIndex)} (${intensityLabel(sh)})`);
             const rp = ringParamsForType(inst.type);
             _renderList.push({
               phase: 'active',
