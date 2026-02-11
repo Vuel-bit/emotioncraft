@@ -249,6 +249,11 @@
     .lobbyHeader h2{ margin:0; font-size: 16px; letter-spacing: 0.2px; }
     .lobbyHeader .sub{ font-size: 12px; color: rgba(232,238,252,0.72); text-align:right; }
 
+    /* Lobby auth mini-row (minimal functional scaffolding) */
+    .lobbyAuth{ display:flex; justify-content:flex-end; align-items:center; gap: 8px; margin: 0 0 10px 0; flex-wrap: wrap; }
+    .lobbyAuthUser{ font-size: 12px; color: rgba(232,238,252,0.72); max-width: 420px; overflow:hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .lobbyBtn[disabled]{ opacity: 0.55; cursor: not-allowed; }
+
     .lobbyDetails{
       display:flex;
       gap: 12px;
@@ -681,6 +686,13 @@
         <div class="sub" id="lobbyHint"></div>
       </div>
 
+      <!-- Auth (minimal) -->
+      <div class="lobbyAuth" id="lobbyAuth" aria-hidden="false">
+        <button id="btnAuthSignIn" class="lobbyBtn">Sign in with Google</button>
+        <div id="authUser" class="lobbyAuthUser" style="display:none;"></div>
+        <button id="btnAuthSignOut" class="lobbyBtn" style="display:none;">Sign out</button>
+      </div>
+
       <div class="lobbyDetails" id="lobbyDetails" aria-hidden="false">
         <div class="lobbyPortraitWrap">
           <img id="lobbyPortraitImg" alt="Patient portrait" />
@@ -776,12 +788,19 @@
 
 <!-- PixiJS (CDN) -->
 <script src="https://cdn.jsdelivr.net/npm/pixi.js@7.4.2/dist/pixi.min.js"></script>
+
+<!-- Firebase (compat / namespaced) for no-module builds -->
+<script src="https://www.gstatic.com/firebasejs/12.9.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/12.9.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/12.9.0/firebase-firestore-compat.js"></script>
 <script src="./ec_bootstrap.js"></script>
 <script src="./core_const.js"></script>
 <script src="./core_tuning.js"></script>
 <script src="./core_model.js"></script>
+<script src="./systems_firebase.js"></script>
 <script src="./systems_sfx.js"></script>
 <script src="./systems_patients.js"></script>
+<script src="./systems_traits.js"></script>
 <script src="./systems_dispositions.js"></script>
 <script src="./systems_breaks.js"></script>
 <script src="./systems_input.js"></script>

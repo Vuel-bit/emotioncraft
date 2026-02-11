@@ -597,7 +597,9 @@
     const S_MIN = (typeof T.S_MIN === 'number') ? T.S_MIN : -100;
     const S_MAX = (typeof T.S_MAX === 'number') ? T.S_MAX : 100;
 
-    const rateRaw = (w.strength || 0) * sh;
+    const traitMult = (EC.TRAITS && typeof EC.TRAITS.getQuirkStrengthMult === "function") ? EC.TRAITS.getQuirkStrengthMult(SIM) : 1.0;
+    const rateRaw = (w.strength || 0) * sh; // per second (raw)
+    const rate = rateRaw * traitMult;
 
     const hi = w.hueIndex;
     const A_raw = (SIM.wellsA && SIM.wellsA[hi] != null) ? Number(SIM.wellsA[hi]) : 0;
@@ -608,19 +610,19 @@
     const S_ref = Math.max(S_MIN, Math.min(S_MAX, S_raw));
 
     if (w.type === TYPES.LOCKS_IN) {
-      SIM.wellsA[hi] = A_raw + rateRaw * dt;
+      SIM.wellsA[hi] = A_raw + rate * dt;
     } else if (w.type === TYPES.CRASHES) {
-      SIM.wellsA[hi] = A_raw - rateRaw * dt;
+      SIM.wellsA[hi] = A_raw - rate * dt;
     } else if (w.type === TYPES.AMPED) {
       // Push toward +100 specifically (no clamping; overshoot allowed by design).
-      const rateSpin = rateRaw * (A_ref / 100);
+      const rateSpin = rate * (A_ref / 100);
       const target = S_MAX;
       const delta = target - S_raw;
       const deltaNorm = Math.max(-1, Math.min(1, delta / 100));
       SIM.wellsS[hi] = S_raw + rateSpin * deltaNorm * dt;
     } else if (w.type === TYPES.SPIRALS) {
       // Push toward -100 specifically.
-      const rateSpin = rateRaw * (A_ref / 100);
+      const rateSpin = rate * (A_ref / 100);
       const target = S_MIN;
       const delta = target - S_raw;
       const deltaNorm = Math.max(-1, Math.min(1, delta / 100));

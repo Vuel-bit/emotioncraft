@@ -12,8 +12,13 @@
   EC.CONST.HUES = HUES;
 
   // Player-facing well display names (must match the canonical hue index order above).
-  // 0 Red, 1 Purple, 2 Blue, 3 Green, 4 Yellow, 5 Orange
-  EC.CONST.WELL_DISPLAY_NAMES = EC.CONST.WELL_DISPLAY_NAMES || ["Pep", "Focus", "Grit", "Chill", "Ego", "Nerves"];
+  // 0 red    => Grit
+  // 1 purple => Ego
+  // 2 blue   => Chill
+  // 3 green  => Nerves
+  // 4 yellow => Focus
+  // 5 orange => Pep
+  EC.CONST.WELL_DISPLAY_NAMES = ["Grit", "Ego", "Chill", "Nerves", "Focus", "Pep"];
 
   // Keep legacy/global alias for compatibility (many modules already use EC.HUES).
   EC.HUES = EC.HUES || HUES;

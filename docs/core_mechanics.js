@@ -68,6 +68,21 @@ const SIM = (EC.SIM = EC.SIM || {
 
     SIM.mvpTime = (SIM.mvpTime || 0) + dt;
 
+    // Zen timed run (15:00). Only active when the level's planKey is ZEN.
+    if (String(SIM._activePlanKey || '').toUpperCase() === 'ZEN') {
+      if (typeof SIM.zenTimeRemainingSec !== 'number' || !isFinite(SIM.zenTimeRemainingSec)) {
+        SIM.zenTimeRemainingSec = 15 * 60;
+      }
+      SIM.zenTimeRemainingSec = Math.max(0, SIM.zenTimeRemainingSec - dt);
+      if (SIM.zenTimeRemainingSec <= 0) {
+        SIM.mvpLose = true;
+        SIM.levelState = 'lose';
+        SIM.gameOver = true;
+        SIM.gameOverReason = 'Time expired.';
+        return;
+      }
+    }
+
     // Ensure required arrays exist
     if (!SIM.wellsA || SIM.wellsA.length !== 6) SIM.wellsA = new Array(6).fill(50);
     if (!SIM.wellsS || SIM.wellsS.length !== 6) SIM.wellsS = new Array(6).fill(0);

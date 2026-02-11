@@ -384,7 +384,19 @@
 
     const Tn = T();
     const PSY_HUE_CAP = (typeof Tn.PSY_HUE_CAP === 'number') ? Tn.PSY_HUE_CAP : 500;
-    const PSY_TOTAL_CAP = (typeof Tn.PSY_TOTAL_CAP === 'number') ? Tn.PSY_TOTAL_CAP : 2000;
+    const capDefault = (typeof Tn.PSY_TOTAL_CAP === 'number') ? Tn.PSY_TOTAL_CAP : 2000;
+
+    // Trait-driven total psyche cap (fragile).
+    let PSY_TOTAL_CAP = capDefault;
+    try {
+      if (EC.TRAITS && typeof EC.TRAITS.getPsyTotalCap === 'function') {
+        const c = EC.TRAITS.getPsyTotalCap(SIM);
+        if (typeof c === 'number' && isFinite(c) && c > 0) PSY_TOTAL_CAP = c;
+      }
+    } catch (_) { /* ignore */ }
+
+    // Expose for renderer + debug
+    SIM._psyTotalCapUsed = PSY_TOTAL_CAP;
 
     // Scan hues (priority: hue bounds first)
     for (let i = 0; i < 6; i++) {

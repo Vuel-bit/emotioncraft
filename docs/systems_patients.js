@@ -1,13 +1,10 @@
-/* Emotioncraft — Patients (v0.2.76)
-   Patients are randomized per start (no persistence):
-   - Identity: name, tagline, portrait (scaffold)
-   - Starting State: Mindset (psyche) + Vibe (wells)
-   - Quirks: uses existing systems_dispositions.js engine
-   - Treatment Plan: multi-step chain with rolled targets
-   - Traits scaffold (no mechanics yet)
-
-   Exposes: EC.PAT = { list(), get(id), start(id), backToLobby() }
-   No ES modules; window.EC namespace.
+/* Emotioncraft — Patients (v0_2_92_set0_units)
+   - Authoritative 10-patient roster + 3-slot lobby rotation (pool queue).
+   - Intake gating + plan choice (Weekly vs Zen timed).
+   - Minimal outcome tracking (intakeDone + lastOutcome), in-memory only (no save schema yet).
+   - Exposes: list(), get(id), beginFromLobby(id), startPending(planKey), startRun(id, planKey),
+              start(id, planKey) (compat), backToLobby(), openLobbyPause(), resumeFromLobby(),
+              restartActive(), update(dt) (no-op hook).
 */
 (() => {
   const EC = (window.EC = window.EC || {});
@@ -374,97 +371,439 @@
   }
 
   // ---------------------------------------------------------------------------
-  // Patient schema
-  const PATIENTS = [
-  {
-    id: 'sally', levelId: 201,
-    name: 'Sally Sadeyes',
-    tagline: '“What’s the point?”',
-    portrait: 'assets/patients/sally_sadeyes.png',
-    mood: { label: 'Drained', template: 'Tilted' },
-    vibe: { label: 'Blah' },
-    planKey: 'INTAKE',
-    quirks: [
-      { type: 'SPIRALS', intensityTier: 0 },
-      { type: 'CRASHES', intensityTier: 1 },
-    ],
-    traits: [],
-  },
-  {
-    id: 'stan', levelId: 202,
-    name: 'Stable Stan',
-    tagline: '“It’s all good”',
-    portrait: 'placeholder',
-    mood: { label: 'Steady', template: 'Flat' },
-    vibe: { label: 'Mid' },
-    planKey: 'WEEKLY',
-    quirks: [
-      { type: 'LOCKS_IN', intensityTier: 0 },
-      { type: 'AMPED', intensityTier: 0 },
-    ],
-    traits: [],
-  },
-  {
-    id: 'carl', levelId: 203,
-    name: 'Crackhead Carl',
-    tagline: '“MORE!”',
-    portrait: 'placeholder',
-    mood: { label: 'Antsy', template: 'Spike' },
-    vibe: { label: 'Anxious' },
-    planKey: 'WEEKLY',
-    quirks: [
-      { type: 'AMPED', intensityTier: 2 },
-      { type: 'LOCKS_IN', intensityTier: 1 },
-    ],
-    traits: [],
-  },
-  {
-    id: 'randy', levelId: 204,
-    name: 'Raging Randy',
-    tagline: '“!!”',
-    portrait: 'placeholder',
-    mood: { label: 'Overwhelmed', template: 'Split' },
-    vibe: { label: 'Freaking' },
-    planKey: 'INTAKE',
-    quirks: [
-      { type: 'CRASHES', intensityTier: 0 },
-      { type: 'LOCKS_IN', intensityTier: 0 },
-    ],
-    traits: [],
-  },
-  {
-    id: 'yew', levelId: 205,
-    name: 'Yew Luus',
-    tagline: '“you lose”',
-    portrait: 'placeholder',
-    mood: { label: 'Spent', template: 'Spike' },
-    vibe: { label: 'Crisis' },
-    planKey: 'ZEN',
-    quirks: [
-      { type: 'CRASHES', intensityTier: 2 },
-      { type: 'SPIRALS', intensityTier: 2 },
-    ],
-    traits: [],
-  },
-  {
-    id: 'russ', levelId: 206,
-    name: 'Russ Random',
-    tagline: '“anything can happen”',
-    portrait: 'placeholder',
-    mood: { label: 'Drained', template: 'Split' },
-    vibe: { label: 'Anxious' },
-    planKey: 'WEEKLY',
-    quirks: [
-      { type: 'AMPED', intensityTier: 1 },
-      { type: 'SPIRALS', intensityTier: 1 },
-    ],
-    traits: [],
-  },
-];
+    // -------------------------------------------------------------------------
+  // Patient roster (authoritative) + lobby rotation state
+  // Notes:
+  // - Mood label is player-facing; mood.template is internal-only (generation).
+  // - Lobby shows 3 patients at a time (slots), drawn from a shuffled pool queue.
+  // - Runtime state is kept in-memory (no save schema yet in this chunk).
+  // -------------------------------------------------------------------------
+
+  const ROSTER = [
+    {
+      id: 'sally_sadeyes', levelId: 201,
+      name: 'Sally Sadeyes',
+      tagline: '“What’s the point?”',
+      portrait: 'placeholder',
+      mood: { label: 'Drained', template: 'TILTED' },
+      vibe: { label: 'Blah' },
+      traits: ['sensitive'],
+      quirks: [
+        { type: 'CRASHES', intensityTier: 2 },
+        { type: 'SPIRALS', intensityTier: 1 },
+      ],
+    },
+    {
+      id: 'stable_stan', levelId: 202,
+      name: 'Stable Stan',
+      tagline: '“I’ve got this.”',
+      portrait: 'placeholder',
+      mood: { label: 'Steady', template: 'FLAT' },
+      vibe: { label: 'Mid' },
+      traits: [],
+      quirks: [
+        { type: 'LOCKS_IN', intensityTier: 0 },
+      ],
+    },
+    {
+      id: 'gritty_gabe', levelId: 203,
+      name: 'Gritty Gabe',
+      tagline: '“Push through.”',
+      portrait: 'placeholder',
+      mood: { label: 'Antsy', template: 'SPIKE' },
+      vibe: { label: 'Anxious' },
+      traits: ['stubborn'],
+      quirks: [
+        { type: 'AMPED', intensityTier: 2 },
+        { type: 'LOCKS_IN', intensityTier: 1 },
+      ],
+    },
+    {
+      id: 'fragile_fiona', levelId: 204,
+      name: 'Fragile Fiona',
+      tagline: '“Please don’t push me.”',
+      portrait: 'placeholder',
+      mood: { label: 'Spent', template: 'SPLIT' },
+      vibe: { label: 'Crisis' },
+      traits: ['fragile'],
+      quirks: [
+        { type: 'SPIRALS', intensityTier: 2 },
+        { type: 'CRASHES', intensityTier: 1 },
+      ],
+    },
+    {
+      id: 'neon_nina', levelId: 205,
+      name: 'Neon Nina',
+      tagline: '“Everything is urgent!”',
+      portrait: 'placeholder',
+      mood: { label: 'Overwhelmed', template: 'SPIKE' },
+      vibe: { label: 'Freaking' },
+      traits: ['sensitive', 'stubborn'],
+      quirks: [
+        { type: 'AMPED', intensityTier: 2 },
+        { type: 'SPIRALS', intensityTier: 2 },
+      ],
+    },
+    {
+      id: 'chill_chip', levelId: 206,
+      name: 'Chill Chip',
+      tagline: '“We can ride this out.”',
+      portrait: 'placeholder',
+      mood: { label: 'Steady', template: 'TILTED' },
+      vibe: { label: 'Blah' },
+      traits: [],
+      quirks: [
+        { type: 'LOCKS_IN', intensityTier: 2 },
+        { type: 'CRASHES', intensityTier: 0 },
+      ],
+    },
+    {
+      id: 'mirror_max', levelId: 207,
+      name: 'Mirror Max',
+      tagline: '“Am I behind?”',
+      portrait: 'placeholder',
+      mood: { label: 'Drained', template: 'SPLIT' },
+      vibe: { label: 'Anxious' },
+      traits: ['sensitive'],
+      quirks: [
+        { type: 'LOCKS_IN', intensityTier: 2 },
+        { type: 'SPIRALS', intensityTier: 0 },
+      ],
+    },
+    {
+      id: 'piper_pinch', levelId: 208,
+      name: 'Piper Pinch',
+      tagline: '“Need more. Now.”',
+      portrait: 'placeholder',
+      mood: { label: 'Antsy', template: 'TILTED' },
+      vibe: { label: 'Mid' },
+      traits: ['stubborn'],
+      quirks: [
+        { type: 'CRASHES', intensityTier: 0 },
+        { type: 'AMPED', intensityTier: 1 },
+        { type: 'SPIRALS', intensityTier: 1 },
+      ],
+    },
+    {
+      id: 'zen_zoe', levelId: 209,
+      name: 'Zen Zoe',
+      tagline: '“Quiet… then clarity.”',
+      portrait: 'placeholder',
+      mood: { label: 'Steady', template: 'FLAT' },
+      vibe: { label: 'Mid' },
+      traits: [],
+      quirks: [
+        { type: 'SPIRALS', intensityTier: 1 },
+      ],
+    },
+    {
+      id: 'chaos_carl', levelId: 210,
+      name: 'Chaos Carl',
+      tagline: '“Let’s see what happens.”',
+      portrait: 'placeholder',
+      mood: { label: 'Overwhelmed', template: 'SPLIT' },
+      vibe: { label: 'Freaking' },
+      traits: ['sensitive'],
+      quirks: [
+        { type: 'AMPED', intensityTier: 1 },
+        { type: 'LOCKS_IN', intensityTier: 1 },
+        { type: 'CRASHES', intensityTier: 1 },
+        { type: 'SPIRALS', intensityTier: 1 },
+      ],
+    },
+  ];
+
+  const STATE = {
+    patientsById: Object.create(null),
+    poolQueue: [],
+    lobbySlots: [null, null, null],
+    transcendedIds: [],
+    // Post-run progression UI state
+    pendingWeeklyRewardId: null,
+    pendingZenCongratsId: null,
+    pendingStartId: null,
+    activePatientId: null,
+  };
+
+  function normTemplate(t) {
+    const s = String(t || '').trim().toUpperCase();
+    if (s === 'FLAT') return 'Flat';
+    if (s === 'TILTED') return 'Tilted';
+    if (s === 'SPIKE') return 'Spike';
+    if (s === 'SPLIT') return 'Split';
+    // Back-compat with older titlecase inputs.
+    if (s === 'TILTED'.toUpperCase()) return 'Tilted';
+    if (s === 'SPIKE'.toUpperCase()) return 'Spike';
+    if (s === 'SPLIT'.toUpperCase()) return 'Split';
+    if (s === 'FLAT'.toUpperCase()) return 'Flat';
+    // If already a known titlecase string, keep it.
+    const tt = String(t || 'Flat');
+    if (tt === 'Flat' || tt === 'Tilted' || tt === 'Spike' || tt === 'Split') return tt;
+    return 'Flat';
+  }
+
+  function shuffle(arr) {
+    for (let i = arr.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      const tmp = arr[i];
+      arr[i] = arr[j];
+      arr[j] = tmp;
+    }
+    return arr;
+  }
+
+  function isTranscended(id) {
+    return STATE.transcendedIds.indexOf(id) >= 0;
+  }
+
+  function _uniq(arr) {
+    const out = [];
+    const seen = new Set();
+    (arr || []).forEach((x) => {
+      if (!x) return;
+      if (seen.has(x)) return;
+      seen.add(x);
+      out.push(x);
+    });
+    return out;
+  }
+
+  function _sanitizeSlots(slots) {
+    const out = [null, null, null];
+    const seen = new Set();
+    for (let i = 0; i < 3; i++) {
+      const id = slots && slots[i] ? String(slots[i]) : null;
+      if (!id) continue;
+      if (!STATE.patientsById[id]) continue;
+      if (isTranscended(id)) continue;
+      if (seen.has(id)) continue;
+      seen.add(id);
+      out[i] = id;
+    }
+    // Fill nulls from pool later.
+    return out;
+  }
+
+  function ensurePoolIntegrity(reason) {
+    try {
+      // Remove transcended + duplicates.
+      STATE.lobbySlots = _sanitizeSlots(STATE.lobbySlots);
+      const slotSet = new Set(STATE.lobbySlots.filter(Boolean));
+      STATE.poolQueue = _uniq((STATE.poolQueue || []).map((x) => String(x))).filter((id) => {
+        if (!id) return false;
+        if (!STATE.patientsById[id]) return false;
+        if (isTranscended(id)) return false;
+        if (slotSet.has(id)) return false;
+        return true;
+      });
+
+      // If poolQueue is empty, rebuild.
+      if (!STATE.poolQueue.length) {
+        rebuildPoolQueue();
+      }
+
+      // Fill any empty slots.
+      for (let i = 0; i < 3; i++) {
+        if (!STATE.lobbySlots[i]) fillSlot(i);
+      }
+
+      // Ensure no missing ids (except a held-out weekly-reward patient).
+      const held = STATE.pendingWeeklyRewardId;
+      const all = Object.keys(STATE.patientsById).filter((id) => !isTranscended(id));
+      const present = new Set([...STATE.lobbySlots.filter(Boolean), ...(STATE.poolQueue || [])]);
+      all.forEach((id) => {
+        if (held && id === held) return;
+        if (!present.has(id)) {
+          STATE.poolQueue.push(id);
+          present.add(id);
+        }
+      });
+
+      // Final de-dupe.
+      const slotSet2 = new Set(STATE.lobbySlots.filter(Boolean));
+      STATE.poolQueue = _uniq(STATE.poolQueue).filter((id) => !slotSet2.has(id) && !isTranscended(id) && !!STATE.patientsById[id]);
+
+      if (EC.UI_STATE) EC.UI_STATE._lobbyDirtyStamp = (EC.UI_STATE._lobbyDirtyStamp || 0) + 1;
+      if (reason) { try { requestSave(String(reason)); } catch (_) {} }
+    } catch (_) {
+      // Silent: never spam console.
+    }
+  }
+
+  function initPatientsState() {
+    STATE.patientsById = Object.create(null);
+    ROSTER.forEach((p) => {
+      STATE.patientsById[p.id] = {
+        id: p.id,
+        levelId: p.levelId,
+        name: p.name,
+        tagline: p.tagline || '',
+        portrait: p.portrait || 'placeholder',
+        mood: { label: (p.mood && p.mood.label) ? p.mood.label : 'Steady', template: (p.mood && p.mood.template) ? p.mood.template : 'FLAT' },
+        vibe: { label: (p.vibe && p.vibe.label) ? p.vibe.label : 'Mid' },
+        traits: Array.isArray(p.traits) ? p.traits.slice() : [],
+        quirks: Array.isArray(p.quirks) ? p.quirks.map((q) => ({ type: q.type, intensityTier: (typeof q.intensityTier === 'number') ? q.intensityTier : 0 })) : [],
+        // Runtime state (persist later; in-memory for now)
+        intakeDone: false,
+        lastOutcome: '—',
+      };
+    });
+
+    // Initial slot fill: shuffle all ids, take first 3 to slots, remainder to poolQueue.
+    const ids = shuffle(Object.keys(STATE.patientsById));
+    STATE.lobbySlots = [null, null, null];
+    for (let i = 0; i < 3; i++) {
+      STATE.lobbySlots[i] = ids[i] || null;
+    }
+    STATE.poolQueue = ids.slice(3);
+  }
+
+  function rebuildPoolQueue() {
+    const inSlots = new Set(STATE.lobbySlots.filter(Boolean));
+    const ids = Object.keys(STATE.patientsById).filter((id) => !isTranscended(id) && !inSlots.has(id));
+    STATE.poolQueue = shuffle(ids);
+
+    try { requestSave('rebuildPoolQueue'); } catch (_) {}
+  }
+
+  function nextFromPool() {
+    const inSlots = new Set(STATE.lobbySlots.filter(Boolean));
+    while (true) {
+      if (!STATE.poolQueue || !STATE.poolQueue.length) rebuildPoolQueue();
+      if (!STATE.poolQueue.length) return null;
+      const id = STATE.poolQueue.shift();
+      if (!id) continue;
+      if (isTranscended(id)) continue;
+      if (inSlots.has(id)) continue;
+      return id;
+    }
+  }
+
+  function fillSlot(slotIndex) {
+    if (slotIndex < 0 || slotIndex > 2) return;
+    const nextId = nextFromPool();
+    STATE.lobbySlots[slotIndex] = nextId;
+  }
+
+  function removeFromSlotsAndRefill(id) {
+    const idx = STATE.lobbySlots.indexOf(id);
+    if (idx >= 0) {
+      STATE.lobbySlots[idx] = null;
+      fillSlot(idx);
+    }
+    // Mark lobby dirty for rerender.
+    if (EC.UI_STATE) EC.UI_STATE._lobbyDirtyStamp = (EC.UI_STATE._lobbyDirtyStamp || 0) + 1;
+    try { requestSave('slotRefill'); } catch (_) {}
+  }
+
+  function removeFromQueue(id) {
+    if (!id) return;
+    if (!STATE.poolQueue || !STATE.poolQueue.length) return;
+    STATE.poolQueue = STATE.poolQueue.filter((x) => x !== id);
+  }
+
+  function removeFromSlots(id) {
+    if (!id) return;
+    const idx = STATE.lobbySlots.indexOf(id);
+    if (idx >= 0) {
+      STATE.lobbySlots[idx] = null;
+      fillSlot(idx);
+    }
+  }
+
+  function transcendPatient(id) {
+    if (!id) return false;
+    if (!STATE.patientsById[id]) return false;
+    if (!isTranscended(id)) STATE.transcendedIds.push(id);
+    // Remove everywhere.
+    removeFromQueue(id);
+    removeFromSlots(id);
+    if (STATE.pendingStartId === id) STATE.pendingStartId = null;
+    if (STATE.activePatientId === id) STATE.activePatientId = null;
+    if (STATE.pendingWeeklyRewardId === id) STATE.pendingWeeklyRewardId = null;
+    if (STATE.pendingZenCongratsId === id) STATE.pendingZenCongratsId = null;
+    // Clear UI selection if it points at a transcended patient.
+    if (EC.UI_STATE && EC.UI_STATE.selectedPatientId === id) EC.UI_STATE.selectedPatientId = null;
+    ensurePoolIntegrity();
+    return true;
+  }
+
+  function _titlecase(s) {
+    return String(s || '')
+      .replace(/_/g, ' ')
+      .toLowerCase()
+      .replace(/(^|\s)\w/g, (m) => m.toUpperCase());
+  }
+
+  function _weeklyRewardLabel(kind, detail) {
+    if (kind === 'QUIRK') return `Weekly success: eased ${_titlecase(detail)}.`;
+    if (kind === 'MOOD') return 'Weekly success: mood steadier.';
+    if (kind === 'VIBE') return 'Weekly success: vibe steadier.';
+    if (kind === 'TRAIT') return `Weekly success: removed trait ${_titlecase(detail)}.`;
+    return 'Weekly success.';
+  }
+
+  function applyWeeklyReward(action) {
+    const pid = STATE.pendingWeeklyRewardId;
+    if (!pid) return false;
+    const p = getById(pid);
+    if (!p) { STATE.pendingWeeklyRewardId = null; return false; }
+
+    const a = action && typeof action === 'object' ? action : {};
+    const kind = String(a.kind || '').toUpperCase();
+
+    let did = false;
+    if (kind === 'QUIRK') {
+      const idx = (typeof a.index === 'number') ? Math.floor(a.index) : -1;
+      if (Array.isArray(p.quirks) && idx >= 0 && idx < p.quirks.length) {
+        const q = p.quirks[idx];
+        const old = (typeof q.intensityTier === 'number') ? q.intensityTier : 0;
+        q.intensityTier = Math.max(0, old - 1);
+        p.lastOutcome = _weeklyRewardLabel('QUIRK', q.type);
+        did = true;
+      }
+    } else if (kind === 'MOOD') {
+      const cur = String((p.mood && p.mood.label) ? p.mood.label : 'Steady');
+      const map = { 'Spent': 'Drained', 'Drained': 'Steady', 'Overwhelmed': 'Antsy', 'Antsy': 'Steady', 'Steady': 'Steady' };
+      if (!p.mood || typeof p.mood !== 'object') p.mood = { label: 'Steady', template: 'FLAT' };
+      p.mood.label = map[cur] || 'Steady';
+      p.lastOutcome = _weeklyRewardLabel('MOOD');
+      did = true;
+    } else if (kind === 'VIBE') {
+      const cur = String((p.vibe && p.vibe.label) ? p.vibe.label : 'Mid');
+      const map = { 'Crisis': 'Blah', 'Blah': 'Mid', 'Freaking': 'Anxious', 'Anxious': 'Mid', 'Mid': 'Mid' };
+      if (!p.vibe || typeof p.vibe !== 'object') p.vibe = { label: 'Mid' };
+      p.vibe.label = map[cur] || 'Mid';
+      p.lastOutcome = _weeklyRewardLabel('VIBE');
+      did = true;
+    } else if (kind === 'TRAIT') {
+      const idx = (typeof a.index === 'number') ? Math.floor(a.index) : -1;
+      if (Array.isArray(p.traits) && p.traits.length && idx >= 0 && idx < p.traits.length) {
+        const removed = p.traits.splice(idx, 1)[0];
+        p.lastOutcome = _weeklyRewardLabel('TRAIT', removed);
+        did = true;
+      }
+    }
+
+    if (!did) return false;
+
+    // Return patient to end of queue.
+    STATE.pendingWeeklyRewardId = null;
+    const inSlots = STATE.lobbySlots.indexOf(pid) >= 0;
+    const inQueue = STATE.poolQueue.indexOf(pid) >= 0;
+    if (!inSlots && !inQueue && !isTranscended(pid)) STATE.poolQueue.push(pid);
+    ensurePoolIntegrity();
+    try { requestSave('weekly_reward'); } catch (_) {}
+    if (EC.UI_STATE) EC.UI_STATE._lobbyDirtyStamp = (EC.UI_STATE._lobbyDirtyStamp || 0) + 1;
+    return true;
+  }
+
+  // Initialize on load
+  initPatientsState();
 
 
   function getById(id) {
-    return PATIENTS.find((p) => p.id === id) || null;
+    return (id && STATE.patientsById && STATE.patientsById[id]) ? STATE.patientsById[id] : null;
   }
 
   // Build a level def for a patient session. Patients randomize startState + plan params per start().
@@ -510,24 +849,31 @@
     return def;
   }
 
-  // List for lobby UI
+    // List for lobby UI (3-slot view)
   function list() {
-    return PATIENTS.map((p) => ({
-      id: p.id,
-      name: p.name,
-      tagline: p.tagline || '',
-      portrait: p.portrait || '',
-      mindsetLabel: (p.mood || p.mindset) ? (p.mood || p.mindset).label : 'Steady',
-      moodLabel: (p.mood || p.mindset) ? (p.mood || p.mindset).label : 'Steady',
-      mindsetTemplate: (p.mood || p.mindset) ? (p.mood || p.mindset).template : 'Flat',
-      moodTemplate: (p.mood || p.mindset) ? (p.mood || p.mindset).template : 'Flat',
-      vibeLabel: p.vibe ? p.vibe.label : 'Mid',
-      planKey: p.planKey,
-      planName: planName(p.planKey),
-      quirkCount: Array.isArray(p.quirks) ? p.quirks.length : 0,
-      quirkSummary: Array.isArray(p.quirks) ? p.quirks.map((q) => quirkTypeName(q.type)).join(', ') : '',
-      quirkLineTexts: Array.isArray(p.quirks) ? p.quirks.map((q) => `${quirkTypeName(q.type)}: ${quirkIntensityLabel(q.intensityTier)}`) : [],
-    }));
+    const out = [];
+    const slots = Array.isArray(STATE.lobbySlots) ? STATE.lobbySlots : [];
+    for (let i = 0; i < slots.length; i++) {
+      const id = slots[i];
+      if (!id) continue;
+      const p = getById(id);
+      if (!p) continue;
+      out.push({
+        id: p.id,
+        name: p.name,
+        tagline: p.tagline || '',
+        portrait: p.portrait || '',
+        moodLabel: (p.mood && p.mood.label) ? p.mood.label : 'Steady',
+        moodTemplate: (p.mood && p.mood.template) ? p.mood.template : 'FLAT',
+        vibeLabel: (p.vibe && p.vibe.label) ? p.vibe.label : 'Mid',
+        traits: Array.isArray(p.traits) ? p.traits.slice() : [],
+        quirks: Array.isArray(p.quirks) ? p.quirks.map((q) => ({ type: q.type, intensityTier: (typeof q.intensityTier === 'number') ? q.intensityTier : 0 })) : [],
+        intakeDone: !!p.intakeDone,
+        lastOutcome: (typeof p.lastOutcome === 'string') ? p.lastOutcome : '—',
+        quirkCount: Array.isArray(p.quirks) ? p.quirks.length : 0,
+      });
+    }
+    return out;
   }
 
   // Generate a fresh start state + plan roll per run.
@@ -535,7 +881,7 @@
     const m = patient.mood || patient.mindset || { label: 'Steady', template: 'Flat' };
     const v = patient.vibe || { label: 'Mid' };
 
-    const mRes = genMindsetPsy(m.label, m.template);
+    const mRes = genMindsetPsy(m.label, normTemplate(m.template));
     const vRes = genVibeWells(v.label);
 
     // Tag strings for lobby/hud.
@@ -553,22 +899,46 @@
     };
   }
 
-  function start(id) {
+    // Lobby begin: remove patient from slots and immediately refill from poolQueue.
+  // This reserves the patient for the upcoming run (plan selected in the lobby UI).
+  function beginFromLobby(id) {
+    if (!id) return;
+    STATE.pendingStartId = id;
+    removeFromSlotsAndRefill(id);
+  }
+
+  function startPending(planKey) {
+    const id = STATE.pendingStartId;
+    if (!id) return;
+    STATE.pendingStartId = null;
+    startRun(id, planKey);
+  }
+
+  function startRun(id, planKey) {
     const p = getById(id);
     if (!p) return;
 
-    // Cache active patient portrait path for rendering (so render code doesn't chase defs).
+    const k = String(planKey || '').toUpperCase();
+    const useKey = k || (p.intakeDone ? 'WEEKLY' : 'INTAKE');
+
+    // Attach current patient traits to SIM (used by EC.TRAITS).
+    SIM.patientTraits = Array.isArray(p.traits) ? p.traits.slice() : [];
+
+    // Cache active patient portrait path for rendering (avoid missing-asset fetch unless real art exists).
     const pr = (p && typeof p.portrait === 'string') ? (p.portrait || '') : '';
     SIM._patientPortrait = (pr && pr !== 'placeholder') ? pr : '';
 
     const ss = genStartState(p);
-    const plan = buildTreatmentPlan(p.planKey);
+    const plan = buildTreatmentPlan(useKey);
     const def = buildPatientLevelDef(p, ss, plan);
 
     SIM._patientActive = true;
     SIM._patientId = p.id;
     SIM._patientLevelId = def.id;
+    SIM._patientPlanKey = useKey;
     SIM.inLobby = false;
+
+    STATE.activePatientId = p.id;
 
     if (SIM && typeof SIM.initMVP === 'function') {
       SIM.initMVP(def);
@@ -583,12 +953,89 @@
     if (EC.UI_STATE) EC.UI_STATE._lobbyDirtyStamp = (EC.UI_STATE._lobbyDirtyStamp || 0) + 1;
   }
 
+  // Back-compat: start immediately (no lobby rotation).
+  function start(id, planKey) {
+    startRun(id, planKey);
+  }
+
+  
+
   function backToLobby() {
+    // Record outcome + progression logic before resetting SIM.
+    try {
+      const pid = (SIM && SIM._patientId) ? SIM._patientId : STATE.activePatientId;
+      const p = pid ? getById(pid) : null;
+      if (p) {
+        const planKey = String((SIM && (SIM._patientPlanKey || SIM._activePlanKey)) || '').toUpperCase();
+        const isWin = !!((SIM && (SIM.levelState === 'win')) || (SIM && SIM.mvpWin));
+        const isLose = !!((SIM && (SIM.levelState === 'lose')) || (SIM && SIM.mvpLose) || (SIM && SIM.gameOver));
+        const reason = (SIM && typeof SIM.gameOverReason === 'string') ? SIM.gameOverReason : '';
+
+        // INTAKE progression: on win, unlock plans.
+        if (planKey === 'INTAKE' && isWin) {
+          p.intakeDone = true;
+          p.lastOutcome = 'Intake complete.';
+
+          // Return to rotation.
+          if (!isTranscended(p.id)) {
+            const inSlots = STATE.lobbySlots.indexOf(p.id) >= 0;
+            const inQueue = STATE.poolQueue.indexOf(p.id) >= 0;
+            if (!inSlots && !inQueue) STATE.poolQueue.push(p.id);
+          }
+          try { requestSave('intake_complete'); } catch (_) {}
+        } else if (planKey === 'WEEKLY') {
+          if (isWin) {
+            // Hold out of rotation until reward is chosen.
+            STATE.pendingWeeklyRewardId = p.id;
+            p.lastOutcome = 'Weekly success.';
+            // Do not return to queue yet.
+          } else if (isLose) {
+            p.lastOutcome = 'Weekly failed.';
+            const inSlots = STATE.lobbySlots.indexOf(p.id) >= 0;
+            const inQueue = STATE.poolQueue.indexOf(p.id) >= 0;
+            if (!inSlots && !inQueue && !isTranscended(p.id)) STATE.poolQueue.push(p.id);
+            ensurePoolIntegrity();
+            try { requestSave('weekly_loss'); } catch (_) {}
+          }
+        } else if (planKey === 'ZEN') {
+          if (isWin) {
+            p.lastOutcome = 'Transcended.';
+            // Permanently remove.
+            transcendPatient(p.id);
+            STATE.pendingZenCongratsId = p.id;
+            try { requestSave('zen_transcend'); } catch (_) {}
+          } else if (isLose) {
+            if (reason === 'Time expired.') p.lastOutcome = 'Zen failed: time expired.';
+            else p.lastOutcome = 'Zen failed.';
+            const inSlots = STATE.lobbySlots.indexOf(p.id) >= 0;
+            const inQueue = STATE.poolQueue.indexOf(p.id) >= 0;
+            if (!inSlots && !inQueue && !isTranscended(p.id)) STATE.poolQueue.push(p.id);
+            ensurePoolIntegrity();
+            try { requestSave('zen_loss'); } catch (_) {}
+          }
+        } else {
+          // Fallback sessions.
+          const label = planKey || 'Session';
+          if (isWin) p.lastOutcome = `${label} success.`;
+          else if (isLose) p.lastOutcome = `${label} failed.`;
+          const inSlots = STATE.lobbySlots.indexOf(p.id) >= 0;
+          const inQueue = STATE.poolQueue.indexOf(p.id) >= 0;
+          if (!inSlots && !inQueue && !isTranscended(p.id)) STATE.poolQueue.push(p.id);
+          ensurePoolIntegrity();
+          try { requestSave('outcome'); } catch (_) {}
+        }
+      }
+    } catch (_) {}
+
+    // Clear run-specific state
+    STATE.activePatientId = null;
+    STATE.pendingStartId = null;
+
     SIM.inLobby = true;
     SIM._patientActive = false;
     SIM._patientId = null;
+    SIM.patientTraits = [];
     SIM._patientLevelId = null;
-    SIM._patientPortrait = '';
     SIM._patientPortrait = '';
 
     if (SIM && typeof SIM.initMVP === 'function') {
@@ -600,7 +1047,12 @@
   }
 
   // Soft lobby open: pause the simulation behind the lobby overlay without resetting.
-  function openLobbyPause() {
+    // Optional tick hook (currently no-op; used for future progression logic)
+  function update(dt) {
+    // Intentionally empty for this chunk.
+  }
+
+function openLobbyPause() {
     SIM.inLobby = true;
     // Keep SIM._patientActive + current sim state intact for Resume.
     if (EC.UI_STATE) EC.UI_STATE._lobbyDirtyStamp = (EC.UI_STATE._lobbyDirtyStamp || 0) + 1;
@@ -614,7 +1066,8 @@
   // Restart the currently active patient session from scratch.
   function restartActive() {
     if (!SIM._patientActive || !SIM._patientId) return;
-    start(SIM._patientId);
+    const k = (SIM && (SIM._patientPlanKey || SIM._activePlanKey)) ? (SIM._patientPlanKey || SIM._activePlanKey) : '';
+    startRun(SIM._patientId, k);
   }
 
   // Hook Reset: when in a patient session, Reset restarts the same patient (not Lobby).
@@ -629,14 +1082,202 @@
     };
   }
 
+  // ----------------------------
+  // Save schema v2 (patients progression + pool state)
+  // ----------------------------
+  function getSaveBlob() {
+    const out = {
+      patients: Object.create(null),
+      poolQueue: Array.isArray(STATE.poolQueue) ? STATE.poolQueue.slice() : [],
+      lobbySlots: Array.isArray(STATE.lobbySlots) ? STATE.lobbySlots.slice(0, 3) : [null, null, null],
+      transcendedIds: Array.isArray(STATE.transcendedIds) ? STATE.transcendedIds.slice() : [],
+    };
+
+    const byId = STATE.patientsById || {};
+    Object.keys(byId).forEach((id) => {
+      const p = byId[id];
+      if (!p || !id) return;
+      out.patients[id] = {
+        intakeDone: !!p.intakeDone,
+        lastOutcome: (typeof p.lastOutcome === 'string') ? p.lastOutcome : '—',
+        traits: Array.isArray(p.traits) ? p.traits.filter((x) => typeof x === 'string') : [],
+        mood: {
+          label: (p.mood && typeof p.mood.label === 'string') ? p.mood.label : 'Steady',
+          template: (p.mood && typeof p.mood.template === 'string') ? p.mood.template : 'FLAT',
+        },
+        vibe: {
+          label: (p.vibe && typeof p.vibe.label === 'string') ? p.vibe.label : 'Mid',
+        },
+        quirks: Array.isArray(p.quirks)
+          ? p.quirks
+              .filter((q) => q && typeof q.type === 'string')
+              .map((q) => ({ type: q.type, intensityTier: (typeof q.intensityTier === 'number') ? q.intensityTier : 0 }))
+          : [],
+      };
+    });
+
+    // Normalize arrays to safe forms.
+    out.poolQueue = (Array.isArray(out.poolQueue) ? out.poolQueue : []).filter((x) => typeof x === 'string');
+    out.transcendedIds = (Array.isArray(out.transcendedIds) ? out.transcendedIds : []).filter((x) => typeof x === 'string');
+
+    // Ensure lobbySlots length 3.
+    const ls = Array.isArray(out.lobbySlots) ? out.lobbySlots.slice(0, 3) : [];
+    while (ls.length < 3) ls.push(null);
+    out.lobbySlots = ls.map((x) => (typeof x === 'string' && x) ? x : null);
+
+    return out;
+  }
+
+  function _uniqIds(list) {
+    const out = [];
+    const seen = new Set();
+    for (let i = 0; i < list.length; i++) {
+      const id = list[i];
+      if (!id || typeof id !== 'string') continue;
+      if (seen.has(id)) continue;
+      seen.add(id);
+      out.push(id);
+    }
+    return out;
+  }
+
+  function applySaveBlob(patBlob) {
+    if (!patBlob || typeof patBlob !== 'object') return false;
+
+    // Merge per-patient runtime state.
+    const srcPatients = (patBlob.patients && typeof patBlob.patients === 'object') ? patBlob.patients : null;
+    if (srcPatients) {
+      Object.keys(srcPatients).forEach((id) => {
+        const dst = STATE.patientsById[id];
+        const src = srcPatients[id];
+        if (!dst || !src || typeof src !== 'object') return;
+
+        if (typeof src.intakeDone === 'boolean') dst.intakeDone = src.intakeDone;
+        if (typeof src.lastOutcome === 'string') dst.lastOutcome = src.lastOutcome;
+
+        if (Array.isArray(src.traits)) {
+          dst.traits = src.traits.filter((x) => typeof x === 'string');
+        }
+
+        if (src.mood && typeof src.mood === 'object') {
+          if (!dst.mood || typeof dst.mood !== 'object') dst.mood = { label: 'Steady', template: 'FLAT' };
+          if (typeof src.mood.label === 'string') dst.mood.label = src.mood.label;
+          if (typeof src.mood.template === 'string') dst.mood.template = src.mood.template;
+        }
+
+        if (src.vibe && typeof src.vibe === 'object') {
+          if (!dst.vibe || typeof dst.vibe !== 'object') dst.vibe = { label: 'Mid' };
+          if (typeof src.vibe.label === 'string') dst.vibe.label = src.vibe.label;
+        }
+
+        if (Array.isArray(src.quirks)) {
+          dst.quirks = src.quirks
+            .filter((q) => q && typeof q.type === 'string')
+            .map((q) => ({ type: q.type, intensityTier: (typeof q.intensityTier === 'number') ? q.intensityTier : 0 }));
+        }
+      });
+    }
+
+    // Apply transcended ids first.
+    const knownIds = new Set(Object.keys(STATE.patientsById || {}));
+    if (Array.isArray(patBlob.transcendedIds)) {
+      STATE.transcendedIds = _uniqIds(patBlob.transcendedIds).filter((id) => knownIds.has(id));
+    }
+
+    // Apply lobbySlots and poolQueue, validating aggressively.
+    let slots = Array.isArray(patBlob.lobbySlots) ? patBlob.lobbySlots.slice(0, 3) : null;
+    let queue = Array.isArray(patBlob.poolQueue) ? patBlob.poolQueue.slice() : null;
+
+    const isValidId = (id) => !!(id && typeof id === 'string' && knownIds.has(id) && !isTranscended(id));
+
+    let slotsOk = true;
+    if (!slots || slots.length !== 3) slotsOk = false;
+
+    const normSlots = [null, null, null];
+    if (slotsOk) {
+      const seen = new Set();
+      for (let i = 0; i < 3; i++) {
+        const id = slots[i];
+        if (id == null) { normSlots[i] = null; continue; }
+        if (!isValidId(id) || seen.has(id)) { normSlots[i] = null; continue; }
+        seen.add(id);
+        normSlots[i] = id;
+      }
+    }
+
+    if (slotsOk) {
+      STATE.lobbySlots = normSlots;
+    }
+
+    if (queue) {
+      // Remove invalid/dup/slot ids/transcended.
+      const slotSet = new Set((STATE.lobbySlots || []).filter(Boolean));
+      const normQ = _uniqIds(queue).filter((id) => isValidId(id) && !slotSet.has(id));
+      STATE.poolQueue = normQ;
+    }
+
+    // If slots are empty/invalid, rebuild from scratch and refill.
+    const anySlot = (STATE.lobbySlots || []).some(Boolean);
+    if (!anySlot) {
+      rebuildPoolQueue();
+      STATE.lobbySlots = [null, null, null];
+      for (let i = 0; i < 3; i++) fillSlot(i);
+    } else {
+      // Ensure no empty slots remain if we can fill them.
+      for (let i = 0; i < 3; i++) {
+        if (!STATE.lobbySlots[i]) fillSlot(i);
+      }
+    }
+
+    // Final integrity pass (no save on load).
+    ensurePoolIntegrity();
+
+    if (EC.UI_STATE) EC.UI_STATE._lobbyDirtyStamp = (EC.UI_STATE._lobbyDirtyStamp || 0) + 1;
+    return true;
+  }
+
+  function requestSave(reason) {
+    // No-op if not signed in / Firebase unavailable.
+    if (!EC.AUTH || !EC.AUTH.user) return false;
+    if (!EC.SAVE || typeof EC.SAVE.debouncedWrite !== 'function') return false;
+
+    const blob = getSaveBlob();
+    const payload = { schemaVersion: 2, pat: blob };
+    try {
+      EC.SAVE.debouncedWrite(payload, { merge: true });
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  // UI hooks for progression modals
+  function getPendingWeeklyRewardId() { return STATE.pendingWeeklyRewardId; }
+  function getPendingZenCongratsId() { return STATE.pendingZenCongratsId; }
+  function clearPendingZenCongrats() { STATE.pendingZenCongratsId = null; }
+
   EC.PAT = {
     list,
     get: getById,
+    // Lobby progression helpers
+    beginFromLobby,
+    startPending,
+    startRun,
+    // Back-compat start (no lobby rotation)
     start,
     backToLobby,
     openLobbyPause,
     resumeFromLobby,
     restartActive,
+    update,
+    getSaveBlob,
+    applySaveBlob,
+    requestSave,
+    // Progression loop
+    applyWeeklyReward,
+    getPendingWeeklyRewardId,
+    getPendingZenCongratsId,
+    clearPendingZenCongrats,
     _buildPlan: buildTreatmentPlan,
   };
 })();

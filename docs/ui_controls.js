@@ -36,6 +36,31 @@ function _fluxCost(A, S, T) {
   return A * spinCost;
 }
 
+// Canonical integer “energy units” helpers for Set-0 buttons.
+// These must match the Energy HUD rounding behavior (whole numbers).
+function costToUnits(costFloat) {
+  const u = Math.round(costFloat || 0);
+  return Math.max(0, u);
+}
+
+function energyToUnits(energyFloat) {
+  const u = Math.round(energyFloat || 0);
+  return Math.max(0, u);
+}
+
+// Trait-driven energy cost multiplier (stubborn).
+function _getEnergyCostMult(simIn) {
+  const SIM = simIn || EC.SIM || {};
+  try {
+    return (EC.TRAITS && typeof EC.TRAITS.getEnergyCostMult === "function")
+      ? (EC.TRAITS.getEnergyCostMult(SIM) || 1.0)
+      : 1.0;
+  } catch (_) {
+    return 1.0;
+  }
+}
+
+
 // Preview for a single well apply (used by MOD.render on desktop).
 // Mirrors the init-scoped helper to avoid behavior changes.
 function computeApplyPreview(i, A1In, S1In) {
@@ -76,8 +101,8 @@ function computeApplyPreview(i, A1In, S1In) {
 }
 
 // Cost for the "zero pair" action.
-// Canonical single source of truth used for display, gating, and deduction.
-// Returns { cost, i, j, baseCost1, pushCost1, baseCost2, pushCost2 } with cost in energy units.
+// Returns { cost, i, j, baseCost1, pushCost1, baseCost2, pushCost2 } where cost is a FLOAT
+// in the same energy scale as Apply/swipes (before integer "HUD units" rounding).
 function computeZeroPairCost(i) {
   const SIM = EC.SIM;
   const T = EC.TUNE || {};
@@ -243,12 +268,38 @@ function computeZeroPairCost(i) {
     MOD.toast = toast;
 
     // Apply a preview (same logic as the Apply button) without touching tuning.
-    function applyPreviewToSim(i, prev) {
-      const cost = prev.cost || 0;
-      if (!prev.changed) return { ok: false, reason: 'nochange', cost };
-      if ((SIM.energy || 0) < cost) return { ok: false, reason: 'noenergy', cost };
+    function applyPreviewToSim(i, prev, opts) {
+      const costRaw = (prev && typeof prev._costRaw === 'number') ? prev._costRaw : ((prev && prev.cost) || 0);
+      const mult = _getEnergyCostMult(SIM);
+      const costFloatFinal = costRaw * mult;
 
-      SIM.energy = Math.max(0, (SIM.energy || 0) - cost);
+      if (!prev.changed) return { ok: false, reason: 'nochange', cost: costFloatFinal };
+
+      const chargeUnits = !!(opts && opts.chargeUnits);
+      const costUnits = chargeUnits ? costToUnits(costFloatFinal) : 0;
+      const costFinal = chargeUnits ? costUnits : costFloatFinal;
+
+      // Debug: record last evaluated spend attempt
+      SIM._dbgLastCostRaw = costRaw;
+      SIM._dbgLastCostMult = mult;
+      SIM._dbgLastCostFinal = costFinal;
+
+      if (chargeUnits) {
+        const eU = energyToUnits(SIM.energy || 0);
+        if (eU < costUnits) {
+          SIM._dbgLastCostNoEnergy = true;
+          return { ok: false, reason: 'noenergy', cost: costFinal };
+        }
+        SIM._dbgLastCostNoEnergy = false;
+        SIM.energy = Math.max(0, eU - costUnits);
+      } else {
+        if ((SIM.energy || 0) < costFloatFinal) {
+          SIM._dbgLastCostNoEnergy = true;
+          return { ok: false, reason: 'noenergy', cost: costFinal };
+        }
+        SIM._dbgLastCostNoEnergy = false;
+        SIM.energy = Math.max(0, (SIM.energy || 0) - costFloatFinal);
+      }
 
       // Apply to selected well (absolute targets; clamped)
       SIM.wellsA[i] = prev.A1;
@@ -271,7 +322,7 @@ function computeZeroPairCost(i) {
         }
       }
 
-      return { ok: true, reason: 'ok', cost };
+      return { ok: true, reason: 'ok', cost: costFinal };
     }
 
     // Public: perform a single discrete +/-5 flick step on a well and auto-apply.
@@ -329,7 +380,15 @@ function computeZeroPairCost(i) {
       // Persist the latest preview for other UI render paths (defensive: first render has no prev)
       UI_STATE.lastPreview = prev;
 
-      if (costPillEl) costPillEl.textContent = 'Cost: ' + (((prev && prev.cost) || 0).toFixed(2));
+      // Apply trait-driven cost multiplier (stubborn) for display + gating.
+      const costRaw = ((prev && prev.cost) || 0);
+      const costMult = _getEnergyCostMult(SIM);
+      const costFinal = costRaw * costMult;
+      prev._costRaw = costRaw;
+      prev._costMult = costMult;
+      prev._costFinal = costFinal;
+
+      if (costPillEl) costPillEl.textContent = 'Cost: ' + (costFinal.toFixed(2));
 
       if (objectiveSummaryEl) {
         const getNext = (EC.UI_HUD && typeof EC.UI_HUD.getNextObjectiveText === 'function')
@@ -359,7 +418,7 @@ function computeZeroPairCost(i) {
         }
       }
 
-      const can = (i >= 0) && prev.changed && (SIM.energy || 0) >= (prev.cost || 0);
+      const can = (i >= 0) && prev.changed && (SIM.energy || 0) >= (prev._costFinal || 0);
       if (btnApplyEl) {
         btnApplyEl.disabled = !can;
         btnApplyEl.style.opacity = can ? '1' : '0.55';
@@ -402,14 +461,19 @@ function computeZeroPairCost(i) {
         const i = (typeof SIM.selectedWellIndex === 'number') ? SIM.selectedWellIndex : -1;
         if (i < 0) return;
 
-        // Immediate execute: set selected well spin to 0 via the same preview/apply path as swipes.
-        const S0 = (SIM.wellsS[i] || 0);
-        const dS = (0 - S0);
-        const res = MOD.flickStep(i, 0, dS);
+        // Immediate execute: set selected well spin to 0 using preview/apply mechanics
+        // (including opposite push), but charge integer HUD units.
+        const A0 = (SIM.wellsA[i] || 0);
+        const prev = computeApplyPreview(i, A0, 0);
+        const res = applyPreviewToSim(i, prev, { chargeUnits: true });
 
-        // Keep UI tidy; costs will refresh on next render.
-        if (!res || !res.ok) {
-          // no toast spam; debug overlay will show apply reason if needed
+        // Keep UI tidy (presentation only).
+        if (res && res.ok) {
+          UI.targetA = prev.A1;
+          UI.targetS = prev.S1;
+          if (deltaAEl) deltaAEl.value = String(UI.targetA);
+          if (deltaSEl) deltaSEl.value = String(UI.targetS);
+          syncDeltaLabels();
         }
       });
     }
@@ -427,15 +491,28 @@ if (btnZeroPairEl) {
         if (j == null || j < 0 || j >= 6) return;
 
         // Immediate execute: atomic dual-spin-to-zero update.
+        // Charges integer HUD units (display/gating/deduction unified).
         const c = computeZeroPairCost(sel);
         const pairCostRaw = c.cost || 0;
-        const pairCost = Math.ceil(pairCostRaw * 100) / 100; // round UP to cents so gating never exceeds display
+        const mult = _getEnergyCostMult(SIM);
+        const pairCostFloatFinal = pairCostRaw * mult;
+        const pairUnits = costToUnits(pairCostFloatFinal);
+
+        // Debug: record last evaluated spend attempt
+        SIM._dbgLastCostRaw = pairCostRaw;
+        SIM._dbgLastCostMult = mult;
+        SIM._dbgLastCostFinal = pairUnits;
 
         const changed = (Math.abs(SIM.wellsS[sel] || 0) > 1e-9) || (Math.abs(SIM.wellsS[j] || 0) > 1e-9);
         if (!changed) return;
-        if ((SIM.energy || 0) < pairCost) return;
+        const eU = energyToUnits(SIM.energy || 0);
+        if (eU < pairUnits) {
+          SIM._dbgLastCostNoEnergy = true;
+          return;
+        }
+        SIM._dbgLastCostNoEnergy = false;
 
-        SIM.energy = Math.max(0, (SIM.energy || 0) - pairCost);
+        SIM.energy = Math.max(0, eU - pairUnits);
         SIM.wellsS[sel] = 0;
         SIM.wellsS[j] = 0;
       });
@@ -512,17 +589,21 @@ if (btnZeroPairEl) {
       if (costSpinZeroEl2) costSpinZeroEl2.textContent = '—';
       if (costZeroPairEl2) costZeroPairEl2.textContent = '—';
     } else {
+      const mult = _getEnergyCostMult(SIM);
+      const eU = energyToUnits(SIM.energy || 0);
       const A0 = (SIM.wellsA[sel] || 0);
       const c1 = computeApplyPreview(sel, A0, 0);
-      const cost1 = (c1 && c1.changed) ? (c1.cost || 0) : 0;
+      const cost1Raw = (c1 && c1.changed) ? (c1.cost || 0) : 0;
+      const cost1FloatFinal = cost1Raw * mult;
+      const cost1Units = costToUnits(cost1FloatFinal);
       const costSpinZeroEl2 = dom.costSpinZeroEl || document.getElementById('costSpinZero');
       const costZeroPairEl2 = dom.costZeroPairEl || document.getElementById('costZeroPair');
-      if (costSpinZeroEl2) costSpinZeroEl2.textContent = `Cost ${cost1.toFixed(2)}`;
+      if (costSpinZeroEl2) costSpinZeroEl2.textContent = `Cost ${cost1Units}`;
 
       if (btnSpinZeroEl2) {
         const changedSpin = (c1 && c1.changed);
-        const spinCost = changedSpin ? cost1 : 0;
-        const canSpin = hasSel && changedSpin && ((SIM.energy || 0) >= spinCost);
+        const spinUnits = changedSpin ? cost1Units : 0;
+        const canSpin = hasSel && changedSpin && (eU >= spinUnits);
         btnSpinZeroEl2.disabled = !canSpin;
         btnSpinZeroEl2.style.opacity = canSpin ? '1' : '0.55';
       }
@@ -532,12 +613,13 @@ if (btnZeroPairEl) {
       const j = _oppIndex(sel);
       const changedPair = (j != null && j >= 0 && j < 6) && ((Math.abs(SIM.wellsS[sel] || 0) > 1e-9) || (Math.abs(SIM.wellsS[j] || 0) > 1e-9));
       const pairCostRaw = changedPair ? (c2.cost || 0) : 0;
-      const pairCost = Math.ceil(pairCostRaw * 100) / 100; // round UP to cents so gating never exceeds display
-      if (costZeroPairEl2) costZeroPairEl2.textContent = `Cost ${pairCost.toFixed(2)}`;
+      const pairCostFloatFinal = pairCostRaw * mult;
+      const pairUnits = costToUnits(pairCostFloatFinal);
+      if (costZeroPairEl2) costZeroPairEl2.textContent = `Cost ${pairUnits}`;
 
       // Gating must match displayed cost exactly.
       if (btnZeroPairEl2) {
-        const canPair = hasSel && changedPair && ((SIM.energy || 0) >= pairCost);
+        const canPair = hasSel && changedPair && (eU >= pairUnits);
         btnZeroPairEl2.disabled = !canPair;
         btnZeroPairEl2.style.opacity = canPair ? '1' : '0.55';
       }

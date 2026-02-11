@@ -1632,7 +1632,9 @@ function renderPsyche() {
 
   // Center pulse when total psyche is above warning threshold.
   // Ramps (freq + brightness + swing) as total approaches TOTAL_CAP.
-  const TOTAL_CAP = EC.TUNE.PSY_TOTAL_CAP;
+  const TOTAL_CAP = (SIM && typeof SIM._psyTotalCapUsed === 'number' && isFinite(SIM._psyTotalCapUsed) && SIM._psyTotalCapUsed > 0)
+    ? SIM._psyTotalCapUsed
+    : EC.TUNE.PSY_TOTAL_CAP;
   if (warnG && total > WARN_TOTAL && TOTAL_CAP > WARN_TOTAL) {
     const totalFrac = clamp((total - WARN_TOTAL) / (TOTAL_CAP - WARN_TOTAL), 0, 1);
     const freq = 4.2 + (10.0 - 4.2) * totalFrac;

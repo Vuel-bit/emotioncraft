@@ -107,6 +107,7 @@ if (EC.UI_LOBBY && typeof EC.UI_LOBBY.init === 'function') EC.UI_LOBBY.init(ctx)
 function updateUI(dt) {
   if (EC.UI_LOBBY && typeof EC.UI_LOBBY.render === 'function') EC.UI_LOBBY.render(dt, ctx);
   if (EC.UI_HUD && typeof EC.UI_HUD.render === 'function') EC.UI_HUD.render(dt, ctx);
+  if (EC.PAT && typeof EC.PAT.update === 'function') EC.PAT.update(dt);
   if (EC.UI_CONTROLS && typeof EC.UI_CONTROLS.render === 'function') EC.UI_CONTROLS.render(dt, ctx);
 }
 

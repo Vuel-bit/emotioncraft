@@ -408,7 +408,17 @@
       } else {
         stepLine = 'Step 1/1';
       }
-      if (patientInfoEl) patientInfoEl.textContent = `${pName}\n${stepLine}`;
+      if (patientInfoEl) {
+        let txt = `${pName}\n${stepLine}`;
+        const pk = (def && def.win && def.win.planKey) ? String(def.win.planKey).toUpperCase() : '';
+        if (pk === 'ZEN' && typeof SIM.zenTimeRemainingSec === 'number' && isFinite(SIM.zenTimeRemainingSec)) {
+          const t = Math.max(0, Math.floor(SIM.zenTimeRemainingSec));
+          const mm = String(Math.floor(t / 60)).padStart(2, '0');
+          const ss = String(t % 60).padStart(2, '0');
+          txt += `\nTime ${mm}:${ss}`;
+        }
+        patientInfoEl.textContent = txt;
+      }
       }
     } catch (_) { /* ignore */ }
 
@@ -555,6 +565,29 @@ try {
   }
 } catch (_) {}
 parts.push(`MVP Debug`);
+parts.push('----');
+
+try {
+  const traits = (EC.TRAITS && typeof EC.TRAITS.list === 'function') ? EC.TRAITS.list(SIM) : [];
+  const eMult = (EC.TRAITS && typeof EC.TRAITS.getEnergyCostMult === 'function') ? (EC.TRAITS.getEnergyCostMult(SIM) || 1.0) : 1.0;
+  const qMult = (EC.TRAITS && typeof EC.TRAITS.getQuirkStrengthMult === 'function') ? (EC.TRAITS.getQuirkStrengthMult(SIM) || 1.0) : 1.0;
+  const cap = (EC.TRAITS && typeof EC.TRAITS.getPsyTotalCap === 'function') ? (EC.TRAITS.getPsyTotalCap(SIM) || 2000) : (SIM._psyTotalCapUsed || (EC.TUNE ? EC.TUNE.PSY_TOTAL_CAP : 2000) || 2000);
+  parts.push(`Traits: ${traits.length ? traits.join(', ') : 'none'}`);
+  parts.push(`EnergyCostMult: ${eMult.toFixed(2)}  QuirkStrengthMult: ${qMult.toFixed(2)}  PsyTotalCap: ${cap}`);
+
+  const lr = (typeof SIM._dbgLastCostRaw === 'number' && isFinite(SIM._dbgLastCostRaw)) ? SIM._dbgLastCostRaw : 0;
+  const lm = (typeof SIM._dbgLastCostMult === 'number' && isFinite(SIM._dbgLastCostMult)) ? SIM._dbgLastCostMult : 1;
+  const lf = (typeof SIM._dbgLastCostFinal === 'number' && isFinite(SIM._dbgLastCostFinal)) ? SIM._dbgLastCostFinal : 0;
+  const blocked = !!SIM._dbgLastCostNoEnergy;
+  parts.push(`LastCost raw/mult/final: ${lr.toFixed(2)} / ${lm.toFixed(2)} / ${lf.toFixed(2)}${blocked ? ' (blocked)' : ''}`);
+
+  if (String(SIM._activePlanKey || '').toUpperCase() === 'ZEN' && typeof SIM.zenTimeRemainingSec === 'number' && isFinite(SIM.zenTimeRemainingSec)) {
+    const t = Math.max(0, Math.floor(SIM.zenTimeRemainingSec));
+    const mm = String(Math.floor(t / 60)).padStart(2, '0');
+    const ss = String(t % 60).padStart(2, '0');
+    parts.push(`ZEN time remaining: ${mm}:${ss}`);
+  }
+} catch (_) {}
 
       parts.push(`energy=${(SIM.energy||0).toFixed(3)}  regen=${regen.toFixed(3)}/s  spill=${spillOn ? 'ON' : 'off'}  spillA=${(SIM._spillA||0).toFixed(2)}  spillS=${(SIM._spillS||0).toFixed(2)}`);
       if (SIM._spillMsg) parts.push('spillMsg: ' + SIM._spillMsg);

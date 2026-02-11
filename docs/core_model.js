@@ -431,6 +431,20 @@ function netSwirl(w, now) {
     // Reset MVP timebase on level init so time-gated systems (e.g., Dispositions) restart cleanly.
     SIM.mvpTime = 0;
 
+    // Active plan key (patient plans) — used for timed Zen runs.
+    try {
+      const pk = def && def.win ? def.win.planKey : null;
+      SIM._activePlanKey = pk ? String(pk).toUpperCase() : '';
+    } catch (_) {
+      SIM._activePlanKey = '';
+    }
+
+    if (SIM._activePlanKey === 'ZEN') {
+      SIM.zenTimeRemainingSec = 15 * 60;
+    } else {
+      SIM.zenTimeRemainingSec = null;
+    }
+
     // Init Dispositions for this level (no-op if the module isn't present)
     if (EC.DISP && typeof EC.DISP.initLevel === 'function') {
       EC.DISP.initLevel(def || null);
