@@ -439,8 +439,6 @@
           if (n >= 2) return 'rgba(255, 92, 92, 0.95)';
           if (n === 1) return 'rgba(230, 216, 92, 0.95)';
           return 'rgba(123, 220, 123, 0.95)';
-        
-    try { if (MOD.updateBreakModal) MOD.updateBreakModal(); } catch (_) {}
   };
 
 
@@ -722,6 +720,8 @@ if (debugEl) {
   else debugEl.textContent = parts.join('\n');
 }
     }
+    try { if (MOD.updateBreakModal) MOD.updateBreakModal(); } catch (_) {}
+
 
     // Expose selected-hue drive for renderer pulse indicator
     SIM._selDrive = drive;

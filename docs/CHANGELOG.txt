@@ -5,3 +5,7 @@
 - SFX: Implemented EC.SFX.error() for no-energy swipe.
 - FIX: Set Pair to 0 cost symmetric across either well selection; spend matches display.
 - v0.2.97 (Chunk 3B): Removed total psyche cap/warning system; center shows treatment hold progress ring; jam break relief/penalty updated; breaks pause sim with modal popup.
+
+- HOTFIX: Mental break popup crash fixed (_setBreakModal scope/brace).
+- HOTFIX: Break popup now lists adjusted wells (amount/spin) and psyche deltas (snapshot keys a/s/psy).
+- HOTFIX: Break overlay DOM placement fixed (inside body) and updateBreakModal called each HUD render.

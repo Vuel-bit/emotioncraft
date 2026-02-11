@@ -6,3 +6,9 @@ Chunk 3B:
 - Center donut core now shows yellow treatment hold progress (PLAN_CHAIN holdSec) with brief flash on completion.
 - Jam break rules updated (Amount High: set jammed Amount=85 + Spin +15 all; Spin Max penalty now +100 to two lowest psyche hues).
 - Any mental break pauses the sim and shows an OK modal with well-name adjustments.
+
+Hotfix:
+- Fixed _setBreakModal scope crash in systems_breaks.js (missing brace).
+- Fixed break snapshots to include amount/spin/psy keys (a/s/psy) so popup lists adjusted wells.
+- Fixed break overlay markup placement inside <body> (valid DOM).
+- Fixed break overlay update call to run each HUD render (ui_hud.js).

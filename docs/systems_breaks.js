@@ -60,6 +60,9 @@
     UI.uiMsgReason = String(reasonText || '').trim();
   
     try { if (EC.SFX && typeof EC.SFX.play === 'function') EC.SFX.play('error_003'); } catch (_) {}
+}
+
+
   function _setBreakModal(sim, title, reason, before, after) {
     if (!sim) return;
     const lines = [];
@@ -97,16 +100,17 @@
     sim._breakPaused = true;
   }
 
-}
 
   function _snap(sim) {
+    const a = new Array(6);
+    const s = new Array(6);
     const psy = new Array(6);
-    const spin = new Array(6);
     for (let i = 0; i < 6; i++) {
+      a[i] = Number((sim.wellsA && sim.wellsA[i]) || 0);
+      s[i] = Number((sim.wellsS && sim.wellsS[i]) || 0);
       psy[i] = Number((sim.psyP && sim.psyP[i]) || 0);
-      spin[i] = Number((sim.wellsS && sim.wellsS[i]) || 0);
     }
-    return { psy, spin };
+    return { a, s, psy };
   }
 
   function _formatPsycheDelta(before, after) {
@@ -233,7 +237,7 @@
     const msgLines = [
       typeLine,
       _formatPsycheDelta(before.psy, after.psy),
-      _formatSpinDelta(before.spin, after.spin),
+      _formatSpinDelta(before.s, after.s),
     ].join('\n');
     _pushBreakMsg(msgLines);
     _setBreakModal(sim, 'Mental Break', typeLine, before, after);
@@ -373,7 +377,7 @@
     const msgLines = [
       typeLine,
       _formatPsycheDelta(before.psy, after.psy),
-      _formatSpinDelta(before.spin, after.spin),
+      _formatSpinDelta(before.s, after.s),
     ].join('\n');
     _pushBreakMsg(msgLines);
     _setBreakModal(sim, 'Mental Break', typeLine, before, after);
