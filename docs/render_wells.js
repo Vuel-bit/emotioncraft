@@ -1242,6 +1242,22 @@ function ensurePsycheView() {
     EC.RENDER.psycheWedgeValueTexts = arr;
   }
 
+  // Center countdown text (treatment hold timer)
+  if (!EC.RENDER.psycheCenterText) {
+    const t = new Text('', {
+      fontFamily: 'system-ui, -apple-system, Segoe UI, Roboto, Arial',
+      fontSize: 26,
+      fill: 0xffd166,
+      stroke: 0x000000,
+      strokeThickness: 5,
+      align: 'center',
+    });
+    t.anchor && t.anchor.set(0.5, 0.5);
+    t.eventMode = 'none';
+    EC.RENDER.psycheCenterText = t;
+    EC.RENDER.psycheTextLayer.addChild(t);
+  }
+
   // Remove legacy bar-chart text objects if they exist (donut wedge UI uses center-only text).
   if (EC.RENDER.psycheBarValueTexts || EC.RENDER.psycheBarRateTexts) {
     try {
@@ -1525,18 +1541,11 @@ function renderPsyche() {
   g.endFill();
 
   // Compute hold fraction for active PLAN_CHAIN step
+  // Canonical rule: 10s for all non-SPIN_ZERO steps (mechanics publishes _planHoldReqSec).
   let frac = 0;
-  try {
-    const lvlDef = (typeof EC.getActiveLevelDef === 'function') ? EC.getActiveLevelDef() : ((EC.LEVELS && typeof EC.LEVELS.get === 'function') ? EC.LEVELS.get(SIM.levelId) : null);
-    const winDef = (lvlDef && lvlDef.win) ? lvlDef.win : null;
-    if (winDef && winDef.type === 'PLAN_CHAIN' && Array.isArray(winDef.steps)) {
-      const stepIdx = Math.max(0, Math.min(winDef.steps.length - 1, (typeof SIM.planStep === 'number' ? SIM.planStep : 0)));
-      const st = winDef.steps[stepIdx];
-      const holdReq = (st && typeof st.holdSec === 'number') ? st.holdSec : 0;
-      const holdNow = (typeof SIM.planHoldSec === 'number') ? SIM.planHoldSec : 0;
-      frac = (holdReq > 0) ? clamp(holdNow / holdReq, 0, 1) : 0;
-    }
-  } catch (_) { frac = 0; }
+  const holdReq = (SIM && typeof SIM._planHoldReqSec === 'number') ? SIM._planHoldReqSec : 0;
+  const holdNow = (typeof SIM.planHoldSec === 'number') ? SIM.planHoldSec : 0;
+  frac = (holdReq > 0) ? clamp(holdNow / holdReq, 0, 1) : 0;
 
   if (frac > 0) {
     const col = 0xffd166;
@@ -1546,6 +1555,33 @@ function renderPsyche() {
     g.arc(0, 0, coreR, -Math.PI / 2, -Math.PI / 2 + frac * Math.PI * 2, false);
     g.closePath();
     g.endFill();
+  }
+
+  // Center countdown text (treatment hold timer)
+  const ct = EC.RENDER.psycheCenterText || null;
+  if (ct) {
+    let show = false;
+    let txt = '';
+    try {
+      const req = (SIM && typeof SIM._planHoldReqSec === 'number') ? SIM._planHoldReqSec : 0;
+      const ok = !!(SIM && SIM._planStepOk);
+      if (req > 0) {
+        // Show countdown only while the step is satisfied (or during completion flash).
+        if (ok || (holdNow > 0) || (flashT > 0)) {
+          const rem = Math.ceil(clamp(req - holdNow, 0, req));
+          txt = String(Math.max(0, Math.min(req, rem)));
+          show = true;
+        }
+      }
+    } catch (_) {}
+    if (!show) {
+      if (ct.text !== '') ct.text = '';
+      ct.visible = false;
+    } else {
+      if (ct.text !== txt) ct.text = txt;
+      ct.visible = true;
+      ct.position.set(0, 0);
+    }
   }
 
   // Subtle outline

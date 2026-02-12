@@ -299,7 +299,9 @@
 
   function hideZenCongrats(els) {
     ensureZenCongratsUI(els);
-    if (els.congratsOverlay) els.cong
+    if (els.congratsOverlay) els.congratsOverlay.style.display = 'none';
+  }
+
   function ensureIntakeCongratsUI(els) {
     if (!els) return;
     let ov = document.getElementById('intakeCongratsOverlay');
@@ -333,7 +335,7 @@
     title.style.fontWeight = '800';
     title.style.letterSpacing = '0.2px';
     title.style.marginBottom = '10px';
-    title.textContent = 'Intake Complete';
+    title.textContent = 'Intake complete';
 
     const body = document.createElement('div');
     body.id = 'intakeCongratsBody';
@@ -341,7 +343,7 @@
     body.style.lineHeight = '1.35';
     body.style.opacity = '0.92';
     body.style.marginBottom = '14px';
-    body.textContent = 'Intake complete.';
+    body.textContent = '';
 
     const btnRow = document.createElement('div');
     btnRow.style.display = 'flex';
@@ -377,8 +379,8 @@
     } catch (_) {}
     if (els.intakeCongratsBodyEl) {
       els.intakeCongratsBodyEl.textContent = name
-        ? `Intake complete. ${name} is now ready for Weekly Treatment (or Zen).`
-        : 'Intake complete. This patient is now ready for Weekly Treatment (or Zen).';
+        ? `${name} is no longer an intake patient.`
+        : 'This patient is no longer an intake patient.';
     }
     els.intakeCongratsOverlay.style.display = 'flex';
   }
@@ -386,8 +388,6 @@
   function hideIntakeCongrats(els) {
     ensureIntakeCongratsUI(els);
     if (els.intakeCongratsOverlay) els.intakeCongratsOverlay.style.display = 'none';
-  }
-ratsOverlay.style.display = 'none';
   }
 
   function authLabel(u) {

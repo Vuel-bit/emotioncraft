@@ -631,6 +631,25 @@ if (btnZeroPairEl) {
       energyHudEl2.textContent = `⚡ ${(SIM.energy || 0).toFixed(0)}/${E_CAP2}`;
     }
 
+    // Zen timer HUD (upper-right)
+    try {
+      const zEl = dom.zenTimerHudEl || document.getElementById('zenTimerHud');
+      if (zEl) {
+        const isZen = String(SIM._activePlanKey || '').toUpperCase() === 'ZEN';
+        const t = SIM.zenTimeRemainingSec;
+        if (isZen && typeof t === 'number' && isFinite(t)) {
+          const s = Math.max(0, Math.floor(t));
+          const mm = Math.floor(s / 60);
+          const ss = s % 60;
+          const txt = `ZEN ${String(mm).padStart(2, '0')}:${String(ss).padStart(2, '0')}`;
+          if (zEl.textContent !== txt) zEl.textContent = txt;
+          zEl.style.display = 'block';
+        } else {
+          zEl.style.display = 'none';
+        }
+      }
+    } catch (_) {}
+
     let sel = (typeof SIM.selectedWellIndex === 'number') ? SIM.selectedWellIndex : -1;
     // Robust selection for bottom-bar costs: fall back to last known UI selection
     if (!(sel >= 0 && sel < 6)) {

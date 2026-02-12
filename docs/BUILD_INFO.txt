@@ -12,3 +12,16 @@ Hotfix:
 - Fixed break snapshots to include amount/spin/psy keys (a/s/psy) so popup lists adjusted wells.
 - Fixed break overlay markup placement inside <body> (valid DOM).
 - Fixed break overlay update call to run each HUD render (ui_hud.js).
+
+Chunk 3B (Part A UI/mechanics fixes):
+- Bottom drawer CSS: current step + next step columns always fit (no off-screen next step).
+- PLAN_CHAIN: canonical 10s hold for all steps except SPIN_ZERO; hold only accumulates while satisfied; no extra post-hold delay; brief completion flash then immediate step advance.
+- Center core: shows PLAN_CHAIN hold countdown number + ring timing matches canonical 10s rule.
+- Zen: unified time limit to 10:00 via T.ZEN_TIME_LIMIT_SEC and added top-right HUD timer.
+- Intake congrats: fixed broken hideZenCongrats() + intake modal wiring; updated copy to "{Name} is no longer an intake patient.".
+- HTML: fixed missing closing </div> for #breakOverlay.
+
+Chunk 3B (Part B HUD/quirks/debug fixes):
+- Top HUD patient header: 2-line layout (Name+Traits line 1, Quirks line 2) with telegraph/active quirk text glow.
+- Quirks: enforce global minimum spacing (T.DISP_MIN_GAP_SEC) between scheduled fires + a fire-time safety net to reduce frequent clumping.
+- Debug panel: now shows only raw quirk force totals by default; input instrumentation hidden unless ?inputdebug=1.

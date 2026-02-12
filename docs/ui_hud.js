@@ -410,15 +410,41 @@
         stepLine = 'Step 1/1';
       }
       if (patientInfoEl) {
-        // Top bar: patient name + quirk tags (no plan/step text).
+        // Top HUD: 2-line patient header
+        // Line1: Name + Traits (single-word, colored)
+        // Line2: Quirks as colored words (Lobby-style labels) with telegraph/active glow
+
+        const esc = (s) => String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+
+        // Traits source of truth
+        let traits = [];
+        try {
+          traits = (EC.TRAITS && typeof EC.TRAITS.list === 'function') ? (EC.TRAITS.list(SIM) || []) : [];
+        } catch (_) { traits = []; }
+
+        const traitLabel = (k) => {
+          const s = String(k || '').trim();
+          if (!s) return '';
+          return s.charAt(0).toUpperCase() + s.slice(1);
+        };
+
+        const traitColor = (k) => {
+          const s = String(k || '').toLowerCase();
+          if (s === 'sensitive') return 'rgba(255, 92, 92, 0.95)';
+          if (s === 'stubborn') return 'rgba(230, 216, 92, 0.95)';
+          if (s === 'fragile') return 'rgba(160, 170, 255, 0.95)';
+          return 'rgba(200, 210, 235, 0.90)';
+        };
+
+        // Quirks source of truth
         let patientId = (def && def._patientId) ? def._patientId : null;
         let quirks = [];
         try {
           const p = (EC.PAT && typeof EC.PAT.get === 'function' && patientId) ? EC.PAT.get(patientId) : null;
           quirks = (p && Array.isArray(p.quirks)) ? p.quirks : [];
-        } catch (_) {}
+        } catch (_) { quirks = []; }
 
-        // Determine which quirk is telegraphing/active (for pulse/glow).
+        // Determine which quirk is telegraphing/active.
         const activeTypes = Object.create(null);
         const teleTypes = Object.create(null);
         try {
@@ -429,7 +455,7 @@
               const ty = (it && it.type) ? String(it.type).toUpperCase() : '';
               if (!ty) continue;
               if (ph === 'active') activeTypes[ty] = true;
-              if (ph === 'telegraph') teleTypes[ty] = true;
+              else if (ph === 'telegraph') teleTypes[ty] = true;
             }
           }
         } catch (_) {}
@@ -439,33 +465,45 @@
           if (n >= 2) return 'rgba(255, 92, 92, 0.95)';
           if (n === 1) return 'rgba(230, 216, 92, 0.95)';
           return 'rgba(123, 220, 123, 0.95)';
-  };
-
-
-        const quirkTag = (type) => {
-          const s = String(type || '').toUpperCase();
-          if (s === 'LOCKS_IN') return 'Lock';
-          if (s === 'CRASHES') return 'Crash';
-          if (s === 'SPIRALS') return 'Spiral';
-          if (s === 'AMPED') return 'Amp';
-          return s ? s.charAt(0) + s.slice(1).toLowerCase() : 'Quirk';
         };
 
-        let html = `<span class="hudPatientName">${String(pName || '').replace(/</g,'&lt;')}</span>`;
+        const quirkLabel = (type) => {
+          const s = String(type || '').toUpperCase();
+          if (s === 'LOCKS_IN') return 'Locks In';
+          if (s === 'CRASHES') return 'Crashes';
+          if (s === 'SPIRALS') return 'Spirals';
+          if (s === 'AMPED') return 'Amped';
+          return s ? (s.charAt(0) + s.slice(1).toLowerCase()) : 'Quirk';
+        };
+
+        let line1 = `<span class="hudPatientName">${esc(pName)}</span>`;
+        if (traits && traits.length) {
+          for (const tr of traits) {
+            const lab = traitLabel(tr);
+            if (!lab) continue;
+            const c = traitColor(tr);
+            line1 += ` <span class="hudTraitWord" style="color:${c}">${esc(lab)}</span>`;
+          }
+        }
+
+        let line2 = '';
         if (quirks && quirks.length) {
+          const words = [];
           for (const q of quirks) {
             const ty = q && q.type ? String(q.type).toUpperCase() : '';
             const tier = (q && typeof q.intensityTier === 'number') ? q.intensityTier : 0;
-            const cls = ['hudQuirkPill'];
-            if (ty && activeTypes[ty]) cls.push('hudQuirkActive');
-            else if (ty && teleTypes[ty]) cls.push('hudQuirkTele');
-            const style = `background:${tierColor(tier)};`;
-            html += ` <span class="${cls.join(' ')}" style="${style}">${quirkTag(ty)}</span>`;
+            const c = tierColor(tier);
+            const cls = ['hudQuirkWord'];
+            if (ty && activeTypes[ty]) cls.push('hudQuirkActiveText');
+            else if (ty && teleTypes[ty]) cls.push('hudQuirkTeleText');
+            words.push(`<span class="${cls.join(' ')}" style="color:${c}">${esc(quirkLabel(ty))}</span>`);
           }
+          line2 = words.join(' ');
         }
-        patientInfoEl.innerHTML = html;
+
+        patientInfoEl.innerHTML = `<div class="hudLine1">${line1}</div><div class="hudLine2">${line2}</div>`;
       }
-      }
+    }
     } catch (_) { /* ignore */ }
 
     // Top compact HUD (kept for now; minimized in future pass)
@@ -570,155 +608,117 @@
 
     // Debug panel (monospace)
     if (debugEl) {
-const parts = [];
-// Always show raw input instrumentation at the top when available.
-try {
-  const D = (EC.UI_STATE && EC.UI_STATE.inputDbg) || null;
-  if (D) {
-    const qs = (typeof window !== 'undefined' && window.location && window.location.search) ? window.location.search : '';
-    const verbose = /(?:\?|&)inputdebug=1(?:&|$)/.test(qs);
-    parts.push('INPUT');
-    const dom = D.dom || {};
-    parts.push(`DOM(canvas) counters: pd=${dom.pd||0} pm=${dom.pm||0} pu=${dom.pu||0} pc=${dom.pc||0}   ts=${dom.ts||0} tm=${dom.tm||0} te=${dom.te||0} tc=${dom.tc||0}`);
-    const st = D.pixiStage || {};
-    parts.push(`Pixi STAGE counters: pd=${st.pd||0} pm=${st.pm||0} pu=${st.pu||0} po=${st.po||0} pc=${st.pc||0}`);
-    const wl = D.pixiWell || {};
-    parts.push(`Pixi WELL counters:  pd=${wl.pd||0} pm=${wl.pm||0} pu=${wl.pu||0} po=${wl.po||0} pc=${wl.pc||0}`);
-    parts.push(`${D.wellGeomLine || 'WELLGEOM: ready=0 c0=? r0=? ... c5=? r5=? updatedAt=? src=?'}`);
-    parts.push(`GESTURE: ${D.gestureLine || 'active=n key=? well=? x0=? y0=? t0=?'}`);
-    parts.push(`RESOLVE: ${D.resolveLine || 'hasGesture=? key=? dt=? dx=? dy=? classified=? dir=? applied=?'}`);
-    parts.push(`PICK: ${D.pickLine || 'idx=? cx/cy=? local=? dist=? r=? inside=?'}`);
-    parts.push(`ARM: ${D.armLine || 'ok=? key=? well=?'}`);
-    parts.push(`HOOK: ${D.domArmHook || ''}`);
+      const parts = [];
+      const qs = (typeof window !== 'undefined' && window.location && window.location.search) ? window.location.search : '';
+      const verbose = /(?:\?|&)inputdebug=1(?:&|$)/.test(qs);
 
-    const lp = D.lastDomPointer || null;
-    if (lp) parts.push(`last DOM pointer: ${lp.type||'?'} pid=${lp.pid} pType=${lp.pointerType||'?'} primary=${lp.isPrimary?'Y':'n'} x=${lp.x} y=${lp.y} defPrev=${lp.defaultPrevented?'Y':'n'} cap=${lp.capture||''}`);
-    const lt = D.lastDomTouch || null;
-    if (lt) parts.push(`last DOM touch:   ${lt.type||'?'} touches=${lt.touches||0} changed=${lt.changed||0} x=${lt.x} y=${lt.y} defPrev=${lt.defaultPrevented?'Y':'n'}`);
+      // Default: show ONLY quirk force totals.
+      parts.push('QUIRK FORCE TOTALS (raw, per run)');
+      parts.push('---------------------------');
 
-    const ls = D.lastStage || null;
-    if (ls) parts.push(`last Pixi stage:  ${ls.type||'?'} pid=${ls.pid} x=${ls.x} y=${ls.y} src=${ls.src||'?'}`);
-    const lw = D.lastWell || null;
-    if (lw) parts.push(`last Pixi well:   w=${lw.wellIndex} ${lw.type||'?'} pid=${lw.pid}`);
-
-    if (Array.isArray(D.log) && D.log.length) {
-      parts.push('');
-      parts.push(`INPUT LOG (tail ${verbose ? '50' : '20'})`);
-      const tail = D.log.slice(Math.max(0, D.log.length - (verbose ? 50 : 20)));
-      for (let i=0;i<tail.length;i++) parts.push(tail[i]);
-    }
-    parts.push('');
-  }
-} catch (_) {}
-parts.push(`MVP Debug`);
-parts.push('----');
-
-try {
-  const traits = (EC.TRAITS && typeof EC.TRAITS.list === 'function') ? EC.TRAITS.list(SIM) : [];
-  const eMult = (EC.TRAITS && typeof EC.TRAITS.getEnergyCostMult === 'function') ? (EC.TRAITS.getEnergyCostMult(SIM) || 1.0) : 1.0;
-  const qMult = (EC.TRAITS && typeof EC.TRAITS.getQuirkStrengthMult === 'function') ? (EC.TRAITS.getQuirkStrengthMult(SIM) || 1.0) : 1.0;
-
-  const lr = (typeof SIM._dbgLastCostRaw === 'number' && isFinite(SIM._dbgLastCostRaw)) ? SIM._dbgLastCostRaw : 0;
-  const lm = (typeof SIM._dbgLastCostMult === 'number' && isFinite(SIM._dbgLastCostMult)) ? SIM._dbgLastCostMult : 1;
-  const lf = (typeof SIM._dbgLastCostFinal === 'number' && isFinite(SIM._dbgLastCostFinal)) ? SIM._dbgLastCostFinal : 0;
-  const blocked = !!SIM._dbgLastCostNoEnergy;
-  parts.push(`LastCost raw/mult/final: ${lr.toFixed(2)} / ${lm.toFixed(2)} / ${lf.toFixed(2)}${blocked ? ' (blocked)' : ''}`);
-
-  if (String(SIM._activePlanKey || '').toUpperCase() === 'ZEN' && typeof SIM.zenTimeRemainingSec === 'number' && isFinite(SIM.zenTimeRemainingSec)) {
-    const t = Math.max(0, Math.floor(SIM.zenTimeRemainingSec));
-    const mm = String(Math.floor(t / 60)).padStart(2, '0');
-    const ss = String(t % 60).padStart(2, '0');
-    parts.push(`ZEN time remaining: ${mm}:${ss}`);
-  }
-} catch (_) {}
-
-      parts.push(`energy=${(SIM.energy||0).toFixed(3)}  regen=${regen.toFixed(3)}/s  spill=${spillOn ? 'ON' : 'off'}  spillA=${(SIM._spillA||0).toFixed(2)}  spillS=${(SIM._spillS||0).toFixed(2)}`);
-      if (SIM._spillMsg) parts.push('spillMsg: ' + SIM._spillMsg);
-      parts.push(`selected=${i}`);
-      parts.push(`energy=${(SIM.energy||0).toFixed(2)}  regen/s=${regen.toFixed(3)}  spill=${spillOn ? 'ON' : 'off'}  dA=${(SIM._spillA||0).toFixed(2)}  dS=${(SIM._spillS||0).toFixed(2)}`);
-      if (i >= 0) {
-        parts.push(`A=${A.toFixed(2)}  S=${Math.round(S)}  flux=${(A*S).toFixed(2)}`);
-        parts.push(`psyΔ/sec=${drive.toFixed(3)}  psyP=${psy.toFixed(3)}  W=${Wi.toFixed(3)}`);
-      }
-      parts.push(`S: ${SIM.wellsS.map(v => (v>=0?'+':'') + Math.round((v||0))).join(' ')}`);
-      parts.push(`P: ${SIM.psyP.map(v => Math.round((v||0))).join(' ')}`);
-      parts.push(`W: ${W.map(v => Math.round((v||0))).join(' ')}`);
-      if (SIM._dispDbg) {
-        const d = SIM._dispDbg;
-        parts.push(`disp: slots=${d.slots||0}  fires/180s=${d.fires180||0}  epm=${(d.epm||0).toFixed(2)}`);
-      }
-      parts.push(`hold: ${hold.toFixed(2)} / ${holdReq}`);
-      parts.push(`err: ${err.toFixed(4)}  won=${won}`);
-// Build debug overlay DOM once so we can add controls (Copy Input Log) while still rendering mostly as text.
-if (!UI_STATE._dbgBuilt && debugEl) {
-  UI_STATE._dbgBuilt = true;
-  debugEl.innerHTML = [
-    '<div class="dbgTop">',
-    '  <div class="dbgTitle">DEBUG</div>',
-    '  <div class="dbgActions">',
-    '    <button class="dbgBtn" id="btnCopyInputLog" type="button">Copy Input Log</button>',
-    '  </div>',
-    '</div>',
-    '<pre class="dbgPre" id="debugPre"></pre>',
-  ].join('\n');
-
-  const btn = document.getElementById('btnCopyInputLog');
-  if (btn && !UI_STATE._copyLogWired) {
-    UI_STATE._copyLogWired = true;
-    btn.addEventListener('click', async () => {
-      try {
-        const dbg = (EC.UI_STATE && EC.UI_STATE.inputDbg) || {};
-        const log = Array.isArray(dbg.log) ? dbg.log : [];
-        const tailLines = log.slice(Math.max(0, log.length - 50));
-        const dom = dbg.dom || {};
-        const st = dbg.pixiStage || {};
-        const wl = dbg.pixiWell || {};
-        const snap = [
-          '=== INPUT DEBUG SNAPSHOT ===',
-          `DOM(canvas) counters: pd=${dom.pd||0} pm=${dom.pm||0} pu=${dom.pu||0} pc=${dom.pc||0}   ts=${dom.ts||0} tm=${dom.tm||0} te=${dom.te||0} tc=${dom.tc||0}`,
-          `Pixi STAGE counters: pd=${st.pd||0} pm=${st.pm||0} pu=${st.pu||0} po=${st.po||0} pc=${st.pc||0}`,
-          `Pixi WELL counters:  pd=${wl.pd||0} pm=${wl.pm||0} pu=${wl.pu||0} po=${wl.po||0} pc=${wl.pc||0}`,
-          `${dbg.wellGeomLine || 'WELLGEOM: ready=0 c0=? r0=? ... c5=? r5=? updatedAt=? src=?'}`,
-          `WELLGEOM_SET: ${dbg.lastWellGeomSet || '?'}`,
-          `LAST_TOUCHSTART: ${dbg.lastTouchstartStatus || '?'}`,
-          `LAST_PICK: ${dbg.lastPick || '?'}`,
-          `LAST_ARM: ${dbg.lastArm || '?'}`,
-          `LAST_RESOLVE: ${dbg.lastResolve || (dbg.resolveLine || '?')}`, 
-          `GESTURE: ${dbg.gestureLine || 'active=0 key=? well=? x0/y0=?/? t0=?'}`,
-          `RESOLVE: ${dbg.resolveLine || 'hasGesture=0 key=? dt=? dx=? dy=? class=? dir=? applied=? reason=?'}`,
-          '--- LOG (last 50) ---',
-          ...tailLines,
-          '=== END SNAPSHOT ==='
-        ].join('\n');
-        if (navigator.clipboard && navigator.clipboard.writeText) {
-          await navigator.clipboard.writeText(snap);
-          UI_STATE.uiMsg = 'Copied input log.';
-          UI_STATE.uiMsgT = 1.5;
-        } else {
-          const ta = document.createElement('textarea');
-          ta.value = snap;
-          ta.style.position = 'fixed';
-          ta.style.left = '-9999px';
-          document.body.appendChild(ta);
-          ta.select();
-          document.execCommand('copy');
-          document.body.removeChild(ta);
-          UI_STATE.uiMsg = 'Copied input log.';
-          UI_STATE.uiMsgT = 1.5;
+      const Q = SIM._quirkForceTotals || null;
+      if (!Q || !Array.isArray(Q.byWell)) {
+        parts.push('No quirk force recorded yet.');
+      } else {
+        for (let wi = 0; wi < 6; wi++) {
+          const name = _wellTitle(ctx, wi);
+          const v = Number(Q.byWell[wi] || 0);
+          parts.push(`${name}: ${v.toFixed(2)}`);
         }
-      } catch (_) {
-        UI_STATE.uiMsg = 'Copy failed.';
-        UI_STATE.uiMsgT = 1.5;
+        // Optional breakdown by type (kept compact)
+        try {
+          if (Q.byType) {
+            parts.push('');
+            parts.push('By type:');
+            const types = ['LOCKS_IN','CRASHES','AMPED','SPIRALS'];
+            for (const ty of types) {
+              const arr = Q.byType[ty] || [];
+              const seg = [];
+              for (let wi = 0; wi < 6; wi++) seg.push(Number(arr[wi] || 0).toFixed(1));
+              parts.push(`${ty}: ${seg.join('  ')}`);
+            }
+          }
+        } catch (_) {}
       }
-    });
-  }
-}
 
-if (debugEl) {
-  const pre = document.getElementById('debugPre');
-  if (pre) pre.textContent = parts.join('\n');
-  else debugEl.textContent = parts.join('\n');
-}
+      // Input instrumentation is hidden unless explicitly requested.
+      if (verbose) {
+        parts.push('');
+        parts.push('INPUT DEBUG (enabled by ?inputdebug=1)');
+        parts.push('------------------------------');
+        try {
+          const D = (EC.UI_STATE && EC.UI_STATE.inputDbg) || null;
+          if (D) {
+            const dom = D.dom || {};
+            parts.push(`DOM(canvas) counters: pd=${dom.pd||0} pm=${dom.pm||0} pu=${dom.pu||0} pc=${dom.pc||0}   ts=${dom.ts||0} tm=${dom.tm||0} te=${dom.te||0} tc=${dom.tc||0}`);
+            parts.push(`${D.wellGeomLine || ''}`.trim());
+            parts.push(`${D.gestureLine || ''}`.trim());
+            parts.push(`${D.resolveLine || ''}`.trim());
+            if (Array.isArray(D.log) && D.log.length) {
+              parts.push('');
+              parts.push('INPUT LOG (tail 20)');
+              const tail = D.log.slice(Math.max(0, D.log.length - 20));
+              for (let ii=0; ii<tail.length; ii++) parts.push(tail[ii]);
+            }
+          } else {
+            parts.push('No input debug buffer.');
+          }
+        } catch (_) {}
+      }
+
+      // Build debug overlay DOM once.
+      if (!UI_STATE._dbgBuilt && debugEl) {
+        UI_STATE._dbgBuilt = true;
+        debugEl.innerHTML = [
+          '<div class="dbgTop">',
+          '  <div class="dbgTitle">DEBUG</div>',
+          '  <div class="dbgActions">',
+          '    <button class="dbgBtn" id="btnCopyInputLog" type="button">Copy Input Log</button>',
+          '  </div>',
+          '</div>',
+          '<pre class="dbgPre" id="debugPre"></pre>',
+        ].join('\n');
+      }
+
+      // Hide Copy button unless verbose
+      try {
+        const btn = document.getElementById('btnCopyInputLog');
+        if (btn) btn.style.display = verbose ? '' : 'none';
+      } catch (_) {}
+
+      // Wire copy button once (works when verbose is enabled)
+      const btn = document.getElementById('btnCopyInputLog');
+      if (btn && !UI_STATE._copyLogWired) {
+        UI_STATE._copyLogWired = true;
+        btn.addEventListener('click', async () => {
+          try {
+            const dbg = (EC.UI_STATE && EC.UI_STATE.inputDbg) || {};
+            const log = Array.isArray(dbg.log) ? dbg.log : [];
+            const tailLines = log.slice(Math.max(0, log.length - 50));
+            const snap = ['=== INPUT LOG (last 50) ===', ...tailLines, '=== END ==='].join('\n');
+            if (navigator.clipboard && navigator.clipboard.writeText) await navigator.clipboard.writeText(snap);
+            else {
+              const ta = document.createElement('textarea');
+              ta.value = snap;
+              ta.style.position = 'fixed';
+              ta.style.left = '-9999px';
+              document.body.appendChild(ta);
+              ta.select();
+              document.execCommand('copy');
+              document.body.removeChild(ta);
+            }
+            UI_STATE.uiMsg = 'Copied input log.';
+            UI_STATE.uiMsgT = 1.5;
+          } catch (_) {
+            UI_STATE.uiMsg = 'Copy failed.';
+            UI_STATE.uiMsgT = 1.5;
+          }
+        });
+      }
+
+      const pre = document.getElementById('debugPre');
+      if (pre) pre.textContent = parts.join('\n');
+      else debugEl.textContent = parts.join('\n');
     }
     try { if (MOD.updateBreakModal) MOD.updateBreakModal(); } catch (_) {}
 

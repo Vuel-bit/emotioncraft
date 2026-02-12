@@ -78,10 +78,11 @@ const SIM = (EC.SIM = EC.SIM || {
       SIM._planStepFlashT = Math.max(0, SIM._planStepFlashT - dt);
     }
 
-    // Zen timed run (15:00). Only active when the level's planKey is ZEN.
+    // Zen timed run. Only active when the level's planKey is ZEN.
     if (String(SIM._activePlanKey || '').toUpperCase() === 'ZEN') {
+      const ZEN_LIMIT = (typeof T.ZEN_TIME_LIMIT_SEC === 'number') ? T.ZEN_TIME_LIMIT_SEC : (10 * 60);
       if (typeof SIM.zenTimeRemainingSec !== 'number' || !isFinite(SIM.zenTimeRemainingSec)) {
-        SIM.zenTimeRemainingSec = 15 * 60;
+        SIM.zenTimeRemainingSec = ZEN_LIMIT;
       }
       SIM.zenTimeRemainingSec = Math.max(0, SIM.zenTimeRemainingSec - dt);
       if (SIM.zenTimeRemainingSec <= 0) {
@@ -412,19 +413,21 @@ const SIM = (EC.SIM = EC.SIM || {
 
     if (winDef && winDef.type === 'PLAN_CHAIN' && Array.isArray(winDef.steps)) {
       const eps = (typeof T.PAT_SPIN_ZERO_EPS === 'number') ? T.PAT_SPIN_ZERO_EPS : 1.0;
-      const POST_HOLD_REQ = (typeof T.PLAN_POST_STEP_HOLD_SEC === 'number') ? T.PLAN_POST_STEP_HOLD_SEC : 10;
+      const HOLD_REQ_SEC = 10; // canonical: all non-SPIN_ZERO steps require 10s hold
+      const FLASH_SEC = (typeof T.PLAN_STEP_FLASH_SEC === 'number') ? T.PLAN_STEP_FLASH_SEC : 0.45;
       if (typeof SIM.planStep !== 'number') SIM.planStep = 0;
       if (typeof SIM.planHoldSec !== 'number') SIM.planHoldSec = 0;
-      if (typeof SIM.planPostHoldActive !== 'boolean') SIM.planPostHoldActive = false;
-      if (typeof SIM.planPostHoldRemaining !== 'number') SIM.planPostHoldRemaining = 0;
+      if (typeof SIM.planAdvanceT !== 'number') SIM.planAdvanceT = 0;
+      if (typeof SIM._planStepOk !== 'boolean') SIM._planStepOk = false;
+      if (typeof SIM._planHoldReqSec !== 'number') SIM._planHoldReqSec = 0;
 
       const stepIdx = Math.max(0, Math.min(winDef.steps.length - 1, SIM.planStep));
       const st = winDef.steps[stepIdx];
-      const holdReq = (st && typeof st.holdSec === 'number') ? st.holdSec : 0;
-
-      let ok = true;
       const kind = st ? String(st.kind || '').toUpperCase() : '';
       const isSpinZeroStep = (kind === 'SPIN_ZERO');
+      const holdReq = isSpinZeroStep ? 0 : HOLD_REQ_SEC;
+
+      let ok = true;
       if (kind === 'ALL_OVER') {
         const thr = (typeof st.threshold === 'number') ? st.threshold : 0;
         for (let k = 0; k < 6; k++) { if ((SIM.psyP[k] || 0) < thr) { ok = false; break; } }
@@ -468,36 +471,39 @@ const SIM = (EC.SIM = EC.SIM || {
         SIM.goalViz.perHue = new Array(6).fill(null);
       }
 
-      // Hold / advance
+      // Expose satisfied/hold info for render/UI (countdown + ring)
+      SIM._planStepOk = !!ok;
+      SIM._planHoldReqSec = holdReq;
+
+      // Canonical hold:
+      // - SPIN_ZERO: no hold, advances immediately on satisfied
+      // - all other steps: must remain satisfied for 10s; reset if broken
+      // After completion: brief flash, then advance (no extra hidden delay)
+      const inFlash = (SIM.planAdvanceT || 0) > 0;
       if (holdReq > 0) {
-        SIM.planHoldSec = ok ? (SIM.planHoldSec + _dt) : 0;
+        // During the brief completion flash, we finish the transition even if the player
+        // momentarily breaks the condition.
+        if (!ok && !inFlash) {
+          SIM.planHoldSec = 0;
+          SIM.planAdvanceT = 0;
+        } else if (!inFlash) {
+          SIM.planHoldSec = (SIM.planHoldSec || 0) + _dt;
+          if (SIM.planHoldSec >= holdReq) {
+            SIM.planHoldSec = holdReq;
+            SIM._planStepFlashT = FLASH_SEC;
+            SIM.planAdvanceT = FLASH_SEC;
+          }
+        } else {
+          SIM.planAdvanceT = Math.max(0, (SIM.planAdvanceT || 0) - _dt);
+        }
       } else {
         SIM.planHoldSec = 0;
+        SIM.planAdvanceT = 0;
       }
 
-      // NEW: post-step confirmation hold (does NOT advance step index).
-      // If the step condition is broken at any point, cancel/reset the confirmation.
-      const stepHeld = ok && (holdReq <= 0 || SIM.planHoldSec >= holdReq);
-
-      // Exception: SPIN_ZERO steps advance immediately once satisfied (no post-step hold).
-      if (isSpinZeroStep) {
-        SIM.planPostHoldActive = false;
-        SIM.planPostHoldRemaining = 0;
-      } else {
-        if (!stepHeld) {
-          SIM.planPostHoldActive = false;
-          SIM.planPostHoldRemaining = 0;
-        } else {
-          if (!SIM.planPostHoldActive) {
-            SIM.planPostHoldActive = true;
-            SIM.planPostHoldRemaining = POST_HOLD_REQ;
-            // UI-only flash when the step hold first completes.
-            SIM._planStepFlashT = (typeof T.PLAN_STEP_FLASH_SEC === 'number') ? T.PLAN_STEP_FLASH_SEC : 0.45;
-          } else {
-            SIM.planPostHoldRemaining = Math.max(0, (SIM.planPostHoldRemaining || 0) - _dt);
-          }
-        }
-      }
+      // Completion state: for held steps, once the 10s hold is met we treat the step as complete
+      // even if the condition breaks during the brief completion flash.
+      const stepHeld = (holdReq <= 0) ? ok : (SIM.planHoldSec >= holdReq);
 
 // Objective completion bookkeeping
       if (!Array.isArray(SIM.objectives) || SIM.objectives.length !== winDef.steps.length) {
@@ -507,18 +513,19 @@ const SIM = (EC.SIM = EC.SIM || {
         if (!SIM.objectives[i]) continue;
         if (i < SIM.planStep) SIM.objectives[i].complete = true;
         else if (i === SIM.planStep) {
-          // Only mark current step complete once the post-hold confirmation finishes.
-          SIM.objectives[i].complete = isSpinZeroStep ? stepHeld : (stepHeld && SIM.planPostHoldActive && (SIM.planPostHoldRemaining <= 0));
+          // Mark current step complete once the canonical hold is met (or immediate for SPIN_ZERO).
+          SIM.objectives[i].complete = stepHeld;
         }
         else SIM.objectives[i].complete = false;
       }
 
-      // Advance: SPIN_ZERO steps advance immediately; others advance only after confirmation hold completes.
-      if ((isSpinZeroStep && stepHeld) || (!isSpinZeroStep && stepHeld && SIM.planPostHoldActive && (SIM.planPostHoldRemaining <= 0))) {
+      // Advance:
+      // - SPIN_ZERO: immediate
+      // - others: after the brief flash window
+      if ((isSpinZeroStep && stepHeld) || (!isSpinZeroStep && stepHeld && (SIM.planAdvanceT <= 0) && (SIM._planStepFlashT <= 0))) {
         SIM.planStep += 1;
         SIM.planHoldSec = 0;
-        SIM.planPostHoldActive = false;
-        SIM.planPostHoldRemaining = 0;
+        SIM.planAdvanceT = 0;
       }
 
       didWin = (SIM.planStep >= winDef.steps.length);

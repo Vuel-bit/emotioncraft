@@ -9,3 +9,14 @@
 - HOTFIX: Mental break popup crash fixed (_setBreakModal scope/brace).
 - HOTFIX: Break popup now lists adjusted wells (amount/spin) and psyche deltas (snapshot keys a/s/psy).
 - HOTFIX: Break overlay DOM placement fixed (inside body) and updateBreakModal called each HUD render.
+
+- CHUNK 3B (Part A): Drawer layout fix so Next step stays on-screen.
+- CHUNK 3B (Part A): PLAN_CHAIN hold made canonical (10s for all non-SPIN_ZERO) with no extra post-hold delay; hold resets when conditions break; brief flash then immediate advance.
+- CHUNK 3B (Part A): Center core now shows hold countdown number during treatment hold.
+- CHUNK 3B (Part A): Zen timer limit standardized to 10:00 (T.ZEN_TIME_LIMIT_SEC) and displayed in a top-right HUD pill.
+- CHUNK 3B (Part A): Intake congrats modal reliability fix + copy update ("{Name} is no longer an intake patient.").
+- CHUNK 3B (Part A): Fixed missing closing tag for #breakOverlay in index.html.
+
+- CHUNK 3B (Part B): Top HUD patient header split into 2 lines (Name+Traits on line 1, Quirks on line 2) with telegraph/active quirk text glow.
+- CHUNK 3B (Part B): Quirk scheduling now enforces global minimum gap (T.DISP_MIN_GAP_SEC) to reduce frequent clumping.
+- CHUNK 3B (Part B): Debug panel now shows ONLY raw quirk force totals by default (input instrumentation only with ?inputdebug=1).

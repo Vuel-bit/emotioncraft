@@ -135,6 +135,8 @@ BREAK_WARN_FLASH_SEC: 1.0,
     ZEN_LOW: 100,
     ZEN_HIGH: 120,
     ZEN_HOLD_SECONDS: 10,
+    // Zen run time limit (displayed in HUD)
+    ZEN_TIME_LIMIT_SEC: 10 * 60,
 
     // Dispositions (v2) — external well-only waves (Level 3)
     DISP_DEFAULT_DURATION: 30,

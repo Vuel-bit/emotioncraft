@@ -502,6 +502,12 @@
   // { phase, targetIndex, type, intensity01, progress01, startAngleRad, dirSign }
   let _renderList = [];
 
+  // Global spacing guards to reduce frequent clumping.
+  // - _lastScheduledFireAt: spacing for scheduled fireAt when telegraphs are created
+  // - _lastFiredAt: safety net to prevent back-to-back firing bursts
+  let _lastScheduledFireAt = -1e9;
+  let _lastFiredAt = -1e9;
+
   function meanPerSlot() {
     const T = EC.TUNE || {};
     const m = (typeof T.DISP_MEAN_INTERVAL_SEC_PER_SLOT === 'number') ? T.DISP_MEAN_INTERVAL_SEC_PER_SLOT
@@ -570,6 +576,17 @@
     _hud.activeText = '';
     _renderList = [];
 
+    // Reset global spacing guards each run.
+    _lastScheduledFireAt = -1e9;
+    _lastFiredAt = -1e9;
+
+    // Reset per-run quirk force totals (debug-only).
+    try {
+      const z = new Array(6).fill(0);
+      const zt = () => ({ LOCKS_IN: z.slice(), CRASHES: z.slice(), AMPED: z.slice(), SPIRALS: z.slice() });
+      EC.SIM._quirkForceTotals = { byWell: z.slice(), byType: zt(), startedAtT: 0, lastT: 0 };
+    } catch (_) {}
+
     const wantsRandom = !!(levelDef && (levelDef.dispositionsRandom || levelDef._dispositionsRandom));
 
     if (wantsRandom) {
@@ -601,6 +618,19 @@
     const rateRaw = (w.strength || 0) * sh; // per second (raw)
     const rate = rateRaw * traitMult;
 
+    // Debug-only: accumulate raw quirk force totals (not mitigated by Amount shield).
+    try {
+      if (!SIM._quirkForceTotals) {
+        const z = new Array(6).fill(0);
+        SIM._quirkForceTotals = {
+          byWell: z.slice(),
+          byType: { LOCKS_IN: z.slice(), CRASHES: z.slice(), AMPED: z.slice(), SPIRALS: z.slice() },
+          startedAtT: _t,
+          lastT: _t
+        };
+      }
+    } catch (_) {}
+
     const hi = w.hueIndex;
     const A_raw = (SIM.wellsA && SIM.wellsA[hi] != null) ? Number(SIM.wellsA[hi]) : 0;
     const S_raw = (SIM.wellsS && SIM.wellsS[hi] != null) ? Number(SIM.wellsS[hi]) : 0;
@@ -611,8 +641,10 @@
 
     if (w.type === TYPES.LOCKS_IN) {
       SIM.wellsA[hi] = A_raw + rate * dt;
+      try { SIM._quirkForceTotals.byWell[hi] += (rate * dt); SIM._quirkForceTotals.byType.LOCKS_IN[hi] += (rate * dt); } catch (_) {}
     } else if (w.type === TYPES.CRASHES) {
       SIM.wellsA[hi] = A_raw - rate * dt;
+      try { SIM._quirkForceTotals.byWell[hi] -= (rate * dt); SIM._quirkForceTotals.byType.CRASHES[hi] -= (rate * dt); } catch (_) {}
     } else if (w.type === TYPES.AMPED) {
       // Push toward +100 specifically (no clamping; overshoot allowed by design).
       const rateSpin = rate * (A_ref / 100);
@@ -620,6 +652,8 @@
       const delta = target - S_raw;
       const deltaNorm = Math.max(-1, Math.min(1, delta / 100));
       SIM.wellsS[hi] = S_raw + rateSpin * deltaNorm * dt;
+      // Track force ignoring A_ref/100 mitigation. Direction is by type (Amped=+).
+      try { const mag = (rate * Math.abs(deltaNorm) * dt); SIM._quirkForceTotals.byWell[hi] += mag; SIM._quirkForceTotals.byType.AMPED[hi] += mag; } catch (_) {}
     } else if (w.type === TYPES.SPIRALS) {
       // Push toward -100 specifically.
       const rateSpin = rate * (A_ref / 100);
@@ -627,6 +661,8 @@
       const delta = target - S_raw;
       const deltaNorm = Math.max(-1, Math.min(1, delta / 100));
       SIM.wellsS[hi] = S_raw + rateSpin * deltaNorm * dt;
+      // Track force ignoring A_ref/100 mitigation. Direction is by type (Spirals=-).
+      try { const mag = (rate * Math.abs(deltaNorm) * dt); SIM._quirkForceTotals.byWell[hi] -= mag; SIM._quirkForceTotals.byType.SPIRALS[hi] -= mag; } catch (_) {}
     }
 
     // S_ref is unused, but keeping read consistent for future debug.
@@ -674,6 +710,11 @@
         const hi = free[(Math.random() * free.length) | 0];
         const tpl = p.tpl;
         const type = tpl.type;
+        // Enforce global minimum gap between scheduled events so telegraphs don't clump.
+        const mg = minGapSec();
+        let fireAt = Number(p.fireAt || 0);
+        if (mg > 0 && fireAt < (_lastScheduledFireAt + mg)) fireAt = _lastScheduledFireAt + mg;
+        _lastScheduledFireAt = fireAt;
         const inst = {
           id: _nextId++,
           state: 'telegraph',
@@ -681,8 +722,8 @@
           type,
           slotIdx: (p.slotIdx != null ? p.slotIdx : -1),
           hueIndex: hi,
-          teleStartT: p.fireAt - tele,
-          fireAt: p.fireAt,
+          teleStartT: fireAt - tele,
+          fireAt: fireAt,
           startT: 0,
           endT: 0,
           durationSec: 0,
@@ -720,6 +761,15 @@
         const inst = _instances[k];
         if (!inst || inst.state !== 'telegraph') continue;
         if (_t >= inst.fireAt) {
+          // Safety net: if another quirk just fired, extend this telegraph to respect min gap.
+          const mg = minGapSec();
+          if (mg > 0 && _t < (_lastFiredAt + mg)) {
+            const newFireAt = _lastFiredAt + mg;
+            inst.fireAt = newFireAt;
+            inst.teleStartT = newFireAt - tele;
+            continue;
+          }
+          _lastFiredAt = inst.fireAt;
           const baseDur = (inst.tpl && typeof inst.tpl.duration === 'number') ? inst.tpl.duration : ((typeof T.DISP_DEFAULT_DURATION === 'number') ? T.DISP_DEFAULT_DURATION : 30);
           const durSec = rollDurationSec(baseDur);
           inst.durationSec = durSec;
@@ -1007,7 +1057,9 @@
 
     _hud.telegraphText = '';
     _hud.activeText = '';
-    // No special gap logic; scheduler continues immediately.
+    // Reset safety net so we don't immediately re-fire a stacked burst after a break.
+    _lastFiredAt = -1e9;
+    _lastScheduledFireAt = -1e9;
 
     if (EC.DEBUG && hadActive) {
       const nexts = _slots.map(s => (s ? (s.nextT != null ? Number(s.nextT).toFixed(1) : 'na') : 'na')).join(',');
