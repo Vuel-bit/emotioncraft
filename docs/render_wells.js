@@ -1539,6 +1539,48 @@ function renderPsyche() {
   g.beginFill(0x0b1020, 0.92);
   g.drawCircle(0, 0, coreR);
   g.endFill();
+  // Mental break center flash (visual only; driven by real time so it animates during hit-stop)
+  try {
+    const bf = SIM._breakFx;
+    if (bf) {
+      const bdt = nowMs - (bf.startMs || 0);
+      const bn = (bf.durMs || 0);
+      if (bdt >= 0 && bdt <= bn) {
+        const bp = 1.0 - (bdt / bn);
+        const pulse = (0.30 + 0.70 * Math.abs(Math.sin((bdt / bn) * Math.PI * 3))) * bp;
+        g.beginFill(0xff2a2a, Math.min(0.85, pulse));
+        g.drawCircle(0, 0, coreR);
+        g.endFill();
+      }
+    }
+  } catch (_) {}
+
+    // Warning flash + break highlight overlays (visual only)
+    try {
+      const wf0 = SIM._psyWarnFx ? (SIM._psyWarnFx[i] || 0) : 0;
+      const wdt = nowMs - wf0;
+      const wphase = (wdt >= 0 && wdt <= 900) ? (1.0 - (wdt / 900)) : 0;
+      const wPulse = (wphase > 0) ? (0.25 + 0.75 * Math.abs(Math.sin((wdt / 900) * Math.PI * 3))) * wphase : 0;
+
+      const bf = SIM._breakFx;
+      let bPulse = 0;
+      if (bf && bf.psyMask && bf.psyMask[i]) {
+        const bdt = nowMs - (bf.startMs || 0);
+        if (bdt >= 0 && bdt <= (bf.durMs || 0)) {
+          const bn = (bf.durMs || 900);
+          const bp = 1.0 - (bdt / bn);
+          bPulse = (0.25 + 0.75 * Math.abs(Math.sin((bdt / bn) * Math.PI * 3))) * bp;
+        }
+      }
+
+      const a = Math.max(wPulse, bPulse);
+      if (a > 0.01) {
+        g.lineStyle(3, 0xffffff, Math.min(0.95, a));
+        drawAnnularWedge(g, 0, 0, r0 + 1, r1 - 1, start, end);
+        g.lineStyle(0);
+      }
+    } catch (_) {}
+
 
   // Compute hold fraction for active PLAN_CHAIN step
   // Canonical rule: 10s for all non-SPIN_ZERO steps (mechanics publishes _planHoldReqSec).

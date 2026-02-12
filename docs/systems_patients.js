@@ -384,7 +384,7 @@
       id: 'sally_sadeyes', levelId: 201,
       name: 'Sally Sadeyes',
       tagline: '“What’s the point?”',
-      portrait: 'placeholder',
+      portrait: 'assets/patients/sally_sadeyes.png',
       mood: { label: 'Drained', template: 'TILTED' },
       vibe: { label: 'Blah' },
       traits: ['sensitive'],
@@ -416,19 +416,6 @@
       quirks: [
         { type: 'AMPED', intensityTier: 2 },
         { type: 'LOCKS_IN', intensityTier: 1 },
-      ],
-    },
-    {
-      id: 'fragile_fiona', levelId: 204,
-      name: 'Fragile Fiona',
-      tagline: '“Please don’t push me.”',
-      portrait: 'placeholder',
-      mood: { label: 'Spent', template: 'SPLIT' },
-      vibe: { label: 'Crisis' },
-      traits: ['fragile'],
-      quirks: [
-        { type: 'SPIRALS', intensityTier: 2 },
-        { type: 'CRASHES', intensityTier: 1 },
       ],
     },
     {
@@ -1261,9 +1248,21 @@ function openLobbyPause() {
   function clearPendingZenCongrats() { STATE.pendingZenCongratsId = null; }
   function clearPendingIntakeCongrats() { STATE.pendingIntakeCongratsId = null; }
 
+  // Heroes page support: list transcended patients in STATE order.
+  function listTranscended() {
+    const ids = Array.isArray(STATE.transcendedIds) ? STATE.transcendedIds : [];
+    const out = [];
+    for (let i = 0; i < ids.length; i++) {
+      const p = getById(ids[i]);
+      if (p) out.push(p);
+    }
+    return out;
+  }
+
   EC.PAT = {
     list,
     get: getById,
+    listTranscended,
     // Lobby progression helpers
     beginFromLobby,
     startPending,

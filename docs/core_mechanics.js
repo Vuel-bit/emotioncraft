@@ -63,6 +63,17 @@ const SIM = (EC.SIM = EC.SIM || {
       return;
     }
 
+    // UI overlay pause (e.g., Log overlay).
+    if (SIM._uiPaused) {
+      return;
+    }
+
+    // Hit-stop (short freeze used for mental breaks).
+    if (SIM._hitStopT > 0) {
+      SIM._hitStopT = Math.max(0, (SIM._hitStopT || 0) - dt);
+      return;
+    }
+
     // Break modal pause: freeze simulation until player acknowledges.
     if (SIM._breakPaused) {
       return;

@@ -62,6 +62,86 @@
     try { if (EC.SFX && typeof EC.SFX.play === 'function') EC.SFX.play('error_003'); } catch (_) {}
 }
 
+  function _nowMs() {
+    try { return (performance && performance.now) ? performance.now() : Date.now(); } catch (_) { return Date.now(); }
+  }
+
+  function _mmss(sec) {
+    const t = Math.max(0, sec || 0);
+    const m = Math.floor(t / 60);
+    const s = Math.floor(t % 60);
+    return String(m).padStart(2,'0') + ':' + String(s).padStart(2,'0');
+  }
+
+  function _wellDispName(i) {
+    try {
+      const n = (EC.CONST && EC.CONST.WELL_DISPLAY_NAMES && EC.CONST.WELL_DISPLAY_NAMES[i]) || null;
+      return n || ('Well ' + (i + 1));
+    } catch (_) { return 'Well ' + (i + 1); }
+  }
+
+  function _spanWell(i) {
+    const n = _wellDispName(i);
+    return '<span class="logWell w' + i + '">' + String(n) + '</span>';
+  }
+
+  function _ensureLogStore() {
+    const UI = (EC.UI_STATE = EC.UI_STATE || {});
+    UI.logEntries = UI.logEntries || [];
+    return UI.logEntries;
+  }
+
+  function _appendLog(sim, html) {
+    const arr = _ensureLogStore();
+    arr.push({ tSec: (sim && typeof sim.mvpTime === 'number') ? sim.mvpTime : 0, html: String(html || '') });
+  }
+
+  function _triggerBreakUI(sim, titleLine, before, after) {
+    if (!sim) return;
+    // 0.5s hit-stop
+    sim._hitStopT = 0.5;
+    // HUD alert
+    sim._breakToastT = 5.0;
+    sim._breakToastText = 'MENTAL BREAK';
+    // FX masks
+    const wellMask = new Array(6).fill(false);
+    const psyMask = new Array(6).fill(false);
+    try {
+      for (let i = 0; i < 6; i++) {
+        if ((before.a[i] | 0) !== (after.a[i] | 0)) wellMask[i] = true;
+        if ((before.s[i] | 0) !== (after.s[i] | 0)) wellMask[i] = true;
+        if ((before.psy[i] | 0) !== (after.psy[i] | 0)) psyMask[i] = true;
+      }
+    } catch (_) {}
+    sim._breakFx = { startMs: _nowMs(), durMs: 900, wellMask, psyMask };
+    // Log entry
+    try {
+      const lines = [];
+      lines.push('<div><b>Mental Break</b> — ' + String(titleLine || '') + '</div>');
+      const adj = [];
+      for (let i = 0; i < 6; i++) {
+        const da = (after.a[i] || 0) - (before.a[i] || 0);
+        const ds = (after.s[i] || 0) - (before.s[i] || 0);
+        if (da || ds) {
+          const bits = [];
+          if (da) bits.push('amount ' + (da > 0 ? '+' : '') + da);
+          if (ds) bits.push('spin ' + (ds > 0 ? '+' : '') + ds.toFixed(2));
+          adj.push('• ' + _spanWell(i) + ' ' + bits.join(', '));
+        }
+      }
+      if (adj.length) lines.push('<div style="margin-top:6px">' + adj.join('<br>') + '</div>');
+      const psy = [];
+      for (let i = 0; i < 6; i++) {
+        const dp = (after.psy[i] || 0) - (before.psy[i] || 0);
+        if (dp) psy.push('• ' + _spanWell(i) + ' psyche ' + (dp > 0 ? '+' : '') + dp);
+      }
+      if (psy.length) lines.push('<div style="margin-top:6px">' + psy.join('<br>') + '</div>');
+      _appendLog(sim, lines.join(''));
+    } catch (_) {}
+  }
+
+
+
 
   function _setBreakModal(sim, title, reason, before, after) {
     if (!sim) return;
@@ -97,7 +177,7 @@
       for (const t of psy) lines.push('• ' + t);
     }
     sim._breakModal = { title: String(title || 'Mental Break'), lines: lines };
-    sim._breakPaused = true;
+    // sim._breakPaused removed (break modal disabled);
   }
 
 
@@ -240,7 +320,7 @@
       _formatSpinDelta(before.s, after.s),
     ].join('\n');
     _pushBreakMsg(msgLines);
-    _setBreakModal(sim, 'Mental Break', typeLine, before, after);
+    _triggerBreakUI(sim, typeLine, before, after);
     _record(sim.mvpTime || 0, kind === 'LOW' ? 'PSY_HUE_LOW' : 'PSY_HUE_HIGH', { hue: h, value: val }, msgLines);
     _maybeTriggerLose(sim);
   }
@@ -380,7 +460,7 @@
       _formatSpinDelta(before.s, after.s),
     ].join('\n');
     _pushBreakMsg(msgLines);
-    _setBreakModal(sim, 'Mental Break', typeLine, before, after);
+    _triggerBreakUI(sim, typeLine, before, after);
     const recDetails = details ? Object.assign({}, details) : {};
     if (penaltyDetails) recDetails.penalty = penaltyDetails;
     _record(sim.mvpTime || 0, cause, recDetails, msgLines);

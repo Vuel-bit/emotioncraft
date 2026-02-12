@@ -179,6 +179,11 @@
     const SIM = ctx.SIM || EC.SIM;
     if (!SIM) return;
 
+    // UI-side timers that must tick even during sim hit-stop / pauses.
+    try {
+      if (SIM._breakToastT > 0) SIM._breakToastT = Math.max(0, (SIM._breakToastT || 0) - (dt || 0));
+    } catch (_) {}
+
     const UI_STATE = (ctx.UI_STATE = ctx.UI_STATE || (EC.UI_STATE = EC.UI_STATE || {}));
     if (UI_STATE._hudInited) return;
     UI_STATE._hudInited = true;
@@ -195,6 +200,10 @@
 
     const btnDebugEl = dom.btnDebugEl || document.getElementById('btnDebug');
     const btnLobbyEl = dom.btnLobbyEl || document.getElementById('btnLobby');
+    const btnLogEl = dom.btnLogEl || document.getElementById('btnLog');
+    const btnLogCloseEl = dom.btnLogCloseEl || document.getElementById('btnLogClose');
+    const logOverlayEl = dom.logOverlayEl || document.getElementById('logOverlay');
+    const logBodyEl = dom.logBodyEl || document.getElementById('logBody');
 
     // Reset button removed (Lobby + Debug cover reset flows)
 
@@ -235,7 +244,47 @@
         if ((e.key || '').toLowerCase() === 'd') setDbg(!debugOn);
       });
       setDbg(debugOn);
+    
+    // Log overlay (pauses sim)
+    let _logOpen = false;
+    let _logRenderN = -1;
+    function _renderLogBody() {
+      if (!logBodyEl) return;
+      const entries = (EC.UI_STATE && EC.UI_STATE.logEntries) ? EC.UI_STATE.logEntries : [];
+      // Render newest last, scroll to bottom.
+      const parts = [];
+      for (let i = 0; i < entries.length; i++) {
+        const e = entries[i] || {};
+        const t = (typeof e.tSec === 'number') ? e.tSec : 0;
+        const mm = String(Math.floor(t / 60)).padStart(2,'0');
+        const ss = String(Math.floor(t % 60)).padStart(2,'0');
+        const hdr = `<div class="logT">[${mm}:${ss}]</div>`;
+        parts.push(`<div class="logEntry">${hdr}${e.html || ''}</div>`);
+      }
+      logBodyEl.innerHTML = parts.join('');
+      try { logBodyEl.scrollTop = logBodyEl.scrollHeight; } catch (_) {}
+      _logRenderN = entries.length;
     }
+
+    function setLog(on) {
+      _logOpen = !!on;
+      const SIM = EC.SIM || {};
+      if (SIM) SIM._uiPaused = _logOpen ? true : false;
+      if (logOverlayEl) {
+        if (_logOpen) logOverlayEl.classList.add('show');
+        else logOverlayEl.classList.remove('show');
+        logOverlayEl.setAttribute('aria-hidden', _logOpen ? 'false' : 'true');
+      }
+      if (_logOpen) _renderLogBody();
+    }
+
+    if (btnLogEl) {
+      btnLogEl.addEventListener('click', () => setLog(!_logOpen));
+    }
+    if (btnLogCloseEl) {
+      btnLogCloseEl.addEventListener('click', () => setLog(false));
+    }
+}
 
     // Level selector (visible UI)
     if (levelSelectEl && !UI_STATE._levelSelectWired) {
@@ -306,6 +355,16 @@
     // small transient message timer
     if (UI_STATE.uiMsgT > 0) UI_STATE.uiMsgT = Math.max(0, UI_STATE.uiMsgT - (dt || 0));
     if (UI_STATE.uiMsgFlashT > 0) UI_STATE.uiMsgFlashT = Math.max(0, UI_STATE.uiMsgFlashT - (dt || 0));
+
+    // Patient WIN auto-advance: for patient sessions only, jump back to the lobby so
+    // post-win popups (weekly reward / zen congrats / intake congrats) appear
+    // without requiring the player to press Lobby. Do not auto-advance on lose.
+    const _isWinNow = (SIM.levelState === 'win') || !!SIM.mvpWin;
+    if (_isWinNow && SIM._patientActive && !SIM._autoWinHandled) {
+      SIM._autoWinHandled = true;
+      try { if (EC.PAT && typeof EC.PAT.backToLobby === 'function') EC.PAT.backToLobby(); } catch (_) {}
+      return;
+    }
 
     const T = EC.TUNE || {};
     const E_CAP = (typeof T.ENERGY_CAP === 'number') ? T.ENERGY_CAP : ((typeof T.E_MAX === 'number') ? T.E_MAX : 200);
@@ -432,8 +491,7 @@
           const s = String(k || '').toLowerCase();
           if (s === 'sensitive') return 'rgba(255, 92, 92, 0.95)';
           if (s === 'stubborn') return 'rgba(230, 216, 92, 0.95)';
-          if (s === 'fragile') return 'rgba(160, 170, 255, 0.95)';
-          return 'rgba(200, 210, 235, 0.90)';
+                    return 'rgba(200, 210, 235, 0.90)';
         };
 
         // Quirks source of truth
@@ -488,20 +546,24 @@
 
         let line2 = '';
         if (quirks && quirks.length) {
-          const words = [];
+          const pills = [];
           for (const q of quirks) {
             const ty = q && q.type ? String(q.type).toUpperCase() : '';
             const tier = (q && typeof q.intensityTier === 'number') ? q.intensityTier : 0;
             const c = tierColor(tier);
-            const cls = ['hudQuirkWord'];
-            if (ty && activeTypes[ty]) cls.push('hudQuirkActiveText');
-            else if (ty && teleTypes[ty]) cls.push('hudQuirkTeleText');
-            words.push(`<span class="${cls.join(' ')}" style="color:${c}">${esc(quirkLabel(ty))}</span>`);
+            const cls = ['hudQuirkPill'];
+            if (ty && activeTypes[ty]) cls.push('hudQuirkActive');
+            if (ty && teleTypes[ty]) cls.push('hudQuirkTele');
+            pills.push(`<span class="${cls.join(' ')}" style="background:${c}">${esc(quirkLabel(ty))}</span>`);
           }
-          line2 = words.join(' ');
+          line2 = pills.join(' ');
         }
 
-        patientInfoEl.innerHTML = `<div class="hudLine1">${line1}</div><div class="hudLine2">${line2}</div>`;
+        let line3 = '';
+        try {
+          if (SIM && SIM._breakToastT > 0) line3 = String(SIM._breakToastText || 'MENTAL BREAK');
+        } catch (_) {}
+patientInfoEl.innerHTML = `<div class="hudLine1">${line1}</div><div class="hudLine2">${line2}</div><div class="hudLine3">${line3}</div>`;
       }
     }
     } catch (_) { /* ignore */ }
@@ -612,37 +674,78 @@
       const qs = (typeof window !== 'undefined' && window.location && window.location.search) ? window.location.search : '';
       const verbose = /(?:\?|&)inputdebug=1(?:&|$)/.test(qs);
 
-      // Default: show ONLY quirk force totals.
-      parts.push('QUIRK FORCE TOTALS (raw, per run)');
-      parts.push('---------------------------');
+      // Default: show ONLY quirk timeline (event-based), capped.
+      parts.push('QUIRK TIMELINE (this run)');
+      parts.push('------------------------');
 
-      const Q = SIM._quirkForceTotals || null;
-      if (!Q || !Array.isArray(Q.byWell)) {
-        parts.push('No quirk force recorded yet.');
-      } else {
-        for (let wi = 0; wi < 6; wi++) {
-          const name = _wellTitle(ctx, wi);
-          const v = Number(Q.byWell[wi] || 0);
-          parts.push(`${name}: ${v.toFixed(2)}`);
+      const TL = Array.isArray(SIM._quirkTimeline) ? SIM._quirkTimeline : null;
+      const typeLabel = (t) => {
+        const k = String(t || '').toUpperCase();
+        if (k === 'LOCKS_IN') return 'Locks In';
+        if (k === 'CRASHES') return 'Crashes';
+        if (k === 'AMPED') return 'Amped';
+        if (k === 'SPIRALS') return 'Spirals';
+        return k || 'Unknown';
+      };
+      const tierLabel = (x) => {
+        const ti = Math.max(0, Math.min(2, (x | 0)));
+        return (ti === 0) ? 'Low-Key' : (ti === 1) ? 'Noticeable' : 'Intense';
+      };
+      const mmss = (sec) => {
+        sec = Math.max(0, Math.floor(Number(sec || 0)));
+        const m = Math.floor(sec / 60);
+        const s = sec % 60;
+        const ss = (s < 10) ? ('0' + s) : String(s);
+        return m + ':' + ss;
+      };
+      // Optional: show global cadence window for random-dispositions scheduling
+      try {
+        const C = SIM._dispCadenceDbg || null;
+        if (C && typeof C.mode === 'string' && typeof C.until === 'number') {
+          const nowT = (typeof C.now === 'number') ? C.now : null;
+          const rem = (nowT != null) ? Math.max(0, (Number(C.until || 0) - Number(nowT || 0))) : null;
+          const mode = String(C.mode || '').toUpperCase();
+          parts.push(`Cadence: ${mode}${(rem != null) ? (' (ends in ' + rem.toFixed(1) + 's)') : ''}`);
+          parts.push('');
         }
-        // Optional breakdown by type (kept compact)
-        try {
-          if (Q.byType) {
-            parts.push('');
-            parts.push('By type:');
-            const types = ['LOCKS_IN','CRASHES','AMPED','SPIRALS'];
-            for (const ty of types) {
-              const arr = Q.byType[ty] || [];
-              const seg = [];
-              for (let wi = 0; wi < 6; wi++) seg.push(Number(arr[wi] || 0).toFixed(1));
-              parts.push(`${ty}: ${seg.join('  ')}`);
-            }
-          }
-        } catch (_) {}
+      } catch (_) {}
+
+      if (!TL) {
+        parts.push('Timeline not initialized (SIM._quirkTimeline missing).');
+      } else if (TL.length === 0) {
+        parts.push('— no quirk events recorded yet —');
+      } else {
+        const startAt = Math.max(0, TL.length - 60);
+        let prevStart = null;
+        for (let i = startAt; i < TL.length; i++) {
+          const e = TL[i] || {};
+          const tStart = Number((e.tStart != null) ? e.tStart : (e.startT != null ? e.startT : (e.tEnd || 0)));
+          const wi = (e.hueIndex != null) ? (e.hueIndex | 0) : -1;
+          const wName = (wi >= 0 && wi < 6) ? _wellTitle(ctx, wi) : '—';
+          const force = Number(e.force || 0);
+          const sign = (force >= 0) ? '+' : '';
+          const dur = Number(e.durSec || 0);
+          const gap = (prevStart != null) ? Math.max(0, (tStart - prevStart)) : 0;
+          const gapTxt = (prevStart != null) ? ` gap ${gap.toFixed(1)}s` : '';
+          parts.push(`[${mmss(tStart)}] ${typeLabel(e.type)} (${tierLabel(e.tier)}) — ${wName} — force ${sign}${force.toFixed(2)} (dur ${dur.toFixed(1)}s${gapTxt})`);
+          prevStart = tStart;
+        }
       }
 
-      // Input instrumentation is hidden unless explicitly requested.
-      if (verbose) {
+      // Optional compact totals below timeline (useful as a sanity check)
+      try {
+        const Q = SIM._quirkForceTotals || null;
+        if (Q && Array.isArray(Q.byWell)) {
+          parts.push('');
+          parts.push('TOTAL FORCE (raw, per run)');
+          for (let wi = 0; wi < 6; wi++) {
+            const name = _wellTitle(ctx, wi);
+            const v = Number(Q.byWell[wi] || 0);
+            parts.push(`${name}: ${v.toFixed(2)}`);
+          }
+        }
+      } catch (_) {}
+if (verbose) {
         parts.push('');
         parts.push('INPUT DEBUG (enabled by ?inputdebug=1)');
         parts.push('------------------------------');
@@ -724,6 +827,33 @@
 
 
     // Expose selected-hue drive for renderer pulse indicator
+    
+    // Log overlay: if open, keep it updated and auto-scroll on new entries.
+    try {
+      const ov = document.getElementById('logOverlay');
+      if (ov && ov.classList.contains('show')) {
+        const body = document.getElementById('logBody');
+        const entries = (EC.UI_STATE && EC.UI_STATE.logEntries) ? EC.UI_STATE.logEntries : [];
+        const n = entries.length;
+        if (EC.UI_STATE) {
+          const lastN = (typeof EC.UI_STATE._logRenderN === 'number') ? EC.UI_STATE._logRenderN : -1;
+          if (n !== lastN && body) {
+            const parts = [];
+            for (let i = 0; i < n; i++) {
+              const e = entries[i] || {};
+              const t = (typeof e.tSec === 'number') ? e.tSec : 0;
+              const mm = String(Math.floor(t / 60)).padStart(2,'0');
+              const ss = String(Math.floor(t % 60)).padStart(2,'0');
+              parts.push(`<div class="logEntry"><div class="logT">[${mm}:${ss}]</div>${e.html || ''}</div>`);
+            }
+            body.innerHTML = parts.join('');
+            try { body.scrollTop = body.scrollHeight; } catch (_) {}
+            EC.UI_STATE._logRenderN = n;
+          }
+        }
+      }
+    } catch (_) {}
+
     SIM._selDrive = drive;
   };
 

@@ -61,7 +61,7 @@
       color: rgba(232,238,252,0.92);
       line-height: 1.15;
       /* Two-line header: name+traits on line 1, quirks on line 2 */
-      white-space: normal;
+      white-space: pre-line;
       overflow: hidden;
     }
     .hudLine1,
@@ -131,7 +131,7 @@
       color: rgba(232,238,252,0.78);
       line-height: 1.2;
       display: -webkit-box;
-      -webkit-line-clamp: 2;
+      -webkit-line-clamp: 3;
       -webkit-box-orient: vertical;
       overflow: hidden;
     }
@@ -265,7 +265,7 @@
       font-size: 11px;
       line-height: 1.15;
       color: rgba(232,238,252,0.88);
-      white-space: normal;
+      white-space: pre-line;
       pointer-events: none;
     }
 
@@ -628,7 +628,7 @@
     .topbar{ grid-template-columns: 1fr; }
     .buttons{ flex-wrap: wrap; justify-content: flex-start; }
     .levelCtl{ flex: 1 1 auto; }
-    .mvpHud{ white-space: normal; }
+    .mvpHud{ white-space: pre-line; }
   }
 
 
@@ -646,10 +646,10 @@
     max-width: 44vw;
     text-align: right;
     /* Allow next-step text to wrap/clamp instead of truncating to uselessness. */
-    white-space: normal;
+    white-space: pre-line;
     overflow: hidden;
     display: -webkit-box;
-    -webkit-line-clamp: 2;
+    -webkit-line-clamp: 3;
     -webkit-box-orient: vertical;
   }
 
@@ -669,7 +669,7 @@
   }
 
   /* A1: tighten ONLY the gap between pair cost and the pair button (snugger). */
-  #costZeroPair{ margin-right: -8px; }
+  #costZeroPair{ margin-right: -12px; }
 
   /* A2/A3/A4: top banner styles + break flash */
   .notifyBar.bannerLose{
@@ -744,7 +744,67 @@
 
     .breakCard{ width: min(640px, 100%); max-height: min(70vh, 520px); }
     .breakBody{ margin: 8px 0 10px; white-space: pre-wrap; font-size: 13px; line-height: 1.35; color: rgba(255,255,255,0.92); }
-</style>
+
+    /* Log overlay (opaque, pauses sim) */
+    .logOverlay{
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.82);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 60;
+      pointer-events: auto;
+    }
+    .logOverlay.show{ display:flex; }
+    .logCard{
+      width: min(860px, calc(100vw - 24px));
+      max-height: min(70vh, 560px);
+      border-radius: 18px;
+      background: rgba(20,28,43,0.92);
+      border: 1px solid rgba(255,255,255,0.14);
+      box-shadow: 0 12px 40px rgba(0,0,0,0.45);
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+    .logHeader{
+      display:flex;
+      align-items:center;
+      justify-content: space-between;
+      padding: 12px 14px;
+      border-bottom: 1px solid rgba(255,255,255,0.10);
+    }
+    .logHeader h2{ margin:0; font-size: 16px; color: rgba(232,238,252,0.95); }
+    .logBody{
+      padding: 10px 12px;
+      overflow: auto;
+      font-size: 12px;
+      line-height: 1.35;
+      color: rgba(232,238,252,0.86);
+      white-space: pre-wrap;
+    }
+    .logEntry{ margin: 0 0 10px 0; padding: 8px 10px; border-radius: 12px; background: rgba(12,16,26,0.62); border: 1px solid rgba(255,255,255,0.08); }
+    .logT{ color: rgba(232,238,252,0.70); font-variant-numeric: tabular-nums; }
+    .logWell{ font-weight: 700; }
+    .logWell.w0{ color: #ff6b6b; }
+    .logWell.w1{ color: #b37cff; }
+    .logWell.w2{ color: #7aa2ff; }
+    .logWell.w3{ color: #54d18d; }
+    .logWell.w4{ color: #ffd166; }
+    .logWell.w5{ color: #ff9f43; }
+
+  
+    .patientInfo .hudLine1{ display:flex; flex-wrap:wrap; gap: 6px; align-items: baseline; }
+    .hudPatientName{ font-weight: 800; font-size: 14px; color: rgba(232,238,252,0.96); margin-right: 6px; }
+    .patientInfo .hudLine2{ margin-top: 2px; display:flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+    .patientInfo .hudLine3{ margin-top: 2px; min-height: 14px; font-size: 12px; font-weight: 800; color: var(--danger); letter-spacing: 0.6px; text-transform: uppercase; }
+    .hudQuirkPill.hudQuirkTele{ filter: brightness(1.35); box-shadow: 0 0 10px rgba(255,255,255,0.14); animation: quirkTelePulse 0.9s ease-in-out infinite; }
+    .hudQuirkPill.hudQuirkActive{ filter: brightness(1.65); box-shadow: 0 0 16px rgba(255,255,255,0.22); transform: translateY(-0.5px) scale(1.02); animation: quirkActivePulse 0.7s ease-in-out infinite; }
+    @keyframes quirkTelePulse{ 0%,100%{ transform: translateY(0) scale(1.0); } 50%{ transform: translateY(-0.5px) scale(1.02);} }
+    @keyframes quirkActivePulse{ 0%,100%{ transform: translateY(0) scale(1.02); } 50%{ transform: translateY(-1px) scale(1.05);} }
+
+  </style>
 </head>
 <body>
 <div id="app"></div>
@@ -777,6 +837,7 @@
       </div>
       <div id="patientList" class="patientList"></div>
       <div class="lobbyActions">
+        <button id="btnLobbyHeroes" class="lobbyBtn" style="margin-right:auto;">Heroes</button>
         <button id="btnLobbyResume" class="lobbyBtn" style="display:none;">Resume</button>
         <button id="btnLobbyStart" class="lobbyBtn primary">Start Session</button>
       </div>
@@ -789,6 +850,7 @@
     <div class="notifyText" id="notifyText"></div>
     <div class="notifyControls" id="notifyControls">
       <button class="btn" id="btnDebug">Debug</button>
+      <button class="btn" id="btnLog">Log</button>
       <button class="btn" id="btnLobby">Lobby</button>
     </div>
   </div>
@@ -886,6 +948,18 @@
 <script src="./ui_controls.js"></script>
 <script src="./ui_app.js"></script>
 <script src="./main.js"></script>
+
+<!-- Log overlay (pauses gameplay while open) -->
+<div id="logOverlay" class="logOverlay" aria-hidden="true">
+  <div class="logCard">
+    <div class="logHeader">
+      <h2>Log</h2>
+      <button class="btn" id="btnLogClose">Close</button>
+    </div>
+    <div id="logBody" class="logBody"></div>
+  </div>
+</div>
+
 <!-- Break modal overlay (gameplay pause) -->
   <div id="breakOverlay" class="lobbyOverlay" aria-hidden="true">
     <div class="lobbyCard breakCard">

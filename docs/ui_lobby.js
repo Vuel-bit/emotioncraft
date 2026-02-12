@@ -19,12 +19,16 @@
   let _congratsShowingFor = null;
   let _intakeCongratsShowingFor = null;
 
+  // Heroes overlay (transcended roster)
+  let _heroesOpen = false;
+
   function $(id) { return document.getElementById(id); }
 
   function ensureElements() {
     return {
       overlay: $("lobbyOverlay"),
       list: $("patientList"),
+      heroesBtn: $("btnLobbyHeroes"),
       startBtn: $("btnLobbyStart"),
       resumeBtn: $("btnLobbyResume"),
       hint: $("lobbyHint"),
@@ -40,7 +44,161 @@
       // Created dynamically
       rewardOverlay: document.getElementById('weeklyRewardOverlay'),
       congratsOverlay: document.getElementById('zenCongratsOverlay'),
+      heroesOverlay: document.getElementById('heroesOverlay'),
     };
+  }
+
+  function ensureHeroesUI(els) {
+    if (!els) return;
+    let ov = document.getElementById('heroesOverlay');
+    if (ov) { els.heroesOverlay = ov; return; }
+
+    ov = document.createElement('div');
+    ov.id = 'heroesOverlay';
+    ov.style.display = 'none';
+    ov.style.position = 'fixed';
+    ov.style.left = '0';
+    ov.style.top = '0';
+    ov.style.right = '0';
+    ov.style.bottom = '0';
+    ov.style.zIndex = '70';
+    ov.style.background = 'rgba(0,0,0,0.72)';
+    ov.style.alignItems = 'center';
+    ov.style.justifyContent = 'center';
+
+    const card = document.createElement('div');
+    card.style.width = 'min(520px, 94vw)';
+    card.style.maxHeight = 'min(82vh, 720px)';
+    card.style.overflow = 'hidden';
+    card.style.background = 'rgba(20, 28, 43, 0.96)';
+    card.style.border = '1px solid rgba(255,255,255,0.12)';
+    card.style.borderRadius = '16px';
+    card.style.padding = '14px';
+    card.style.boxShadow = '0 18px 60px rgba(0,0,0,0.45)';
+    card.style.display = 'flex';
+    card.style.flexDirection = 'column';
+    card.style.gap = '10px';
+
+    const titleRow = document.createElement('div');
+    titleRow.style.display = 'flex';
+    titleRow.style.alignItems = 'center';
+    titleRow.style.justifyContent = 'space-between';
+
+    const title = document.createElement('div');
+    title.style.fontSize = '14px';
+    title.style.fontWeight = '800';
+    title.textContent = 'Transcended';
+    titleRow.appendChild(title);
+
+    const back = document.createElement('button');
+    back.id = 'btnHeroesBack';
+    back.className = 'lobbyBtn';
+    back.textContent = 'Back';
+    back.addEventListener('click', () => {
+      hideHeroes(els);
+    });
+    titleRow.appendChild(back);
+
+    const body = document.createElement('div');
+    body.id = 'heroesBody';
+    body.style.overflow = 'auto';
+    body.style.paddingRight = '2px';
+    body.style.display = 'flex';
+    body.style.flexDirection = 'column';
+    body.style.gap = '10px';
+
+    card.appendChild(titleRow);
+    card.appendChild(body);
+    ov.appendChild(card);
+    document.body.appendChild(ov);
+    els.heroesOverlay = ov;
+  }
+
+  function _renderHeroesList(els) {
+    if (!els) return;
+    ensureHeroesUI(els);
+    const ov = els.heroesOverlay || document.getElementById('heroesOverlay');
+    if (!ov) return;
+    const body = ov.querySelector('#heroesBody');
+    if (!body) return;
+    body.innerHTML = '';
+
+    const pats = (EC.PAT && typeof EC.PAT.listTranscended === 'function') ? EC.PAT.listTranscended() : [];
+    if (!pats || !pats.length) {
+      const empty = document.createElement('div');
+      empty.style.fontSize = '12px';
+      empty.style.opacity = '0.8';
+      empty.textContent = 'No one has transcended yet.';
+      body.appendChild(empty);
+      return;
+    }
+
+    for (let i = 0; i < pats.length; i++) {
+      const p = pats[i];
+      const row = document.createElement('div');
+      row.style.display = 'flex';
+      row.style.gap = '10px';
+      row.style.alignItems = 'center';
+      row.style.padding = '8px';
+      row.style.border = '1px solid rgba(255,255,255,0.10)';
+      row.style.borderRadius = '12px';
+      row.style.background = 'rgba(0,0,0,0.16)';
+
+      const frame = document.createElement('div');
+      frame.style.width = '54px';
+      frame.style.height = '54px';
+      frame.style.borderRadius = '10px';
+      frame.style.overflow = 'hidden';
+      frame.style.background = 'rgba(255,255,255,0.06)';
+      frame.style.border = '1px solid rgba(255,255,255,0.10)';
+      frame.style.flex = '0 0 auto';
+
+      const src = (p && typeof p.portrait === 'string') ? p.portrait : '';
+      if (src && src !== 'placeholder') {
+        const img = document.createElement('img');
+        img.src = src;
+        img.alt = p.name || '';
+        img.style.width = '100%';
+        img.style.height = '100%';
+        img.style.objectFit = 'cover';
+        frame.appendChild(img);
+      }
+
+      const col = document.createElement('div');
+      col.style.display = 'flex';
+      col.style.flexDirection = 'column';
+      col.style.gap = '2px';
+
+      const nm = document.createElement('div');
+      nm.style.fontWeight = '800';
+      nm.style.fontSize = '13px';
+      nm.textContent = p.name || 'Unknown';
+
+      const tag = document.createElement('div');
+      tag.style.fontSize = '12px';
+      tag.style.opacity = '0.85';
+      tag.textContent = p.tagline || '';
+
+      col.appendChild(nm);
+      if (p.tagline) col.appendChild(tag);
+
+      row.appendChild(frame);
+      row.appendChild(col);
+      body.appendChild(row);
+    }
+  }
+
+  function showHeroes(els) {
+    if (!els) return;
+    ensureHeroesUI(els);
+    _heroesOpen = true;
+    _renderHeroesList(els);
+    if (els.heroesOverlay) els.heroesOverlay.style.display = 'flex';
+  }
+
+  function hideHeroes(els) {
+    _heroesOpen = false;
+    if (els && els.heroesOverlay) els.heroesOverlay.style.display = 'none';
   }
 
   function _nextMood(cur) {
@@ -661,6 +819,16 @@
         hide(els);
       });
     }
+
+    // Heroes button (transcended roster)
+    if (els.heroesBtn && !els.heroesBtn._ecBound) {
+      els.heroesBtn._ecBound = true;
+      ensureHeroesUI(els);
+      els.heroesBtn.addEventListener('click', () => {
+        if (_heroesOpen) hideHeroes(els);
+        else showHeroes(els);
+      });
+    }
     if (els.startBtn) {
       // Disabled until a patient is selected (renderList may auto-select first).
             // Disabled until a patient is selected (renderList may auto-select first).
@@ -852,6 +1020,7 @@
   function hide(els) {
     if (els.overlay) els.overlay.classList.remove('show');
     hidePlanChoice(els);
+    hideHeroes(els);
   }
 
 function render() {

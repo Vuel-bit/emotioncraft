@@ -508,6 +508,72 @@
   let _lastScheduledFireAt = -1e9;
   let _lastFiredAt = -1e9;
 
+
+  // Cadence state machine (random mode only): alternates quiet/burst windows.
+  // Affects ONLY scheduling in _mode==='random' (not mechanics/force math).
+  let _cadenceMode = 'quiet';     // 'quiet' | 'burst'
+  let _cadenceUntilT = 0;         // seconds (match time)
+  let _cadenceRateMult = 1.0;     // quiet<1 => rarer, burst>1 => denser
+
+  // Gate console diagnostics behind query flag (?dispconsole=1)
+  const _dbgConsoleEnabled = (() => {
+    try {
+      const qs = (typeof window !== 'undefined' && window.location && window.location.search) ? window.location.search : '';
+      return /(?:\?|&)dispconsole=1(?:&|$)/.test(qs);
+    } catch (_) { return false; }
+  })();
+
+  function _tuneNum(key, defVal) {
+    const T = EC.TUNE || {};
+    const v = Number(T[key]);
+    return (isFinite(v)) ? v : defVal;
+  }
+
+  function _randRange(lo, hi) {
+    lo = Number(lo); hi = Number(hi);
+    if (!isFinite(lo)) lo = 0;
+    if (!isFinite(hi)) hi = lo;
+    if (hi < lo) { const t = lo; lo = hi; hi = t; }
+    return lo + (hi - lo) * Math.random();
+  }
+
+  function _cadenceInit() {
+    _cadenceMode = 'quiet';
+    _cadenceRateMult = Math.max(0.01, _tuneNum('DISP_CADENCE_QUIET_RATE_MULT', 0.55));
+    const a = _tuneNum('DISP_CADENCE_START_QUIET_MIN_SEC', 15);
+    const b = _tuneNum('DISP_CADENCE_START_QUIET_MAX_SEC', 30);
+    _cadenceUntilT = _randRange(a, b);
+  }
+
+  function _cadenceFlip(nowT) {
+    if (_cadenceMode === 'quiet') {
+      _cadenceMode = 'burst';
+      _cadenceRateMult = Math.max(0.01, _tuneNum('DISP_CADENCE_BURST_RATE_MULT', 1.75));
+      const a = _tuneNum('DISP_CADENCE_BURST_MIN_SEC', 5);
+      const b = _tuneNum('DISP_CADENCE_BURST_MAX_SEC', 12);
+      _cadenceUntilT = nowT + _randRange(a, b);
+    } else {
+      _cadenceMode = 'quiet';
+      _cadenceRateMult = Math.max(0.01, _tuneNum('DISP_CADENCE_QUIET_RATE_MULT', 0.55));
+      const a = _tuneNum('DISP_CADENCE_QUIET_MIN_SEC', 12);
+      const b = _tuneNum('DISP_CADENCE_QUIET_MAX_SEC', 28);
+      _cadenceUntilT = nowT + _randRange(a, b);
+    }
+  }
+
+  function _cadenceTick(nowT) {
+    // Advance through cadence windows; use a loop to handle large dt safely.
+    for (let guard = 0; guard < 8 && nowT >= _cadenceUntilT; guard++) {
+      _cadenceFlip(nowT);
+    }
+    // Expose for debug overlay (optional)
+    try { EC.SIM._dispCadenceDbg = { mode: _cadenceMode, until: _cadenceUntilT, now: nowT }; } catch (_) {}
+  }
+
+  function _cadenceMult() {
+    const m = Number(_cadenceRateMult);
+    return (isFinite(m) && m > 0) ? m : 1.0;
+  }
   function meanPerSlot() {
     const T = EC.TUNE || {};
     const m = (typeof T.DISP_MEAN_INTERVAL_SEC_PER_SLOT === 'number') ? T.DISP_MEAN_INTERVAL_SEC_PER_SLOT
@@ -523,7 +589,9 @@
 
   function rescheduleSlot(i, nowT) {
     if (!_slots[i]) return;
-    _slots[i].nextT = nowT + sampleExp(meanPerSlot() / ( (_slots[i].tpl && _slots[i].tpl._freqMult) ? _slots[i].tpl._freqMult : 1 ));
+    const f = ( (_slots[i].tpl && _slots[i].tpl._freqMult) ? _slots[i].tpl._freqMult : 1 );
+    const cm = _cadenceMult();
+    _slots[i].nextT = nowT + sampleExp((meanPerSlot() / f) / cm);
   }
 
   function enqueuePending(evt) {
@@ -557,7 +625,10 @@
     if (!_pool || _pool.length === 0) return;
     const m = meanPerSlot();
     for (let i = 0; i < _pool.length; i++) {
-      _slots.push({ tpl: _pool[i], nextT: nowT + sampleExp(m / ((_pool[i] && _pool[i]._freqMult) ? _pool[i]._freqMult : 1)), announced: false });
+      const tpl = _pool[i];
+      const f = (tpl && tpl._freqMult) ? tpl._freqMult : 1;
+      const cm = _cadenceMult();
+      _slots.push({ tpl, nextT: nowT + sampleExp((m / f) / cm), announced: false });
     }
   }
 
@@ -587,12 +658,19 @@
       EC.SIM._quirkForceTotals = { byWell: z.slice(), byType: zt(), startedAtT: 0, lastT: 0 };
     } catch (_) {}
 
+    // Debug: per-run quirk event timeline buffer (authoritative for Debug panel)
+    try { EC.SIM._quirkTimeline = []; } catch (_) {}
+    try { EC.SIM._dispCadenceDbg = null; } catch (_) {}
+
     const wantsRandom = !!(levelDef && (levelDef.dispositionsRandom || levelDef._dispositionsRandom));
 
     if (wantsRandom) {
       _mode = 'random';
       const src = (levelDef && Array.isArray(levelDef.dispositionsPool)) ? levelDef.dispositionsPool : ((levelDef && Array.isArray(levelDef.dispositions)) ? levelDef.dispositions : []);
       _pool = src.map((d) => normWave(d, false));
+      // Cadence (quiet/burst) scheduling is global and applies only in random mode.
+      _cadenceInit();
+      _cadenceTick(_t);
       buildSlotsFromPool(_t);
       return;
     }
@@ -687,6 +765,7 @@
     _renderList = [];
 
     if (_mode === 'random') {
+      _cadenceTick(_t);
       const retryDelay = 0.5;
 
       function isReservedWell(idx) {
@@ -780,6 +859,16 @@
           try { delete inst._sndPulse; } catch (_) {}
           inst.startT = _t;
           inst.endT = _t + durSec;
+          // Debug timeline accumulator (event-based; push on end, not per-tick spam)
+          try {
+            inst._tl = {
+              tStart: _t,
+              type: inst.type,
+              tier: (inst.tpl && typeof inst.tpl.intensityTier === 'number') ? (inst.tpl.intensityTier | 0) : 0,
+              hueIndex: inst.hueIndex | 0,
+              force: 0
+            };
+          } catch (_) {}
           // Build warped-progress LUT + initialize painted halo history.
           inst.warp = buildWarpLUT(inst);
           initSegHistory(inst);
@@ -886,6 +975,30 @@
             const prog01 = warpedProgress01(inst, _t);
             const w = Object.assign({}, inst.tpl, { hueIndex: inst.hueIndex, type: inst.type });
             if (typeof inst._strengthEff === 'number' && isFinite(inst._strengthEff)) w.strength = inst._strengthEff;
+            // Debug timeline force accumulation (unshielded; matches SIM._quirkForceTotals semantics)
+            try {
+              if (inst._tl) {
+                const traitMult = (EC.TRAITS && typeof EC.TRAITS.getQuirkStrengthMult === "function") ? EC.TRAITS.getQuirkStrengthMult(SIM) : 1.0;
+                const rate = ((w.strength || 0) * sh) * traitMult;
+                let dForce = 0;
+                if (inst.type === TYPES.LOCKS_IN) {
+                  dForce = rate * dt;
+                } else if (inst.type === TYPES.CRASHES) {
+                  dForce = -rate * dt;
+                } else {
+                  const S_MIN = (typeof T.S_MIN === 'number') ? T.S_MIN : -100;
+                  const S_MAX = (typeof T.S_MAX === 'number') ? T.S_MAX : 100;
+                  const hi = inst.hueIndex | 0;
+                  const S_raw = (SIM.wellsS && SIM.wellsS[hi] != null) ? Number(SIM.wellsS[hi]) : 0;
+                  const target = (inst.type === TYPES.AMPED) ? S_MAX : S_MIN;
+                  const delta = target - S_raw;
+                  const deltaNorm = Math.max(-1, Math.min(1, delta / 100));
+                  const mag = rate * Math.abs(deltaNorm) * dt;
+                  dForce = (inst.type === TYPES.AMPED) ? mag : -mag;
+                }
+                if (isFinite(dForce)) inst._tl.force += dForce;
+              }
+            } catch (_) {}
             applyWaveToWell(SIM, w, dt, sh);
             activeLines.push(`${typeDisplayName(inst.type)} — ${hueName(inst.hueIndex)} (${intensityLabel(sh)})`);
             const rp = ringParamsForType(inst.type);
@@ -906,6 +1019,21 @@
               dirSign: rp.dirSign
             });
           } else {
+            // Debug timeline: finalize on end (event-based; uses inst.endT for accuracy)
+            try {
+              if (inst._tl) {
+                if (!Array.isArray(SIM._quirkTimeline)) SIM._quirkTimeline = [];
+                const e = inst._tl;
+                e.tEnd = inst.endT;
+                e.durSec = inst.endT - inst.startT;
+                e.type = inst.type;
+                e.tier = (e.tier | 0);
+                e.hueIndex = inst.hueIndex | 0;
+                if (!isFinite(Number(e.force))) e.force = 0;
+                SIM._quirkTimeline.push(e);
+                while (SIM._quirkTimeline.length > 60) SIM._quirkTimeline.shift();
+              }
+            } catch (_) {}
             _instances.splice(k, 1);
             k--;
           }
@@ -933,7 +1061,7 @@
         };
 
         // Throttled console diagnostics (required by prompt)
-        if ((_t - _dbgLastLogT) >= 1.0) {
+        if (_dbgConsoleEnabled && ((_t - _dbgLastLogT) >= 1.0)) {
           _dbgLastLogT = _t;
           // Telegraph count + target indices
           const teleIdx = [];
@@ -1061,7 +1189,7 @@
     _lastFiredAt = -1e9;
     _lastScheduledFireAt = -1e9;
 
-    if (EC.DEBUG && hadActive) {
+    if (EC.DEBUG && hadActive && _dbgConsoleEnabled) {
       const nexts = _slots.map(s => (s ? (s.nextT != null ? Number(s.nextT).toFixed(1) : 'na') : 'na')).join(',');
       console.log('[EC] DISP cancelAll (break): scheduler intact. slots=' + _slots.length + ' nextT=[' + nexts + ']');
     }

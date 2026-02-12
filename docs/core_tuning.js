@@ -172,6 +172,17 @@ BREAK_WARN_FLASH_SEC: 1.0,
     // Optional per-tier jitter ranges for totals (min,max)
     DISP_TIER_TOTAL_JITTER: [[0.8, 1.2], [0.85, 1.15], [0.9, 1.1]],
 
+    // Random disposition cadence (GLOBAL; random-mode only)
+    // Alternates quiet/burst windows by modulating the exponential mean interval.
+    DISP_CADENCE_START_QUIET_MIN_SEC: 15,
+    DISP_CADENCE_START_QUIET_MAX_SEC: 30,
+    DISP_CADENCE_QUIET_MIN_SEC: 12,
+    DISP_CADENCE_QUIET_MAX_SEC: 28,
+    DISP_CADENCE_BURST_MIN_SEC: 5,
+    DISP_CADENCE_BURST_MAX_SEC: 12,
+    DISP_CADENCE_QUIET_RATE_MULT: 0.55,
+    DISP_CADENCE_BURST_RATE_MULT: 1.75,
+
     // ---------------------------------------------------------------------
     // Patient generation — Mindset + Vibe (v0.2.76)
     // ---------------------------------------------------------------------

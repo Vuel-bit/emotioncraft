@@ -578,6 +578,7 @@ if (btnZeroPairEl) {
     }
 
     const goalLineEl = dom.goalLineEl || document.getElementById('goalLine');
+    const objectiveSummaryEl = dom.objectiveSummaryEl || document.getElementById('objectiveSummary');
 
     // Bottom drawer top: current step (left, 3 lines) + next step (right).
     try {
@@ -601,8 +602,18 @@ if (btnZeroPairEl) {
         if (goalLineEl) goalLineEl.textContent = [line1, line2, line3].join('\n');
 
         if (objectiveSummaryEl) {
-          const next = curIdx + 1;
-          objectiveSummaryEl.textContent = (next >= total) ? 'Treatment complete' : `Treatment step ${next + 1}/${total}`;
+          const nextIdx = curIdx + 1;
+          if (nextIdx >= total) {
+            objectiveSummaryEl.textContent = ['Treatment complete', '', ''].join('\n');
+          } else {
+            const nst = steps[nextIdx] || {};
+            const nraw = String(nst.text || '').replace(/^\s*Step\s*\d+\s*:\s*/i, '').trim();
+            const nparts = nraw.split(';').map(s => String(s || '').trim()).filter(Boolean);
+            const n1 = `Treatment step ${nextIdx + 1}/${total}`;
+            const n2 = nparts[0] || '';
+            const n3 = nparts[1] || '';
+            objectiveSummaryEl.textContent = [n1, n2, n3].join('\n');
+          }
         }
       } else {
         if (goalLineEl && EC.UI_HUD && typeof EC.UI_HUD.getObjectiveSummaryText === 'function') {

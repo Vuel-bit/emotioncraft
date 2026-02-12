@@ -592,7 +592,10 @@ function _stageDbg(ev, kind) {
     if (!res.ok) {
       if (res.reason === 'noenergy') {
         if (toast) toast('Not enough Energy.');
-        try { if (EC.SFX && typeof EC.SFX.play === 'function') EC.SFX.play('bong_001'); } catch (_) {}
+        try {
+          if (EC.SFX && typeof EC.SFX.error === 'function') EC.SFX.error();
+          else if (EC.SFX && typeof EC.SFX.play === 'function') EC.SFX.play('bong_001');
+        } catch (_) {}
       }
       // keep silent for other failure reasons
       if (setDbg) setDbg(`SWIPE: up(stage) dt=${dt.toFixed(0)} dx=${dx.toFixed(0)} dy=${dy.toFixed(0)} => ${dirTxt} ❌`);

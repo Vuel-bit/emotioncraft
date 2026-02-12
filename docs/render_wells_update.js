@@ -283,6 +283,20 @@
       const hue = hues[i];
       const view = EC.RENDER.mvpWells[i];
       if (!view) continue;
+      // Mental break FX pulse (driven by real time so it animates during hit-stop)
+      let breakPulse = 0;
+      try {
+        const bf = SIM._breakFx;
+        if (bf && bf.wellMask && bf.wellMask[i]) {
+          const nowMs = (performance && performance.now) ? performance.now() : Date.now();
+          const bdt = nowMs - (bf.startMs || 0);
+          const bn = (bf.durMs || 0);
+          if (bdt >= 0 && bdt <= bn && bn > 0) {
+            const bp = 1.0 - (bdt / bn);
+            breakPulse = (0.30 + 0.70 * Math.abs(Math.sin((bdt / bn) * Math.PI * 3))) * bp;
+          }
+        }
+      } catch (_) {}
       const { g, interior, maskG, pigment, rippleA, rippleB, swirlA, swirlB, inkDark, inkLight, waveHand, edgeShade, marbleA, marbleB, highlight, coreGlow, rimG, selG, spinG, dispHalo, ghostG, ghostSpinG, name, amountLabel, spinText } = view;
   
       const ang = geom.baseAngle + i * (Math.PI * 2 / 6);
@@ -571,9 +585,14 @@
         // Rim must NOT read like a constant selection ring.
         // Keep only a very subtle lens edge; selection/halo does the heavy lifting.
         const rimW = Math.max(1, r * 0.022);
-        const rimA = isSel ? 0.18 : 0.08;
+        let rimA = isSel ? 0.18 : 0.08;
+        let rimW2 = rimW;
+        if (breakPulse > 0.01) {
+          rimA = Math.min(1.0, rimA + 0.60 * breakPulse);
+          rimW2 = rimW + 1.5;
+        }
         const rimCol = mixTowardWhite(bodyCol, 0.70);
-        rimG.lineStyle(rimW, rimCol, rimA, 0.5);
+        rimG.lineStyle(rimW2, rimCol, rimA, 0.5);
         rimG.drawCircle(0, 0, r + 0.25);
 
         // Tiny specular hint (subtle; avoids the "all selected" look)
@@ -843,6 +862,10 @@
           let x = Math.min(cx0, cx5) - (wR + sizePx * 0.25);
           // Align portrait top edge to redTopY.
           let y = redTopY + sizePx * 0.5;
+
+          // Small nudge: a bit right and up (still clamped below).
+          x += sizePx * 0.07;
+          y -= sizePx * 0.05;
 
           const topRes = (geom && typeof geom.topReserved === 'number') ? geom.topReserved : 0;
           const botRes = (geom && typeof geom.bottomReserved === 'number') ? geom.bottomReserved : 0;

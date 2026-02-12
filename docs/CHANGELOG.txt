@@ -1,22 +1,29 @@
-- FIX: Lobby plan choice overlay no longer auto-hides each tick; Start works for intake-complete patients.
+## v0_2_99_chunk3b_partB (2026-02-12)
+- CHUNK 3B: Removed Total Psyche cap/warning/break system (per-hue cap only).
+- CHUNK 3B: Center core now shows Treatment hold ring + countdown; PLAN_CHAIN hold is canonical 10s (except SPIN_ZERO).
+- CHUNK 3B: Mental breaks pause sim and show OK modal with well-name adjustments (hue bounds + jam breaks).
+- CHUNK 3B: Jam rule updates (Amount High Jam: jammed A=85, Spin +15 all, +100 to two lowest psyche; Spin Max Jam: S=+80, A+20 all, +100 to two lowest psyche).
+- Part A: Drawer layout fix so Next step stays on-screen; Zen timer standardized to 10:00 and shown in HUD; Intake congrats modal reliability + copy update.
+- Part B: Top HUD header split (Name+Traits / Quirks) with quirk text glow; Quirk scheduling enforces global min gap (T.DISP_MIN_GAP_SEC); Debug shows only raw quirk force totals by default.
+
+## Prior (summary)
+- FIX: Lobby plan choice overlay no longer auto-hides; Start works for intake-complete patients.
 - NEW: One-time Intake Complete popup on return to lobby.
 - UI: Bottom drawer header shows 3-line current step + next step indicator.
-- UI: Top bar shows patient name + colored quirk tags; active/telegraph quirk pulses; no quirk text line.
 - SFX: Implemented EC.SFX.error() for no-energy swipe.
-- FIX: Set Pair to 0 cost symmetric across either well selection; spend matches display.
-- v0.2.97 (Chunk 3B): Removed total psyche cap/warning system; center shows treatment hold progress ring; jam break relief/penalty updated; breaks pause sim with modal popup.
+- FIX: Zero Pair cost symmetric across either well selection; spend matches display.
 
-- HOTFIX: Mental break popup crash fixed (_setBreakModal scope/brace).
-- HOTFIX: Break popup now lists adjusted wells (amount/spin) and psyche deltas (snapshot keys a/s/psy).
-- HOTFIX: Break overlay DOM placement fixed (inside body) and updateBreakModal called each HUD render.
+- Pass A: Next-step drawer fixed + multi-line next step; Log overlay w/ pause; mental breaks logged + hit-stop + FX (no modal); psyche 450/50 flash restored; no-energy SFX via EC.SFX.error; removed fragile trait.
 
-- CHUNK 3B (Part A): Drawer layout fix so Next step stays on-screen.
-- CHUNK 3B (Part A): PLAN_CHAIN hold made canonical (10s for all non-SPIN_ZERO) with no extra post-hold delay; hold resets when conditions break; brief flash then immediate advance.
-- CHUNK 3B (Part A): Center core now shows hold countdown number during treatment hold.
-- CHUNK 3B (Part A): Zen timer limit standardized to 10:00 (T.ZEN_TIME_LIMIT_SEC) and displayed in a top-right HUD pill.
-- CHUNK 3B (Part A): Intake congrats modal reliability fix + copy update ("{Name} is no longer an intake patient.").
-- CHUNK 3B (Part A): Fixed missing closing tag for #breakOverlay in index.html.
+- Pass B: Sally portrait now loads (assets/patients/sally_sadeyes.png); in-game portrait nudged up/right; patient WIN auto-returns to lobby (no SUCCESS banner); added lobby Heroes button + Transcended overlay.
 
-- CHUNK 3B (Part B): Top HUD patient header split into 2 lines (Name+Traits on line 1, Quirks on line 2) with telegraph/active quirk text glow.
-- CHUNK 3B (Part B): Quirk scheduling now enforces global minimum gap (T.DISP_MIN_GAP_SEC) to reduce frequent clumping.
-- CHUNK 3B (Part B): Debug panel now shows ONLY raw quirk force totals by default (input instrumentation only with ?inputdebug=1).
+v0_2_102_passC
+- FIX Sally portrait wiring (roster portrait path).
+- FIX Reset patient WIN auto-return guard each run.
+- DEBUG Add quirk timeline (event-based) and show it in Debug panel; keep totals as optional summary.
+
+v0_2_103_passD
+- FIX Implement SIM._quirkTimeline as real per-instance end-event buffer (tStart/tEnd/dur/type/tier/hue/force), capped at 60.
+- DEBUG Timeline uses tStart for mm:ss and gaps; optional cadence line shown.
+- TUNE Add global quiet/burst cadence modulation for random dispositions scheduling only (no scheduled-mode changes).
+- CLEAN Gate dispositions console spam behind ?dispconsole=1.

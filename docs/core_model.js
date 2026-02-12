@@ -430,6 +430,8 @@ function netSwirl(w, now) {
 
     // Reset MVP timebase on level init so time-gated systems (e.g., Dispositions) restart cleanly.
     SIM.mvpTime = 0;
+    // One-shot auto-win return guard (patient sessions). Reset every run.
+    SIM._autoWinHandled = false;
 
     // Active plan key (patient plans) — used for timed Zen runs.
     try {
