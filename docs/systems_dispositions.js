@@ -74,14 +74,14 @@
   }
 
   function typeDisplayName(type) {
-    if (type === TYPES.AMPED) return 'Amped';
-    if (type === TYPES.LOCKS_IN) return 'Locks In';
+    if (type === TYPES.AMPED) return 'Obsesses';
+    if (type === TYPES.LOCKS_IN) return 'Fixates';
     if (type === TYPES.CRASHES) return 'Crashes';
     if (type === TYPES.SPIRALS) return 'Spirals';
     // Legacy fallbacks
-    if (type === 'TENDENCY') return 'Amped';
+    if (type === 'TENDENCY') return 'Obsesses';
     if (type === 'DAMPING') return 'Spirals';
-    if (type === 'AFFINITY') return 'Locks In';
+    if (type === 'AFFINITY') return 'Fixates';
     if (type === 'AVERSION') return 'Crashes';
     return String(type || '');
   }

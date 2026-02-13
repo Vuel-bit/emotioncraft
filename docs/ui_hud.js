@@ -560,10 +560,10 @@
 
         const quirkLabel = (type) => {
           const s = String(type || '').toUpperCase();
-          if (s === 'LOCKS_IN') return 'Locks In';
+          if (s === 'LOCKS_IN') return 'Fixates';
           if (s === 'CRASHES') return 'Crashes';
           if (s === 'SPIRALS') return 'Spirals';
-          if (s === 'AMPED') return 'Amped';
+          if (s === 'AMPED') return 'Obsesses';
           return s ? (s.charAt(0) + s.slice(1).toLowerCase()) : 'Quirk';
         };
 
@@ -708,9 +708,9 @@ let html = `<div class="hudLine1">${line1}</div><div class="hudLine2">${line2}</
       const TL = Array.isArray(SIM._quirkTimeline) ? SIM._quirkTimeline : null;
       const typeLabel = (t) => {
         const k = String(t || '').toUpperCase();
-        if (k === 'LOCKS_IN') return 'Locks In';
+        if (k === 'LOCKS_IN') return 'Fixates';
         if (k === 'CRASHES') return 'Crashes';
-        if (k === 'AMPED') return 'Amped';
+        if (k === 'AMPED') return 'Obsesses';
         if (k === 'SPIRALS') return 'Spirals';
         return k || 'Unknown';
       };

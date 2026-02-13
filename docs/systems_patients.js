@@ -23,14 +23,14 @@
   // Player-facing quirk names/intensity labels
   function quirkTypeName(t) {
     const s = String(t || '').toUpperCase();
-    if (s === 'AMPED') return 'Amped';
-    if (s === 'LOCKS_IN') return 'Locks In';
+    if (s === 'AMPED') return 'Obsesses';
+    if (s === 'LOCKS_IN') return 'Fixates';
     if (s === 'CRASHES') return 'Crashes';
     if (s === 'SPIRALS') return 'Spirals';
     // Legacy aliases
-    if (s === 'TENDENCY') return 'Amped';
+    if (s === 'TENDENCY') return 'Obsesses';
     if (s === 'DAMPING') return 'Spirals';
-    if (s === 'AFFINITY') return 'Locks In';
+    if (s === 'AFFINITY') return 'Fixates';
     if (s === 'AVERSION') return 'Crashes';
     return s;
   }
@@ -385,7 +385,7 @@
       levelId: 201,
       name: 'Steady Eddie',
       tagline: 'No surprises, no refunds.',
-      portrait: 'placeholder',
+      portrait: 'assets/patients/steady_eddie.png',
       mood: { label: 'Steady', template: 'Flat' },
       vibe: { label: 'Mid' },
       traits: [],
@@ -398,7 +398,7 @@
       levelId: 202,
       name: 'Buzzy Barry',
       tagline: 'I came, I saw, I overcommitted.',
-      portrait: 'placeholder',
+      portrait: 'assets/patients/buzzy_barry.png',
       mood: { label: 'Steady', template: 'Tilted' },
       vibe: { label: 'Mid' },
       traits: [],
@@ -412,7 +412,7 @@
       levelId: 203,
       name: 'Waverly Wade',
       tagline: 'Ask again later. Or earlier. Or never.',
-      portrait: 'placeholder',
+      portrait: 'assets/patients/waverly_wade.png',
       mood: { label: 'Drained', template: 'Split' },
       vibe: { label: 'Mid' },
       traits: [],
@@ -426,7 +426,7 @@
       levelId: 204,
       name: 'Tightwire Tina',
       tagline: 'If it’s quiet, I’ll fix that.',
-      portrait: 'placeholder',
+      portrait: 'assets/patients/tightwire_tina.png',
       mood: { label: 'Steady', template: 'Split' },
       vibe: { label: 'Anxious' },
       traits: [],
@@ -440,7 +440,7 @@
       levelId: 205,
       name: 'Porcelain Paige',
       tagline: 'Please don’t tap the glass.',
-      portrait: 'placeholder',
+      portrait: 'assets/patients/porcelain_paige.png',
       mood: { label: 'Steady', template: 'Spike' },
       vibe: { label: 'Anxious' },
       traits: ['sensitive'],
@@ -454,7 +454,7 @@
       levelId: 206,
       name: 'Restless Rex',
       tagline: 'Tired is a rumor.',
-      portrait: 'placeholder',
+      portrait: 'assets/patients/restless_rex.png',
       mood: { label: 'Drained', template: 'Tilted' },
       vibe: { label: 'Anxious' },
       traits: [],
@@ -468,7 +468,7 @@
       levelId: 207,
       name: 'Brickwall Ben',
       tagline: 'I’ll compromise after the heat death of the universe.',
-      portrait: 'placeholder',
+      portrait: 'assets/patients/brickwall_ben.png',
       mood: { label: 'Spent', template: 'Flat' },
       vibe: { label: 'Mid' },
       traits: ['stubborn'],
@@ -483,7 +483,7 @@
       levelId: 208,
       name: 'Fogbound Fiona',
       tagline: 'I brought my personality—some assembly required.',
-      portrait: 'placeholder',
+      portrait: 'assets/patients/fogbound_fiona.png',
       mood: { label: 'Overwhelmed', template: 'Flat' },
       vibe: { label: 'Blah' },
       traits: ['sensitive'],
@@ -498,7 +498,7 @@
       levelId: 209,
       name: 'Cornered Carl',
       tagline: 'I’m fine. I’m just… aggressively fine.',
-      portrait: 'placeholder',
+      portrait: 'assets/patients/cornered_carl.png',
       mood: { label: 'Spent', template: 'Split' },
       vibe: { label: 'Anxious' },
       traits: ['stubborn'],
@@ -528,7 +528,7 @@
       levelId: 211,
       name: 'Clenchjaw June',
       tagline: 'Deep breaths are for other people.',
-      portrait: 'placeholder',
+      portrait: 'assets/patients/clenchjaw_june.png',
       mood: { label: 'Antsy', template: 'Tilted' },
       vibe: { label: 'Anxious' },
       traits: ['stubborn'],
@@ -543,7 +543,7 @@
       levelId: 212,
       name: 'Hurricane Hank',
       tagline: 'Fast isn’t frantic. It’s efficient.',
-      portrait: 'placeholder',
+      portrait: 'assets/patients/hurricane_hank.png',
       mood: { label: 'Steady', template: 'Spike' },
       vibe: { label: 'Freaking' },
       traits: [],

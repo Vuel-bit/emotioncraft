@@ -614,10 +614,10 @@
 
   function _quirkLabel(type) {
     const s = String(type || '').toUpperCase();
-    if (s === 'LOCKS_IN') return 'Locks In';
+    if (s === 'LOCKS_IN') return 'Fixates';
     if (s === 'CRASHES') return 'Crashes';
     if (s === 'SPIRALS') return 'Spirals';
-    if (s === 'AMPED') return 'Amped';
+    if (s === 'AMPED') return 'Obsesses';
     // Fallback: titlecase with spaces
     return String(type || 'Quirk')
       .replace(/_/g, ' ')

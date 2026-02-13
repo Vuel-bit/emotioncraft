@@ -14,6 +14,8 @@
 - Mental breaks: no modal popup; break details append to Log overlay. Added hit-stop + HUD toast + center/well FX.
 - Psyche warning flashes restored on threshold crossing (>=450 or <=50).
 - Lobby: Heroes page for Transcended; Sally portrait wired.
+- Rename quirk labels: Locks In → Fixates; Amped → Obsesses.
+- Roster: wire portraits for all patients (assets/patients/<id>.png).
 - Patient WIN auto-returns to lobby to show post-win popups; reset guard per run.
 
 - passD Chunk 3A — warn flashes + goal sync + log + break banner cleanup.
