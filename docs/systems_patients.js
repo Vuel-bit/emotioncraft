@@ -381,124 +381,181 @@
 
   const ROSTER = [
     {
-      id: 'sally_sadeyes', levelId: 201,
-      name: 'Sally Sadeyes',
-      tagline: '“What’s the point?”',
-      portrait: 'assets/patients/sally_sadeyes.png',
-      mood: { label: 'Drained', template: 'TILTED' },
-      vibe: { label: 'Blah' },
-      traits: ['sensitive'],
-      quirks: [
-        { type: 'CRASHES', intensityTier: 2 },
-        { type: 'SPIRALS', intensityTier: 1 },
-      ],
-    },
-    {
-      id: 'stable_stan', levelId: 202,
-      name: 'Stable Stan',
-      tagline: '“I’ve got this.”',
+      id: 'steady_eddie',
+      levelId: 201,
+      name: 'Steady Eddie',
+      tagline: 'No surprises, no refunds.',
       portrait: 'placeholder',
-      mood: { label: 'Steady', template: 'FLAT' },
+      mood: { label: 'Steady', template: 'Flat' },
       vibe: { label: 'Mid' },
       traits: [],
       quirks: [
-        { type: 'LOCKS_IN', intensityTier: 0 },
-      ],
-    },
-    {
-      id: 'gritty_gabe', levelId: 203,
-      name: 'Gritty Gabe',
-      tagline: '“Push through.”',
-      portrait: 'placeholder',
-      mood: { label: 'Antsy', template: 'SPIKE' },
-      vibe: { label: 'Anxious' },
-      traits: ['stubborn'],
-      quirks: [
-        { type: 'AMPED', intensityTier: 2 },
         { type: 'LOCKS_IN', intensityTier: 1 },
       ],
     },
     {
-      id: 'neon_nina', levelId: 205,
-      name: 'Neon Nina',
-      tagline: '“Everything is urgent!”',
+      id: 'buzzy_barry',
+      levelId: 202,
+      name: 'Buzzy Barry',
+      tagline: 'I came, I saw, I overcommitted.',
       portrait: 'placeholder',
-      mood: { label: 'Overwhelmed', template: 'SPIKE' },
-      vibe: { label: 'Freaking' },
-      traits: ['sensitive', 'stubborn'],
-      quirks: [
-        { type: 'AMPED', intensityTier: 2 },
-        { type: 'SPIRALS', intensityTier: 2 },
-      ],
-    },
-    {
-      id: 'chill_chip', levelId: 206,
-      name: 'Chill Chip',
-      tagline: '“We can ride this out.”',
-      portrait: 'placeholder',
-      mood: { label: 'Steady', template: 'TILTED' },
-      vibe: { label: 'Blah' },
+      mood: { label: 'Steady', template: 'Tilted' },
+      vibe: { label: 'Mid' },
       traits: [],
       quirks: [
-        { type: 'LOCKS_IN', intensityTier: 2 },
-        { type: 'CRASHES', intensityTier: 0 },
+        { type: 'LOCKS_IN', intensityTier: 1 },
+        { type: 'AMPED', intensityTier: 0 },
       ],
     },
     {
-      id: 'mirror_max', levelId: 207,
-      name: 'Mirror Max',
-      tagline: '“Am I behind?”',
+      id: 'waverly_wade',
+      levelId: 203,
+      name: 'Waverly Wade',
+      tagline: 'Ask again later. Or earlier. Or never.',
       portrait: 'placeholder',
-      mood: { label: 'Drained', template: 'SPLIT' },
+      mood: { label: 'Drained', template: 'Split' },
+      vibe: { label: 'Mid' },
+      traits: [],
+      quirks: [
+        { type: 'SPIRALS', intensityTier: 1 },
+        { type: 'CRASHES', intensityTier: 1 },
+      ],
+    },
+    {
+      id: 'tightwire_tina',
+      levelId: 204,
+      name: 'Tightwire Tina',
+      tagline: 'If it’s quiet, I’ll fix that.',
+      portrait: 'placeholder',
+      mood: { label: 'Steady', template: 'Split' },
       vibe: { label: 'Anxious' },
+      traits: [],
+      quirks: [
+        { type: 'AMPED', intensityTier: 1 },
+        { type: 'LOCKS_IN', intensityTier: 1 },
+      ],
+    },
+    {
+      id: 'porcelain_paige',
+      levelId: 205,
+      name: 'Porcelain Paige',
+      tagline: 'Please don’t tap the glass.',
+      portrait: 'placeholder',
+      mood: { label: 'Steady', template: 'Spike' },
+      vibe: { label: 'Anxious' },
+      traits: ['sensitive'],
+      quirks: [
+        { type: 'SPIRALS', intensityTier: 0 },
+        { type: 'LOCKS_IN', intensityTier: 1 },
+      ],
+    },
+    {
+      id: 'restless_rex',
+      levelId: 206,
+      name: 'Restless Rex',
+      tagline: 'Tired is a rumor.',
+      portrait: 'placeholder',
+      mood: { label: 'Drained', template: 'Tilted' },
+      vibe: { label: 'Anxious' },
+      traits: [],
+      quirks: [
+        { type: 'AMPED', intensityTier: 1 },
+        { type: 'SPIRALS', intensityTier: 1 },
+      ],
+    },
+    {
+      id: 'brickwall_ben',
+      levelId: 207,
+      name: 'Brickwall Ben',
+      tagline: 'I’ll compromise after the heat death of the universe.',
+      portrait: 'placeholder',
+      mood: { label: 'Spent', template: 'Flat' },
+      vibe: { label: 'Mid' },
+      traits: ['stubborn'],
+      quirks: [
+        { type: 'SPIRALS', intensityTier: 0 },
+        { type: 'CRASHES', intensityTier: 2 },
+        { type: 'LOCKS_IN', intensityTier: 1 },
+      ],
+    },
+    {
+      id: 'fogbound_fiona',
+      levelId: 208,
+      name: 'Fogbound Fiona',
+      tagline: 'I brought my personality—some assembly required.',
+      portrait: 'placeholder',
+      mood: { label: 'Overwhelmed', template: 'Flat' },
+      vibe: { label: 'Blah' },
       traits: ['sensitive'],
       quirks: [
         { type: 'LOCKS_IN', intensityTier: 2 },
         { type: 'SPIRALS', intensityTier: 0 },
+        { type: 'AMPED', intensityTier: 0 },
       ],
     },
     {
-      id: 'piper_pinch', levelId: 208,
-      name: 'Piper Pinch',
-      tagline: '“Need more. Now.”',
+      id: 'cornered_carl',
+      levelId: 209,
+      name: 'Cornered Carl',
+      tagline: 'I’m fine. I’m just… aggressively fine.',
       portrait: 'placeholder',
-      mood: { label: 'Antsy', template: 'TILTED' },
-      vibe: { label: 'Mid' },
+      mood: { label: 'Spent', template: 'Split' },
+      vibe: { label: 'Anxious' },
       traits: ['stubborn'],
       quirks: [
-        { type: 'CRASHES', intensityTier: 0 },
         { type: 'AMPED', intensityTier: 1 },
-        { type: 'SPIRALS', intensityTier: 1 },
+        { type: 'CRASHES', intensityTier: 1 },
+        { type: 'LOCKS_IN', intensityTier: 0 },
       ],
     },
     {
-      id: 'zen_zoe', levelId: 209,
-      name: 'Zen Zoe',
-      tagline: '“Quiet… then clarity.”',
-      portrait: 'placeholder',
-      mood: { label: 'Steady', template: 'FLAT' },
-      vibe: { label: 'Mid' },
-      traits: [],
-      quirks: [
-        { type: 'SPIRALS', intensityTier: 1 },
-      ],
-    },
-    {
-      id: 'chaos_carl', levelId: 210,
-      name: 'Chaos Carl',
-      tagline: '“Let’s see what happens.”',
-      portrait: 'placeholder',
-      mood: { label: 'Overwhelmed', template: 'SPLIT' },
-      vibe: { label: 'Freaking' },
+      id: 'sally_sadeyes',
+      levelId: 210,
+      name: 'Sally Sadeyes',
+      tagline: 'If hope knocks, I’m ‘out of office.’',
+      portrait: 'assets/patients/sally_sadeyes.png',
+      mood: { label: 'Drained', template: 'Spike' },
+      vibe: { label: 'Blah' },
       traits: ['sensitive'],
       quirks: [
-        { type: 'AMPED', intensityTier: 1 },
-        { type: 'LOCKS_IN', intensityTier: 1 },
-        { type: 'CRASHES', intensityTier: 1 },
         { type: 'SPIRALS', intensityTier: 1 },
+        { type: 'CRASHES', intensityTier: 2 },
+        { type: 'LOCKS_IN', intensityTier: 0 },
+      ],
+    },
+    {
+      id: 'clenchjaw_june',
+      levelId: 211,
+      name: 'Clenchjaw June',
+      tagline: 'Deep breaths are for other people.',
+      portrait: 'placeholder',
+      mood: { label: 'Antsy', template: 'Tilted' },
+      vibe: { label: 'Anxious' },
+      traits: ['stubborn'],
+      quirks: [
+        { type: 'AMPED', intensityTier: 1 },
+        { type: 'LOCKS_IN', intensityTier: 2 },
+        { type: 'CRASHES', intensityTier: 0 },
+      ],
+    },
+    {
+      id: 'hurricane_hank',
+      levelId: 212,
+      name: 'Hurricane Hank',
+      tagline: 'Fast isn’t frantic. It’s efficient.',
+      portrait: 'placeholder',
+      mood: { label: 'Steady', template: 'Spike' },
+      vibe: { label: 'Freaking' },
+      traits: [],
+      quirks: [
+        { type: 'AMPED', intensityTier: 2 },
+        { type: 'SPIRALS', intensityTier: 2 },
+        { type: 'CRASHES', intensityTier: 0 },
+        { type: 'LOCKS_IN', intensityTier: 0 },
       ],
     },
   ];
+
 
   const STATE = {
     patientsById: Object.create(null),
@@ -544,7 +601,45 @@
     return STATE.transcendedIds.indexOf(id) >= 0;
   }
 
-  function _uniq(arr) {
+  
+
+  function getTranscendedCount() {
+    const known = new Set(ROSTER.map((p) => p.id));
+    const seen = new Set();
+    let n = 0;
+    (STATE.transcendedIds || []).forEach((id) => {
+      const sid = id ? String(id) : '';
+      if (!sid) return;
+      if (!known.has(sid)) return;
+      if (seen.has(sid)) return;
+      seen.add(sid);
+      n += 1;
+    });
+    return n;
+  }
+
+  function getUnlockedRosterCount() {
+    // Only the first 8 are available initially; +1 unlocked per transcended, capped at roster size.
+    return Math.min(8 + getTranscendedCount(), ROSTER.length);
+  }
+
+  function getUnlockedIdSet() {
+    const n = getUnlockedRosterCount();
+    const out = new Set();
+    for (let i = 0; i < n; i++) out.add(ROSTER[i].id);
+    return out;
+  }
+
+  function isUnlocked(id) {
+    if (!id) return false;
+    const sid = String(id);
+    const n = getUnlockedRosterCount();
+    for (let i = 0; i < n; i++) {
+      if (ROSTER[i].id === sid) return true;
+    }
+    return false;
+  }
+function _uniq(arr) {
     const out = [];
     const seen = new Set();
     (arr || []).forEach((x) => {
@@ -563,6 +658,7 @@
       const id = slots && slots[i] ? String(slots[i]) : null;
       if (!id) continue;
       if (!STATE.patientsById[id]) continue;
+      if (!isUnlocked(id)) continue;
       if (isTranscended(id)) continue;
       if (seen.has(id)) continue;
       seen.add(id);
@@ -577,11 +673,14 @@
       // Remove transcended + duplicates.
       STATE.lobbySlots = _sanitizeSlots(STATE.lobbySlots);
       const slotSet = new Set(STATE.lobbySlots.filter(Boolean));
+      const activeId = (SIM && SIM._patientActive && SIM._patientId) ? String(SIM._patientId) : null;
       STATE.poolQueue = _uniq((STATE.poolQueue || []).map((x) => String(x))).filter((id) => {
         if (!id) return false;
         if (!STATE.patientsById[id]) return false;
+        if (!isUnlocked(id)) return false;
         if (isTranscended(id)) return false;
         if (slotSet.has(id)) return false;
+        if (activeId && id === activeId) return false;
         return true;
       });
 
@@ -597,10 +696,12 @@
 
       // Ensure no missing ids (except a held-out weekly-reward patient).
       const held = STATE.pendingWeeklyRewardId;
-      const all = Object.keys(STATE.patientsById).filter((id) => !isTranscended(id));
-      const present = new Set([...STATE.lobbySlots.filter(Boolean), ...(STATE.poolQueue || [])]);
+      const unlocked = getUnlockedIdSet();
+      const all = Array.from(unlocked).filter((id) => !isTranscended(id));
+      const present = new Set([ ...STATE.lobbySlots.filter(Boolean), ...(STATE.poolQueue || []), ...(activeId ? [activeId] : []) ]);
       all.forEach((id) => {
         if (held && id === held) return;
+        if (activeId && id === activeId) return;
         if (!present.has(id)) {
           STATE.poolQueue.push(id);
           present.add(id);
@@ -609,7 +710,7 @@
 
       // Final de-dupe.
       const slotSet2 = new Set(STATE.lobbySlots.filter(Boolean));
-      STATE.poolQueue = _uniq(STATE.poolQueue).filter((id) => !slotSet2.has(id) && !isTranscended(id) && !!STATE.patientsById[id]);
+      STATE.poolQueue = _uniq(STATE.poolQueue).filter((id) => !slotSet2.has(id) && isUnlocked(id) && !isTranscended(id) && !!STATE.patientsById[id]);
 
       if (EC.UI_STATE) EC.UI_STATE._lobbyDirtyStamp = (EC.UI_STATE._lobbyDirtyStamp || 0) + 1;
       if (reason) { try { requestSave(String(reason)); } catch (_) {} }
@@ -637,8 +738,9 @@
       };
     });
 
-    // Initial slot fill: shuffle all ids, take first 3 to slots, remainder to poolQueue.
-    const ids = shuffle(Object.keys(STATE.patientsById));
+    // Initial slot fill: shuffle unlocked, take first 3 to slots, remainder to poolQueue.
+    const unlocked = getUnlockedIdSet();
+    const ids = shuffle(Object.keys(STATE.patientsById).filter((id) => unlocked.has(id) && !isTranscended(id)));
     STATE.lobbySlots = [null, null, null];
     for (let i = 0; i < 3; i++) {
       STATE.lobbySlots[i] = ids[i] || null;
@@ -648,7 +750,8 @@
 
   function rebuildPoolQueue() {
     const inSlots = new Set(STATE.lobbySlots.filter(Boolean));
-    const ids = Object.keys(STATE.patientsById).filter((id) => !isTranscended(id) && !inSlots.has(id));
+    const activeId = (SIM && SIM._patientActive && SIM._patientId) ? String(SIM._patientId) : null;
+    const ids = Object.keys(STATE.patientsById).filter((id) => isUnlocked(id) && !isTranscended(id) && !inSlots.has(id) && (!activeId || id !== activeId));
     STATE.poolQueue = shuffle(ids);
 
     try { requestSave('rebuildPoolQueue'); } catch (_) {}
@@ -661,6 +764,8 @@
       if (!STATE.poolQueue.length) return null;
       const id = STATE.poolQueue.shift();
       if (!id) continue;
+      if (!STATE.patientsById[id]) continue;
+      if (!isUnlocked(id)) continue;
       if (isTranscended(id)) continue;
       if (inSlots.has(id)) continue;
       return id;
@@ -1178,7 +1283,7 @@ function openLobbyPause() {
     let slots = Array.isArray(patBlob.lobbySlots) ? patBlob.lobbySlots.slice(0, 3) : null;
     let queue = Array.isArray(patBlob.poolQueue) ? patBlob.poolQueue.slice() : null;
 
-    const isValidId = (id) => !!(id && typeof id === 'string' && knownIds.has(id) && !isTranscended(id));
+    const isValidId = (id) => !!(id && typeof id === 'string' && knownIds.has(id) && isUnlocked(id) && !isTranscended(id));
 
     let slotsOk = true;
     if (!slots || slots.length !== 3) slotsOk = false;
@@ -1259,10 +1364,30 @@ function openLobbyPause() {
     return out;
   }
 
+
+  function getStartEnergyBonus() {
+    return 5 * getTranscendedCount();
+  }
+
+  function hasWeeklyOptions(pid) {
+    const p = getById(pid);
+    if (!p) return false;
+
+    // Any improvable/removable attributes?
+    if (p.quirks && p.quirks.some((q) => q && typeof q.intensityTier === 'number' && q.intensityTier > 0)) return true;
+    if (p.mood && typeof p.mood.label === 'string' && p.mood.label !== 'Steady') return true;
+    if (p.vibe && typeof p.vibe.label === 'string' && p.vibe.label !== 'Mid') return true;
+    if (Array.isArray(p.traits) && p.traits.length > 0) return true;
+
+    return false;
+  }
+
   EC.PAT = {
     list,
     get: getById,
     listTranscended,
+    getStartEnergyBonus,
+    hasWeeklyOptions,
     // Lobby progression helpers
     beginFromLobby,
     startPending,

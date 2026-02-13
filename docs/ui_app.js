@@ -52,23 +52,22 @@ if (topbarEl) topbarEl.classList.add('compact');
 if (legacyMetersEl) legacyMetersEl.style.display = 'none';
 if (mvpHudEl) mvpHudEl.style.display = 'block';
 
-// Hue naming helpers (presentation-only)
+// Hue/well naming helpers (presentation-only)
+// Single source of truth lives in core_const/core_tuning.
 const HUES = (EC.CONST && EC.CONST.HUES) || EC.HUES || ['red','purple','blue','green','yellow','orange'];
 const hueName = (i) => {
-  const h = HUES[i] || '??';
-  return h.charAt(0).toUpperCase() + h.slice(1);
-};
-const WELL_NAME = (EC.TUNE && EC.TUNE.RENDER && EC.TUNE.RENDER.MVP_WELL_NAME) || {
-  red: 'Grit',
-  yellow: 'Focus',
-  blue: 'Chill',
-  purple: 'Ego',
-  green: 'Nerves',
-  orange: 'Pep',
+  try {
+    if (typeof EC.hueTitle === 'function') return EC.hueTitle(i);
+    const h = HUES[i] || '??';
+    return h.charAt(0).toUpperCase() + h.slice(1);
+  } catch (_) { return 'Hue ' + i; }
 };
 const wellTitle = (i) => {
-  const h = HUES[i] || '';
-  return WELL_NAME[h] || hueName(i);
+  try {
+    if (typeof EC.wellLabel === 'function') return EC.wellLabel(i);
+    if (typeof EC.hueLabel === 'function') return EC.hueLabel(i);
+    return hueName(i);
+  } catch (_) { return 'Hue ' + i; }
 };
 
 // Ensure persistent MVP UI caches exist (hardening)

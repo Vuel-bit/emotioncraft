@@ -22,6 +22,12 @@
   let _lastTickId = -1;
 
   function _wellName(i) {
+    try {
+      if (typeof EC.wellLabel === 'function') {
+        const v = EC.wellLabel(i);
+        if (v && String(v).indexOf('Hue ') !== 0) return String(v);
+      }
+    } catch (_) {}
     if (EC.CONST && Array.isArray(EC.CONST.WELL_DISPLAY_NAMES)) return EC.CONST.WELL_DISPLAY_NAMES[i] || String(i);
     return _hueName(i);
   }
@@ -51,16 +57,9 @@
   }
 
   function _pushBreakMsg(reasonText) {
-    const UI = EC.UI_STATE || (EC.UI_STATE = {});
-    const msgSec = (typeof T().BREAK_MSG_SECONDS === 'number') ? T().BREAK_MSG_SECONDS : 4.5;
-    UI.uiMsgKind = 'break';
-    UI.uiMsgFlashT = 0.80; // brief attention grab
-    UI.uiMsgT = msgSec;
-    UI.uiMsg = 'Mental Break';
-    UI.uiMsgReason = String(reasonText || '').trim();
-  
+    // Break messaging is log-only: no HUD notify/toast.
     try { if (EC.SFX && typeof EC.SFX.play === 'function') EC.SFX.play('error_003'); } catch (_) {}
-}
+  }
 
   function _nowMs() {
     try { return (performance && performance.now) ? performance.now() : Date.now(); } catch (_) { return Date.now(); }
@@ -75,6 +74,10 @@
 
   function _wellDispName(i) {
     try {
+      if (typeof EC.wellLabel === 'function') {
+        const v = EC.wellLabel(i);
+        if (v && String(v).indexOf('Hue ') !== 0) return String(v);
+      }
       const n = (EC.CONST && EC.CONST.WELL_DISPLAY_NAMES && EC.CONST.WELL_DISPLAY_NAMES[i]) || null;
       return n || ('Well ' + (i + 1));
     } catch (_) { return 'Well ' + (i + 1); }
@@ -100,9 +103,6 @@
     if (!sim) return;
     // 0.5s hit-stop
     sim._hitStopT = 0.5;
-    // HUD alert
-    sim._breakToastT = 5.0;
-    sim._breakToastText = 'MENTAL BREAK';
     // FX masks
     const wellMask = new Array(6).fill(false);
     const psyMask = new Array(6).fill(false);

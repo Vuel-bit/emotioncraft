@@ -15,6 +15,34 @@
     return String(i);
   }
 
+
+  // HUD DOM diff helpers (perf hygiene; no behavioral changes)
+  function setText(el, cacheKey, value) {
+    try {
+      if (!el) return;
+      const st = (EC.UI_STATE = EC.UI_STATE || {});
+      const prev = (st.prev = st.prev || {});
+      const k = 'hud:' + String(cacheKey || '');
+      const v = (value == null) ? '' : String(value);
+      if (prev[k] === v) return;
+      prev[k] = v;
+      el.textContent = v;
+    } catch (_) { /* ignore */ }
+  }
+
+  function setHTML(el, cacheKey, value) {
+    try {
+      if (!el) return;
+      const st = (EC.UI_STATE = EC.UI_STATE || {});
+      const prev = (st.prev = st.prev || {});
+      const k = 'hud:' + String(cacheKey || '');
+      const v = (value == null) ? '' : String(value);
+      if (prev[k] === v) return;
+      prev[k] = v;
+      el.innerHTML = v;
+    } catch (_) { /* ignore */ }
+  }
+
   // Objective summary text (used in bottom panel)
   MOD.getObjectiveSummaryText = function getObjectiveSummaryText() {
     const SIM = EC.SIM || {};
@@ -244,46 +272,67 @@
         if ((e.key || '').toLowerCase() === 'd') setDbg(!debugOn);
       });
       setDbg(debugOn);
-    
-    // Log overlay (pauses sim)
-    let _logOpen = false;
-    let _logRenderN = -1;
-    function _renderLogBody() {
-      if (!logBodyEl) return;
-      const entries = (EC.UI_STATE && EC.UI_STATE.logEntries) ? EC.UI_STATE.logEntries : [];
-      // Render newest last, scroll to bottom.
-      const parts = [];
-      for (let i = 0; i < entries.length; i++) {
-        const e = entries[i] || {};
-        const t = (typeof e.tSec === 'number') ? e.tSec : 0;
-        const mm = String(Math.floor(t / 60)).padStart(2,'0');
-        const ss = String(Math.floor(t % 60)).padStart(2,'0');
-        const hdr = `<div class="logT">[${mm}:${ss}]</div>`;
-        parts.push(`<div class="logEntry">${hdr}${e.html || ''}</div>`);
-      }
-      logBodyEl.innerHTML = parts.join('');
-      try { logBodyEl.scrollTop = logBodyEl.scrollHeight; } catch (_) {}
-      _logRenderN = entries.length;
-    }
+      // Log overlay (pauses sim)
+      let _logOpen = false;
 
-    function setLog(on) {
-      _logOpen = !!on;
-      const SIM = EC.SIM || {};
-      if (SIM) SIM._uiPaused = _logOpen ? true : false;
-      if (logOverlayEl) {
-        if (_logOpen) logOverlayEl.classList.add('show');
-        else logOverlayEl.classList.remove('show');
-        logOverlayEl.setAttribute('aria-hidden', _logOpen ? 'false' : 'true');
+      function _getLogDom() {
+        const overlay = document.getElementById('logOverlay');
+        const body = document.getElementById('logBody');
+        return { overlay, body };
       }
-      if (_logOpen) _renderLogBody();
-    }
 
-    if (btnLogEl) {
-      btnLogEl.addEventListener('click', () => setLog(!_logOpen));
-    }
-    if (btnLogCloseEl) {
-      btnLogCloseEl.addEventListener('click', () => setLog(false));
-    }
+      function _renderLogBody() {
+        const domL = _getLogDom();
+        const logBodyEl2 = domL.body;
+        if (!logBodyEl2) return;
+        const entries = (EC.UI_STATE && EC.UI_STATE.logEntries) ? EC.UI_STATE.logEntries : [];
+        const parts = [];
+        for (let i = 0; i < entries.length; i++) {
+          const e = entries[i] || {};
+          const t = (typeof e.tSec === 'number') ? e.tSec : 0;
+          const mm = String(Math.floor(t / 60)).padStart(2,'0');
+          const ss = String(Math.floor(t % 60)).padStart(2,'0');
+          const hdr = `<div class=\"logT\">[${mm}:${ss}]</div>`;
+          parts.push(`<div class=\"logEntry\">${hdr}${e.html || ''}</div>`);
+        }
+        logBodyEl2.innerHTML = parts.join('');
+        try { logBodyEl2.scrollTop = logBodyEl2.scrollHeight; } catch (_) {}
+      }
+
+      function setLog(on) {
+        const SIM2 = EC.SIM || {};
+        const domL = _getLogDom();
+        const overlay = domL.overlay;
+        // If the overlay isn't in the DOM yet (it lives after scripts), don't toggle pause.
+        if (!overlay) {
+          _logOpen = false;
+          if (SIM2) SIM2._uiPaused = false;
+          return;
+        }
+
+        _logOpen = !!on;
+        if (SIM2) SIM2._uiPaused = _logOpen ? true : false;
+        overlay.classList.toggle('show', _logOpen);
+        overlay.setAttribute('aria-hidden', _logOpen ? 'false' : 'true');
+        if (_logOpen) _renderLogBody();
+      }
+
+      if (btnLogEl) {
+        btnLogEl.addEventListener('click', () => setLog(!_logOpen));
+      }
+
+      // Close handler uses event delegation because #btnLogClose is inside #logOverlay,
+      // which is declared after scripts in index.html.
+      if (!UI_STATE._logCloseDelegated) {
+        UI_STATE._logCloseDelegated = true;
+        document.addEventListener('click', (e) => {
+          const t = e.target;
+          if (!t) return;
+          if (t.id === 'btnLogClose' || (t.closest && t.closest('#btnLogClose'))) {
+            setLog(false);
+          }
+        });
+      }
 }
 
     // Level selector (visible UI)
@@ -402,27 +451,23 @@
       const hud = (EC.DISP && typeof EC.DISP.getHudState === 'function') ? EC.DISP.getHudState() : { telegraphText: '', activeText: '' };
       const tele = hud.telegraphText || '';
       const act = hud.activeText || '';
-      // Banner priority: WIN/LOSE > mental break > normal disposition/short message
+      // Banner priority: WIN/LOSE > normal disposition/short message
       const g = UI_STATE.gestureDebug || '';
 
       const isWin = (SIM.levelState === 'win') || !!SIM.mvpWin;
       const isLose = (SIM.levelState === 'lose') || !!SIM.mvpLose || !!SIM.gameOver;
-      const isBreak = (!isWin && !isLose && UI_STATE.uiMsgT > 0 && UI_STATE.uiMsgKind === 'break');
-
       // Notify bar classes (visual styling)
       if (notifyBarEl) {
         notifyBarEl.classList.toggle('isBanner', !!(isWin || isLose));
         notifyBarEl.classList.toggle('bannerWin', !!isWin);
         notifyBarEl.classList.toggle('bannerLose', !!isLose);
-        notifyBarEl.classList.toggle('breakMode', !!isBreak);
-        notifyBarEl.classList.toggle('flashBreak', !!(isBreak && UI_STATE.uiMsgFlashT > 0));
-      }
+}
 
       if (isWin) {
-        if (patientInfoEl) patientInfoEl.textContent = 'SUCCESS!';
-        if (notifyTextEl) notifyTextEl.textContent = 'Treatment complete';
+        setText(patientInfoEl, 'patientInfo', 'SUCCESS!');
+        setText(notifyTextEl, 'notifyText', 'Treatment complete');
       } else if (isLose) {
-        if (patientInfoEl) patientInfoEl.textContent = 'TREATMENT FAILED';
+        setText(patientInfoEl, 'patientInfo', 'TREATMENT FAILED');
         // Optional second line: keep it short + player-facing.
         let line2 = 'Too many breaks';
         const r = String(SIM.gameOverReason || '').trim();
@@ -430,26 +475,22 @@
           // If reason isn't the standard one, show it.
           line2 = r;
         }
-        if (notifyTextEl) notifyTextEl.textContent = line2;
-      } else if (isBreak) {
-        if (patientInfoEl) patientInfoEl.textContent = 'MENTAL BREAK';
-        const reason = String(UI_STATE.uiMsgReason || '').trim() || '—';
-        if (notifyTextEl) notifyTextEl.textContent = reason;
+        setText(notifyTextEl, 'notifyText', line2);
       } else {
         // Normal mode: show disposition HUD or short message + gesture debug line.
         // Hide disposition telegraph/active text from HUD; keep only UI messages.
         const short = ((UI_STATE.uiMsgT > 0 && UI_STATE.uiMsg) ? UI_STATE.uiMsg : '');
-        if (notifyTextEl) notifyTextEl.textContent = g ? (short ? (short + "\n" + g) : g) : short;
+        setText(notifyTextEl, 'notifyText', g ? (short ? (short + "\n" + g) : g) : short);
       }
 
       // Always-visible debug overlay (does not depend on the notify bar state)
-      if (gestureDbgEl) gestureDbgEl.textContent = g || 'SWIPE: (waiting)';
+      setText(gestureDbgEl, 'gestureDbg', g || 'SWIPE: (waiting)');
     } catch (_) { /* ignore */ }
 
     // Patient + step (top-left)
     try {
       // If a banner is active, we already replaced patientInfoEl above.
-      if ((SIM.levelState === 'win') || !!SIM.mvpWin || (SIM.levelState === 'lose') || !!SIM.mvpLose || !!SIM.gameOver || (UI_STATE.uiMsgT > 0 && UI_STATE.uiMsgKind === 'break')) {
+      if ((SIM.levelState === 'win') || !!SIM.mvpWin || (SIM.levelState === 'lose') || !!SIM.mvpLose || !!SIM.gameOver) {
         // No-op: keep banner/break header.
       } else {
       const lvl = SIM.levelId || 1;
@@ -486,14 +527,6 @@
           if (!s) return '';
           return s.charAt(0).toUpperCase() + s.slice(1);
         };
-
-        const traitColor = (k) => {
-          const s = String(k || '').toLowerCase();
-          if (s === 'sensitive') return 'rgba(255, 92, 92, 0.95)';
-          if (s === 'stubborn') return 'rgba(230, 216, 92, 0.95)';
-                    return 'rgba(200, 210, 235, 0.90)';
-        };
-
         // Quirks source of truth
         let patientId = (def && def._patientId) ? def._patientId : null;
         let quirks = [];
@@ -538,9 +571,7 @@
         if (traits && traits.length) {
           for (const tr of traits) {
             const lab = traitLabel(tr);
-            if (!lab) continue;
-            const c = traitColor(tr);
-            line1 += ` <span class="hudTraitWord" style="color:${c}">${esc(lab)}</span>`;
+            if (!lab) continue;            line1 += ` <span class="hudTraitWord">${esc(lab)}</span>`;
           }
         }
 
@@ -558,12 +589,8 @@
           }
           line2 = pills.join(' ');
         }
-
-        let line3 = '';
-        try {
-          if (SIM && SIM._breakToastT > 0) line3 = String(SIM._breakToastText || 'MENTAL BREAK');
-        } catch (_) {}
-patientInfoEl.innerHTML = `<div class="hudLine1">${line1}</div><div class="hudLine2">${line2}</div><div class="hudLine3">${line3}</div>`;
+let html = `<div class="hudLine1">${line1}</div><div class="hudLine2">${line2}</div>`;
+        patientInfoEl.innerHTML = html;
       }
     }
     } catch (_) { /* ignore */ }
@@ -665,7 +692,7 @@ patientInfoEl.innerHTML = `<div class="hudLine1">${line1}</div><div class="hudLi
 
       const done = won2 ? '<div class="done">Objective Complete</div>' : '';
       const loseBlock = lost2 ? `<div class="done" style="margin-top:8px;color:rgba(255,96,96,0.95)">Mind Shattered</div><div class="obj" style="margin-top:4px;color:rgba(255,184,184,0.95)">${(SIM.gameOverReason || '4 breaks in 5 seconds')}</div>${(typeof SIM.breaksInWindow === 'number') ? `<div class="obj" style="margin-top:2px;color:rgba(255,184,184,0.85)">Breaks in last 5s: ${SIM.breaksInWindow}</div>` : ''}` : '';
-      objectivePanelEl.innerHTML = `<div class="title">${title}</div>${objText ? `<div class="obj">${objText}</div>` : ''}${disp}${extra}${rows}${done}${loseBlock}`;
+      setHTML(objectivePanelEl, 'objectivePanel', `<div class="title">${title}</div>${objText ? `<div class="obj">${objText}</div>` : ''}${disp}${extra}${rows}${done}${loseBlock}`);
     }
 
     // Debug panel (monospace)
@@ -818,10 +845,16 @@ if (verbose) {
           }
         });
       }
-
-      const pre = document.getElementById('debugPre');
-      if (pre) pre.textContent = parts.join('\n');
-      else debugEl.textContent = parts.join('\n');
+      const dbgText = parts.join('\n');
+      const st = (EC.UI_STATE = EC.UI_STATE || {});
+      const prev = (st.prev = st.prev || {});
+      const k = 'hud:debugText';
+      if (prev[k] !== dbgText) {
+        prev[k] = dbgText;
+        const pre = document.getElementById('debugPre');
+        if (pre) pre.textContent = dbgText;
+        else debugEl.textContent = dbgText;
+      }
     }
     try { if (MOD.updateBreakModal) MOD.updateBreakModal(); } catch (_) {}
 

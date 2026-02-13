@@ -17,14 +17,7 @@
     orange: 0xff8f3d,
   };
   const MVP_WELL_LABEL = { red:'R', purple:'P', blue:'B', green:'G', yellow:'Y', orange:'O' };
-  const MVP_WELL_NAME = (EC.TUNE && EC.TUNE.RENDER && EC.TUNE.RENDER.MVP_WELL_NAME) || {
-    red: 'Grit',
-    yellow: 'Focus',
-    blue: 'Chill',
-    purple: 'Ego',
-    green: 'Nerves',
-    orange: 'Pep',
-  };
+  const MVP_WELL_NAME = (EC.TUNE && EC.TUNE.RENDER && EC.TUNE.RENDER.MVP_WELL_NAME) || {};
 
   // -----------------------------
   // Liquid well interior textures (visual-only)
@@ -791,7 +784,8 @@
         ghostSpinG.eventMode = 'none';
   
         // Name label inside the well
-        const name = new Text(MVP_WELL_NAME[hue] || '', {
+        const _wellNameStr = (typeof EC.wellLabelByHue === 'function') ? EC.wellLabelByHue(hue) : (MVP_WELL_NAME[hue] || '');
+        const name = new Text(_wellNameStr || '', {
           fontFamily: 'system-ui, -apple-system, Segoe UI, Roboto, Arial',
           fontSize: 14,
           fontWeight: '800',

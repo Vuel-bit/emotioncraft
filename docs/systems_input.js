@@ -544,4 +544,102 @@ try { if (EC.SIM) EC.SIM.selectedWellIndex = w; } catch (e) {}
     };
   }
 
+  // Stage-level pointerup gesture resolver (transplanted from main.js)
+  // Keeps Pixi stage fallback localized to the input system (no behavior changes).
+  function _pidFromEvStage(ev) {
+    return (ev && ev.pointerId != null) ? ev.pointerId : (ev && ev.data && ev.data.pointerId != null ? ev.data.pointerId : -1);
+  }
+
+  function _wellIndexByIdStage(wellId) {
+    const SIM = EC.SIM;
+    if (!SIM || !Array.isArray(SIM.wells)) return -1;
+    for (let k = 0; k < SIM.wells.length; k++) {
+      if (SIM.wells[k] && SIM.wells[k].id === wellId) return k;
+    }
+    return -1;
+  }
+
+  EC.INPUT.resolveActiveGestureFromStagePointerUp = EC.INPUT.resolveActiveGestureFromStagePointerUp || function resolveActiveGestureFromStagePointerUp(ev, isOutside) {
+    // NOTE: Stage fallback should only resolve pointer-based gestures.
+    // Touch gestures are resolved via DOM touchend/touchcancel.
+    const st = (EC.INPUT && EC.INPUT.gestureState) ? EC.INPUT.gestureState : (EC.RENDER && EC.RENDER._gesture);
+    if (!st || !st.active) return;
+    if (st.kind && st.kind !== 'pointer') return;
+
+    const pid = _pidFromEvStage(ev);
+    if (st.pid != null && st.pid >= 0 && pid != null && pid >= 0 && pid !== st.pid) return;
+
+    const getXY = EC.RENDER && EC.RENDER._getClientXY;
+    const setDbg = EC.RENDER && EC.RENDER._setGestureDebug;
+    const xy = (getXY ? getXY(ev) : null);
+    if (!xy) return;
+    const x = xy.x, y = xy.y, oe = xy.oe;
+    try { if (oe && typeof oe.preventDefault === 'function') oe.preventDefault(); } catch (_) {}
+
+    const t1 = (performance && performance.now) ? performance.now() : Date.now();
+    const dt = t1 - (st.t0 || t1);
+    const dx = x - (st.x0 || x);
+    const dy = y - (st.y0 || y);
+
+    const THRESH_MS = 400;
+    const THRESH_PX = 18;
+    const adx = Math.abs(dx);
+    const ady = Math.abs(dy);
+    const dist = Math.max(adx, ady);
+    const isFlick = (dt <= THRESH_MS) && (dist >= THRESH_PX);
+
+    // Determine target well index
+    let iWell = -1;
+    if (typeof st.well === 'number') iWell = st.well;
+    else if (typeof st.wellId !== 'undefined') iWell = _wellIndexByIdStage(st.wellId);
+
+    // Clear gesture deterministically (canonical state)
+    try {
+      if (EC.INPUT && typeof EC.INPUT.clearGesture === 'function') EC.INPUT.clearGesture('stage_resolve', { outside: !!isOutside, dt: Math.round(dt) });
+      else { st.active = 0; st.key = ''; }
+    } catch (_) {}
+
+    if (!isFlick) {
+      try { if (iWell >= 0 && EC.SIM) EC.SIM.selectedWellIndex = iWell; } catch (_) {}
+      if (setDbg) setDbg(`SWIPE: up(stage) dt=${dt.toFixed(0)} dx=${dx.toFixed(0)} dy=${dy.toFixed(0)} => TAP`);
+      return;
+    }
+
+    let dA = 0, dS = 0;
+    let dirTxt = '';
+    if (adx > ady) { dS = (dx > 0) ? +5 : -5; dirTxt = (dS > 0) ? 'RIGHT (S+5)' : 'LEFT (S-5)'; }
+    else { dA = (dy < 0) ? +5 : -5; dirTxt = (dA > 0) ? 'UP (A+5)' : 'DOWN (A-5)'; }
+
+    const fn = EC.UI_CONTROLS && typeof EC.UI_CONTROLS.flickStep === 'function' ? EC.UI_CONTROLS.flickStep : null;
+    const toast = EC.UI_CONTROLS && typeof EC.UI_CONTROLS.toast === 'function' ? EC.UI_CONTROLS.toast : null;
+    const SIM = EC.SIM;
+
+    if (!fn || iWell < 0) {
+      if (toast) toast('Select a Well first.');
+      if (setDbg) setDbg(`SWIPE: up(stage) dt=${dt.toFixed(0)} dx=${dx.toFixed(0)} dy=${dy.toFixed(0)} => FLICK (no index)`);
+      return;
+    }
+
+    try { SIM.selectedWellIndex = iWell; } catch (_) {}
+
+    let res = null;
+    try { res = fn(iWell, dA, dS) || { ok: false, reason: 'unknown' }; } catch (e) { res = { ok: false, reason: 'exception' }; }
+
+    if (!res.ok) {
+      if (res.reason === 'noenergy') {
+        if (toast) toast('Not enough Energy.');
+        try {
+          if (EC.SFX && typeof EC.SFX.error === 'function') EC.SFX.error();
+          else if (EC.SFX && typeof EC.SFX.play === 'function') EC.SFX.play('bong_001');
+        } catch (_) {}
+      }
+      // keep silent for other failure reasons
+      if (setDbg) setDbg(`SWIPE: up(stage) dt=${dt.toFixed(0)} dx=${dx.toFixed(0)} dy=${dy.toFixed(0)} => ${dirTxt} ❌`);
+      return;
+    }
+
+    if (EC.SFX && typeof EC.SFX.tick === 'function') EC.SFX.tick();
+    if (setDbg) setDbg(`SWIPE: up(stage) dt=${dt.toFixed(0)} dx=${dx.toFixed(0)} dy=${dy.toFixed(0)} => ${dirTxt} APPLIED ✅${isOutside ? ' (upoutside)' : ''}`);
+  };
+
 })();

@@ -411,6 +411,25 @@ const SIM = (EC.SIM = EC.SIM || {
       }
     })();
 
+    // 4.7) UI-only psyche warning flash triggers (read by renderer via SIM._psyWarnFx)
+    // Trigger when a hue crosses into warning thresholds: >450 or <50.
+    (function stagePsyWarnFx() {
+      const nowMs = (typeof performance !== 'undefined' && performance && typeof performance.now === 'function') ? performance.now() : Date.now();
+      if (!Array.isArray(SIM._psyWarnFx) || SIM._psyWarnFx.length !== 6) SIM._psyWarnFx = new Array(6).fill(0);
+      if (!Array.isArray(SIM._psyWarnPrev) || SIM._psyWarnPrev.length !== 6) {
+        SIM._psyWarnPrev = new Array(6);
+        for (let i = 0; i < 6; i++) SIM._psyWarnPrev[i] = Math.round(SIM.psyP[i] || 0);
+      }
+      for (let i = 0; i < 6; i++) {
+        const cur = Math.round(SIM.psyP[i] || 0);
+        const prev = (typeof SIM._psyWarnPrev[i] === 'number') ? SIM._psyWarnPrev[i] : cur;
+        if ((prev <= 450 && cur > 450) || (prev >= 50 && cur < 50)) {
+          SIM._psyWarnFx[i] = nowMs;
+        }
+        SIM._psyWarnPrev[i] = cur;
+      }
+    })();
+
     // 5) Level objective evaluation (data-driven; Level 1 / Level 2 supported)
     (function stageObjectives(_dt) {
     // HUE ORDER (index): 0 Red, 1 Purple, 2 Blue, 3 Green, 4 Yellow, 5 Orange

@@ -1000,7 +1000,17 @@
     if (els.planTitleEl) {
       els.planTitleEl.textContent = patientName ? `Choose a plan for ${patientName}` : 'Choose a plan';
     }
-    els.planOverlay.style.display = 'flex';
+    // Weekly availability gating (no improvable/removable attributes -> hide/disable Weekly).
+    try {
+      const pid = pendingPlanPickPatientId;
+      const ok = !(EC.PAT && typeof EC.PAT.hasWeeklyOptions === 'function') ? true : !!EC.PAT.hasWeeklyOptions(pid);
+      if (els.planWeeklyBtn) {
+        els.planWeeklyBtn.style.display = ok ? '' : 'none';
+        els.planWeeklyBtn.disabled = !ok;
+      }
+    } catch (_) {}
+
+        els.planOverlay.style.display = 'flex';
     _planChoiceOpen = true;
   }
 

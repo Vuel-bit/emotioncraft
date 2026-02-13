@@ -1303,7 +1303,9 @@ function renderPsyche() {
 
   const hues = (EC.CONST && EC.CONST.HUES) || EC.HUES || ['red', 'purple', 'blue', 'green', 'yellow', 'orange'];
   const P = SIM.psyP || new Array(6).fill(0);
-  const HUE_CAP = EC.TUNE.PSY_HUE_CAP;
+  const HUE_CAP = (EC.TUNE && typeof EC.TUNE.PSY_HUE_CAP === 'number') ? EC.TUNE.PSY_HUE_CAP : 500;
+
+  const nowMs = (typeof performance !== 'undefined' && performance && typeof performance.now === 'function') ? performance.now() : Date.now();
 
   // --- Safe circle inside the well ring (guaranteed no collision with wells) ---
   const geom = SIM.mvpGeom || null;
@@ -1509,10 +1511,12 @@ function renderPsyche() {
     const end = start + span;
     const mid = (start + end) * 0.5;
 
+    const rawP = (P[i] || 0);
+    const vv = Math.round(rawP);
+
     // Numeric psyche value inside wedge
     if (wedgeTexts && wedgeTexts[i]) {
       const t = wedgeTexts[i];
-      const vv = Math.round((P[i] || 0));
       if (t.text !== String(vv)) t.text = String(vv);
       if (t.style && t.style.fontSize !== fontSize) {
         // Pixi Text style assignment can be expensive; only change when needed.
@@ -1523,7 +1527,7 @@ function renderPsyche() {
     }
 
     // Gold ring if this wedge currently satisfies its objective condition
-    const ok = goalPerHue ? goalOk(goalPerHue[i], P[i]) : false;
+    const ok = goalPerHue ? goalOk(goalPerHue[i], vv) : false;
     if (ok && ringG) {
       ringG.lineStyle({ width: ringW, color: gold, alpha: (0.92 + 0.38 * flash) });
       drawAnnularWedge(ringG, 0, 0, r0, r1, start, end);
@@ -1531,6 +1535,42 @@ function renderPsyche() {
       ringG.endFill && ringG.endFill();
       ringG.lineStyle();
     }
+
+    // UI-only psyche warning flashes + break highlight overlays (per wedge)
+    try {
+      const wf = (SIM && SIM._psyWarnFx) ? SIM._psyWarnFx : null;
+      const bf = (SIM && SIM._breakFx) ? SIM._breakFx : null;
+      const w0 = (wf && typeof wf[i] === 'number') ? wf[i] : 0;
+      const wdt = nowMs - w0;
+      const wdur = 900;
+      const wPulse = (wdt >= 0 && wdt <= wdur)
+        ? (Math.abs(Math.sin((wdt / wdur) * Math.PI * 3)) * (1 - (wdt / wdur)))
+        : 0;
+
+      let bPulse = 0;
+      if (bf && bf.psyMask && bf.psyMask[i] && typeof bf.startMs === 'number') {
+        const bdt = nowMs - bf.startMs;
+        const bdur = (typeof bf.durMs === 'number') ? bf.durMs : 900;
+        if (bdt >= 0 && bdt <= bdur) bPulse = 1 - (bdt / bdur);
+      }
+
+      // Warning flashes: fill wedge with pulsing red (player expectation: pies flash red)
+      if (wPulse > 0.01) {
+        const a = Math.min(0.70, 0.18 + 0.52 * wPulse);
+        g.beginFill(0xff2a2a, a);
+        drawAnnularWedge(g, 0, 0, r0 + 1, r1 - 1, start, end);
+        g.endFill();
+      }
+
+      // Break highlight: crisp white outline over affected wedges
+      if (bPulse > 0.01) {
+        g.lineStyle({ width: 3, color: 0xFFFFFF, alpha: 0.85 * bPulse });
+        drawAnnularWedge(g, 0, 0, r0 + 1, r1 - 1, start, end);
+        g.closePath();
+        g.endFill && g.endFill();
+        g.lineStyle();
+      }
+    } catch (_) { /* ignore */ }
   }
 
   // Center core: Treatment hold progress (yellow)
@@ -1555,34 +1595,8 @@ function renderPsyche() {
     }
   } catch (_) {}
 
-    // Warning flash + break highlight overlays (visual only)
-    try {
-      const wf0 = SIM._psyWarnFx ? (SIM._psyWarnFx[i] || 0) : 0;
-      const wdt = nowMs - wf0;
-      const wphase = (wdt >= 0 && wdt <= 900) ? (1.0 - (wdt / 900)) : 0;
-      const wPulse = (wphase > 0) ? (0.25 + 0.75 * Math.abs(Math.sin((wdt / 900) * Math.PI * 3))) * wphase : 0;
 
-      const bf = SIM._breakFx;
-      let bPulse = 0;
-      if (bf && bf.psyMask && bf.psyMask[i]) {
-        const bdt = nowMs - (bf.startMs || 0);
-        if (bdt >= 0 && bdt <= (bf.durMs || 0)) {
-          const bn = (bf.durMs || 900);
-          const bp = 1.0 - (bdt / bn);
-          bPulse = (0.25 + 0.75 * Math.abs(Math.sin((bdt / bn) * Math.PI * 3))) * bp;
-        }
-      }
-
-      const a = Math.max(wPulse, bPulse);
-      if (a > 0.01) {
-        g.lineStyle(3, 0xffffff, Math.min(0.95, a));
-        drawAnnularWedge(g, 0, 0, r0 + 1, r1 - 1, start, end);
-        g.lineStyle(0);
-      }
-    } catch (_) {}
-
-
-  // Compute hold fraction for active PLAN_CHAIN step
+// Compute hold fraction for active PLAN_CHAIN step
   // Canonical rule: 10s for all non-SPIN_ZERO steps (mechanics publishes _planHoldReqSec).
   let frac = 0;
   const holdReq = (SIM && typeof SIM._planHoldReqSec === 'number') ? SIM._planHoldReqSec : 0;

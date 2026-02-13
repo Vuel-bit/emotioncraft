@@ -1,43 +1,20 @@
 Emotioncraft Psyche MVP
-Build: v0_2_99_chunk3b_partB
+Build: v0_2_103_passD
 Date: 2026-02-12
 
 Highlights (current build)
-- Lobby-driven patient loop with INTAKE / WEEKLY / ZEN plan selection (after Intake completion).
-- Total Psyche cap system removed; Psyche is per-hue only (0..500). Center core is Treatment hold timer (ring + countdown).
-- PLAN_CHAIN: canonical 10s hold for all steps except SPIN_ZERO; hold requires uninterrupted satisfaction; completion flash then immediate step advance.
-- Mental breaks: hue bounds (<0 or >500) and jam breaks (Amount/Spin extremes). Breaks pause the sim and show an OK modal with well-name deltas.
-- Zen: 10:00 time limit (T.ZEN_TIME_LIMIT_SEC) with top-right HUD timer.
-- Top HUD: 2-line patient header (Name+Traits; Quirks). Telegraph/active quirk words glow.
-- Quirks: random telegraph+active system with global minimum spacing (T.DISP_MIN_GAP_SEC) to reduce constant clumping.
-- Debug: default shows ONLY raw quirk force totals per well (SIM._quirkForceTotals). Input debug hidden unless ?inputdebug=1.
+- passD Chunk 3A — warn flashes + goal sync + log + break banner cleanup.
+- passD Chunk 3B — roster swap + unlock gating + start-energy progression + mood/vibe tuning + break HUD text removal.
+- Lobby-driven patient loop with INTAKE / WEEKLY / ZEN plan selection (after Intake completion). Patient WIN auto-returns to Lobby to show post-win popups (no SUCCESS banner). LOSE does not auto-return.
+- Psyche is per-hue only (0..500 each). Center core is the Treatment hold timer ring + countdown; it flashes red on mental breaks.
+- PLAN_CHAIN: canonical 10s hold for all steps except SPIN_ZERO; hold only accumulates while all conditions are satisfied; completion flash then immediate step advance.
+- Bottom drawer Treatment display: LEFT shows current step (header + up to 2 conditions; 3 lines). RIGHT shows next step in the same 3-line format.
+- Energy: displayed/charged as whole units (Math.round). Set-0 buttons (Spin->0, Zero Pair) use integer energy units; display/gating/spend match.
+- Log overlay: top HUD has Log button; opening Log pauses the sim (SIM._uiPaused). Mental breaks append detailed, color-coded entries (well/hue names).
+- Mental breaks: no modal popup. On break: dispositions cancel, ~0.5s hit-stop, HUD line 3 shows MENTAL BREAK ~5s, center flash + affected wells/hues pulse. Break triggers: psyche hue out of bounds (<0 or >500) and jam breaks (Amount/Spin extremes).
+- Psyche warning flashes (visual-only): wedge flashes 3x when a hue crosses >=450 or <=50.
+- Quirks: random mode supports telegraph + active phases. Scheduling uses global min spacing (DISP_MIN_GAP_SEC) plus a global quiet/burst cadence window system (DISP_CADENCE_*).
+- Debug: default debug panel shows event-based Quirk timeline (mm:ss, type, tier label, well, unshielded force, duration, gap), capped 60. Input instrumentation hidden unless ?inputdebug=1.
+- Lobby: Heroes button shows Transcended patients (Zen winners). Sally Sadeyes portrait wired (assets/patients/sally_sadeyes.png). Zen timer shows in top-right during Zen (mm:ss).
 
-Notes
-- Energy costs: Set-0 buttons use integer “energy units” (Math.round) for display + gating + spend; Stubborn increases costs by 1.2x.
-- No-energy swipe SFX uses EC.SFX.error() (bong_001 fallback error_003).
-
-v0.2.100 Pass A
-- Fixed PLAN_CHAIN next-step drawer update (objectiveSummaryEl scope) + 3-line next step.
-- Added Log overlay (pauses sim) + Log button.
-- Mental breaks now hit-stop + HUD alert + render flashes; details written to Log (no popup).
-- Restored psyche threshold wedge flashes (450/50).
-- No-energy swipe now routes through EC.SFX.error().
-- Removed fragile trait/patient.
-
-v0.2.101 Pass B
-- Sally Sadeyes now points to real portrait asset (assets/patients/sally_sadeyes.png); lobby + in-game display.
-- In-game portrait overlay nudged slightly up/right (still clamped on-screen).
-- Patient WIN flow: removed on-board SUCCESS banner; patient wins auto-return to lobby to show reward/congrats popups.
-- Lobby: added Heroes button + Transcended overlay listing STATE.transcendedIds.
-
-v0_2_102_passC
-- Fix: Sally Sadeyes roster portrait now points to assets/patients/sally_sadeyes.png.
-- Fix: Reset SIM._autoWinHandled in SIM.initMVP so auto-return on patient WIN works every run.
-- Debug: Added quirk event timeline buffer (SIM._quirkTimeline) and per-instance accumulator; Debug panel now shows event-based timeline (time/type/tier/well/force).
-
-
-v0_2_103_passD
-- FIX: systems_dispositions.js now creates and populates SIM._quirkTimeline (authoritative) by pushing one entry per quirk instance when it ends (tStart/tEnd/dur/type/tier/hue/force). Buffer capped at 60.
-- DEBUG: Debug panel timeline now timestamps by tStart (mm:ss) and gaps use start times; shows optional cadence state when available.
-- TUNE: Added GLOBAL quiet/burst cadence windows for random dispositions only (Poisson-like, but modulated). Scheduled mode unchanged.
-- CLEAN: disposition console logs gated behind ?dispconsole=1.
+Run root: open docs/index.html

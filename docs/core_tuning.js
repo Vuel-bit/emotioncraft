@@ -87,7 +87,7 @@
     // Testing-friendly energy (can tune down later)
     E_MAX: 200,
     E_REGEN: 1, // energy per second
-    ENERGY_START: 10,
+    ENERGY_START: 0,
     ENERGY_REGEN_PER_SEC: 1,
     ENERGY_CAP: 200,
 
@@ -188,15 +188,15 @@ BREAK_WARN_FLASH_SEC: 1.0,
     // ---------------------------------------------------------------------
     // Mindset total psyche targets (sum across 6 hues). Each label samples from a range.
     PAT_MINDSET_TOTAL_RANGES: {
-      Spent: [525, 675],        // ~600 ±75
-      Drained: [725, 875],      // ~800 ±75
-      Steady: [925, 1075],      // ~1000 ±75
-      Antsy: [1125, 1275],      // ~1200 ±75
-      Overwhelmed: [1325, 1475] // ~1400 ±75
+      Spent: [500, 800],
+      Drained: [800, 1100],
+      Steady: [1100, 1500],
+      Antsy: [1500, 2000],
+      Overwhelmed: [2000, 2500]
     },
     // Mindset distribution guardrails
     PAT_PSY_START_MIN: 50,
-    PAT_PSY_START_MAX: 350,
+    PAT_PSY_START_MAX: 450,
 
     // Spread template shape parameters (relative to avg = total/6)
     // ≥30% tilt for Tilted/Split, ≥70% spike for Spike.
@@ -207,11 +207,11 @@ BREAK_WARN_FLASH_SEC: 1.0,
     // Vibe: starting wells
     PAT_VIBE_LABELS: ['Crisis', 'Blah', 'Mid', 'Anxious', 'Freaking'],
     PAT_VIBE_BANDS: {
-      Crisis:   [-75, -50],
-      Blah:     [-50, -25],
-      Mid:      [-25,  25],
-      Anxious:  [ 25,  50],
-      Freaking: [ 50,  75]
+      Crisis:   [-70, -50],
+      Blah:     [-50, -30],
+      Mid:      [-20,  20],
+      Anxious:  [ 30,  50],
+      Freaking: [ 50,  70]
     },
     PAT_VIBE_FLIP_CHANCE: 0.10,
     PAT_VIBE_MAX_FLIPS: 3,
@@ -404,18 +404,60 @@ BREAK_WARN_FLASH_SEC: 1.0,
 
   };
 
-  // Shared hue display helper (presentation-only)
-  // Used by lobby/objective UI to show consistent well names without touching mechanics.
-  EC.hueLabel = EC.hueLabel || function hueLabel(i) {
+  // Shared naming helpers (presentation-only)
+  // Single source of truth for hue/well names across UI/logging.
+  // Canonical APIs:
+  //   EC.hueKey(i)        -> 'red'/'purple'/... (index->hue string)
+  //   EC.hueTitle(i)      -> 'Red'/'Purple'/... (title-cased hue)
+  //   EC.wellLabelByHue(h)-> 'Grit'/'Ego'/... (hue->well label)
+  //   EC.wellLabel(i)     -> 'Grit'/'Ego'/... (index->well label)
+  // Back-compat: EC.hueLabel(i) forwards to EC.wellLabel(i).
+
+  EC.wellLabelByHue = EC.wellLabelByHue || function wellLabelByHue(hue) {
     try {
-      const hues = (EC.CONST && EC.CONST.HUES) || EC.HUES || ['red','purple','blue','green','yellow','orange'];
-      const h = hues[i];
+      const h = (hue != null) ? String(hue) : '';
+      // Prefer tuned render names (authoritative for presentation).
       const names = EC.TUNE && EC.TUNE.RENDER && EC.TUNE.RENDER.MVP_WELL_NAME;
-      return (names && h && names[h]) ? names[h] : (h ? (h.charAt(0).toUpperCase() + h.slice(1)) : `Hue ${i}`);
-    } catch (e) {
+      if (names && h && names[h]) return String(names[h]);
+
+      // Fallback to canonical well display names via hue->index.
+      const hues = (EC.CONST && EC.CONST.HUES) || EC.HUES || null;
+      const idx = (hues && h) ? hues.indexOf(h) : -1;
+      const disp = (EC.CONST && EC.CONST.WELL_DISPLAY_NAMES) || null;
+      if (idx >= 0 && disp && disp[idx]) return String(disp[idx]);
+
+      // Last resort: title-case hue.
+      if (h) return h.charAt(0).toUpperCase() + h.slice(1);
+      return '';
+    } catch (_) {
+      return '';
+    }
+  };
+
+  EC.wellLabel = EC.wellLabel || function wellLabel(i) {
+    try {
+      const hue = (typeof EC.hueKey === 'function')
+        ? EC.hueKey(i)
+        : (((EC.CONST && EC.CONST.HUES) || EC.HUES || ['red','purple','blue','green','yellow','orange'])[i]);
+      if (!hue) return `Hue ${i}`;
+      const out = (typeof EC.wellLabelByHue === 'function') ? EC.wellLabelByHue(hue) : '';
+      return out || `Hue ${i}`;
+    } catch (_) {
       return `Hue ${i}`;
     }
   };
+
+  // Backward-compat alias used by older modules/patient system.
+  EC.hueLabel = function hueLabel(i) {
+    try {
+      return (typeof EC.wellLabel === 'function') ? EC.wellLabel(i) : (`Hue ${i}`);
+    } catch (_) {
+      return `Hue ${i}`;
+    }
+  };
+
+
+
 
 
 

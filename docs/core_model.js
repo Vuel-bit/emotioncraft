@@ -96,6 +96,19 @@
   }
 
   function clamp(v, a, b) { return Math.max(a, Math.min(b, v)); }
+
+  function _ecStartEnergy() {
+    const T = EC.TUNE || {};
+    const base = (typeof T.ENERGY_START === 'number') ? T.ENERGY_START : 0;
+    const cap = (typeof T.ENERGY_CAP === 'number') ? T.ENERGY_CAP : 200;
+    let bonus = 0;
+    try {
+      if (EC.PAT && typeof EC.PAT.getStartEnergyBonus === 'function') bonus = (EC.PAT.getStartEnergyBonus() || 0);
+    } catch (_) {}
+    return clamp(base + bonus, 0, cap);
+  }
+
+
   function lerp(a, b, t) { return a + (b - a) * t; }
   function sign0(v) { return v === 0 ? 0 : (v > 0 ? 1 : -1); }
 
@@ -285,7 +298,7 @@ function netSwirl(w, now) {
   SIM.holdRequired = (typeof SIM.holdRequired === "number") ? SIM.holdRequired : EC.BOARDS.ZEN.holdSeconds;
   SIM.holdCurrent = (typeof SIM.holdCurrent === "number") ? SIM.holdCurrent : 0;
 
-  SIM.energy = (typeof SIM.energy === "number") ? SIM.energy : ((EC.TUNE && typeof EC.TUNE.ENERGY_START === 'number') ? EC.TUNE.ENERGY_START : 10);
+  SIM.energy = (typeof SIM.energy === "number") ? SIM.energy : _ecStartEnergy();
   // ---------------------------------------------------------------------------
   // MVP Level registry (data-driven skeleton)
   // Defines levels as data so adding levels is mostly data-only.
@@ -419,8 +432,6 @@ function netSwirl(w, now) {
     // Level skeleton
     SIM.levelId = lvl;
 
-    // Active level definition (patient sessions can supply an override)
-    SIM._activeLevelDef = defOverride ? def : null;
 
     SIM.levelState = 'playing';
     SIM.mvpLose = false;
@@ -452,13 +463,7 @@ function netSwirl(w, now) {
     if (EC.DISP && typeof EC.DISP.initLevel === 'function') {
       EC.DISP.initLevel(def || null);
     }
-
     // Reset mental-break rolling window + UI banner timers
-    if (EC.BREAK && typeof EC.BREAK.reset === 'function') {
-      EC.BREAK.reset();
-    }
-
-    // Reset break rolling-window timestamps (no impact unless breaks occur)
     if (EC.BREAK && typeof EC.BREAK.reset === 'function') {
       EC.BREAK.reset();
     }
@@ -565,7 +570,7 @@ function netSwirl(w, now) {
     }
 
     // Reset energy on level start
-    SIM.energy = (typeof T.ENERGY_START === 'number') ? T.ENERGY_START : 10;
+    SIM.energy = _ecStartEnergy();
 
     // Selection defaults + slider resync stamp
     SIM.selectedWellIndex = (typeof SIM.selectedWellIndex === 'number') ? SIM.selectedWellIndex : 0;

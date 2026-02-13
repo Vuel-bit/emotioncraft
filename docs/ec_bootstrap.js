@@ -9,7 +9,7 @@ Emotioncraft — bootstrap + hardening helpers (no gameplay behavior changes)
   const EC = (window.EC = window.EC || {});
 
   // Central build id (packaging convention)
-  EC.BUILD_ID = EC.BUILD_ID || 'v0_2_95_warncap_enumfix';
+  EC.BUILD_ID = EC.BUILD_ID || 'v0_2_103_passD';
 
   // Persistent cross-frame containers (hardening only; no gameplay/UI behavior changes)
   // Anything that must survive across frames/reset/level changes should live here.
@@ -26,13 +26,47 @@ Emotioncraft — bootstrap + hardening helpers (no gameplay behavior changes)
     mvpPrevSpinT: null,
   };
 
+
+  // Minimal module registry (best-effort; no gameplay impact)
+  EC._modules = EC._modules || {};
+  EC._registerModule = EC._registerModule || function _registerModule(name, meta) {
+    try {
+      if (!name) return;
+      const map = (EC._modules = EC._modules || {});
+      const rec = meta ? Object.assign({}, meta) : {};
+      rec.name = String(name);
+      rec.provides = Array.isArray(rec.provides) ? rec.provides : [];
+      rec.loadedAt = (typeof rec.loadedAt === 'number') ? rec.loadedAt : Date.now();
+      map[rec.name] = rec;
+      if (EC.UI_STATE && EC.UI_STATE.debugOn) {
+        console.log('[EC] module registered:', rec.name);
+      }
+    } catch (_) {
+      /* never throw */
+    }
+  };
+
+  // Safe wrapper: runs fn in try/catch; warns only in debugOn.
+  EC.safe = EC.safe || function safe(label, fn) {
+    try {
+      if (typeof fn !== 'function') return undefined;
+      return fn();
+    } catch (err) {
+      try {
+        if (EC.UI_STATE && EC.UI_STATE.debugOn) {
+          console.warn('[EC][SAFE]', label || 'safe', err);
+        }
+      } catch (_) {}
+      return undefined;
+    }
+  };
+
   // Build / handoff metadata (non-functional)
   EC.BUILD = EC.BUILD || {
-    name: 'emotioncraft-mvp-redesign',
-    chunk: 5,
-    tag: 'neighbor-throttle-spin-glyph-persist',
-    updatedAt: '2026-02-03',
-    notes: 'MVP redesign: 6 wells around psyche, no inventory; selection+apply panel; neighbor influence throttled.',
+    name: 'emotioncraft-psyche-mvp',
+    tag: 'v0_2_103_passD',
+    updatedAt: '2026-02-12',
+    notes: 'passD: roster/unlocks + quirk timeline + boot/UI safe fixes.',
   };
 
   try { console.log('[EC] Build: ' + EC.BUILD_ID); } catch (e) {}

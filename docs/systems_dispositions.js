@@ -49,6 +49,13 @@
   }
 
   function hueName(idx) {
+    try {
+      if (typeof EC.wellLabel === 'function') {
+        const v = EC.wellLabel(idx);
+        if (v && String(v).indexOf('Hue ') !== 0) return String(v);
+      }
+    } catch (_) {}
+
     const N = (EC.CONST && EC.CONST.WELL_DISPLAY_NAMES) || null;
     if (N && N[idx]) return String(N[idx]);
 

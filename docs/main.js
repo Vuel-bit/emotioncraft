@@ -9,7 +9,7 @@
   const EC = (window.EC = window.EC || {});
 
   // Build label used by UI summary/debug
-  EC.BUILD = EC.BUILD || 'v0_2_63_resolve_failsafe_unified';
+  EC.BUILD = EC.BUILD || 'v0_2_103_passD';
 
   // -----------------------------
   // Pixi setup
@@ -514,105 +514,21 @@ function _stageDbg(ev, kind) {
   _ilog(`PIXI STAGE ${kind} pid=${pid} x=${x} y=${y} src=${src}`);
 }
 
-  function _wellIndexById(wellId) {
-    const SIM = EC.SIM;
-    if (!SIM || !Array.isArray(SIM.wells)) return -1;
-    for (let k = 0; k < SIM.wells.length; k++) {
-      if (SIM.wells[k] && SIM.wells[k].id === wellId) return k;
-    }
-    return -1;
-  }
 
-  function _resolveActiveGestureFromStage(ev, isOutside) {
-    // NOTE: Stage fallback should only resolve pointer-based gestures.
-    // Touch gestures are resolved via DOM touchend/touchcancel.
-    const st = (EC.INPUT && EC.INPUT.gestureState) ? EC.INPUT.gestureState : (EC.RENDER && EC.RENDER._gesture);
-    if (!st || !st.active) return;
-    if (st.kind && st.kind !== 'pointer') return;
-
-    const pid = _pidFromEv(ev);
-    if (st.pid != null && st.pid >= 0 && pid != null && pid >= 0 && pid !== st.pid) return;
-
-    const getXY = EC.RENDER && EC.RENDER._getClientXY;
-    const setDbg = EC.RENDER && EC.RENDER._setGestureDebug;
-    const xy = (getXY ? getXY(ev) : null);
-    if (!xy) return;
-    const x = xy.x, y = xy.y, oe = xy.oe;
-    try { if (oe && typeof oe.preventDefault === 'function') oe.preventDefault(); } catch (_) {}
-
-    const t1 = (performance && performance.now) ? performance.now() : Date.now();
-    const dt = t1 - (st.t0 || t1);
-    const dx = x - (st.x0 || x);
-    const dy = y - (st.y0 || y);
-
-    const THRESH_MS = 400;
-    const THRESH_PX = 18;
-    const adx = Math.abs(dx);
-    const ady = Math.abs(dy);
-    const dist = Math.max(adx, ady);
-    const isFlick = (dt <= THRESH_MS) && (dist >= THRESH_PX);
-
-    // Determine target well index
-    let iWell = -1;
-    if (typeof st.well === 'number') iWell = st.well;
-    else if (typeof st.wellId !== 'undefined') iWell = _wellIndexById(st.wellId);
-
-    // Clear gesture deterministically (canonical state)
-    try {
-      if (EC.INPUT && typeof EC.INPUT.clearGesture === 'function') EC.INPUT.clearGesture('stage_resolve', { outside: !!isOutside, dt: Math.round(dt) });
-      else { st.active = 0; st.key = ''; }
-    } catch (_) {}
-
-    if (!isFlick) {
-      try { if (iWell >= 0 && EC.SIM) EC.SIM.selectedWellIndex = iWell; } catch (_) {}
-      if (setDbg) setDbg(`SWIPE: up(stage) dt=${dt.toFixed(0)} dx=${dx.toFixed(0)} dy=${dy.toFixed(0)} => TAP`);
-      return;
-    }
-
-    let dA = 0, dS = 0;
-    let dirTxt = '';
-    if (adx > ady) { dS = (dx > 0) ? +5 : -5; dirTxt = (dS > 0) ? 'RIGHT (S+5)' : 'LEFT (S-5)'; }
-    else { dA = (dy < 0) ? +5 : -5; dirTxt = (dA > 0) ? 'UP (A+5)' : 'DOWN (A-5)'; }
-
-    const fn = EC.UI_CONTROLS && typeof EC.UI_CONTROLS.flickStep === 'function' ? EC.UI_CONTROLS.flickStep : null;
-    const toast = EC.UI_CONTROLS && typeof EC.UI_CONTROLS.toast === 'function' ? EC.UI_CONTROLS.toast : null;
-    const SIM = EC.SIM;
-
-    if (!fn || iWell < 0) {
-      if (toast) toast('Select a Well first.');
-      if (setDbg) setDbg(`SWIPE: up(stage) dt=${dt.toFixed(0)} dx=${dx.toFixed(0)} dy=${dy.toFixed(0)} => FLICK (no index)`);
-      return;
-    }
-
-    try { SIM.selectedWellIndex = iWell; } catch (_) {}
-
-    let res = null;
-    try { res = fn(iWell, dA, dS) || { ok: false, reason: 'unknown' }; } catch (e) { res = { ok: false, reason: 'exception' }; }
-
-    if (!res.ok) {
-      if (res.reason === 'noenergy') {
-        if (toast) toast('Not enough Energy.');
-        try {
-          if (EC.SFX && typeof EC.SFX.error === 'function') EC.SFX.error();
-          else if (EC.SFX && typeof EC.SFX.play === 'function') EC.SFX.play('bong_001');
-        } catch (_) {}
-      }
-      // keep silent for other failure reasons
-      if (setDbg) setDbg(`SWIPE: up(stage) dt=${dt.toFixed(0)} dx=${dx.toFixed(0)} dy=${dy.toFixed(0)} => ${dirTxt} ❌`);
-      return;
-    }
-
-    if (EC.SFX && typeof EC.SFX.tick === 'function') EC.SFX.tick();
-    if (setDbg) setDbg(`SWIPE: up(stage) dt=${dt.toFixed(0)} dx=${dx.toFixed(0)} dy=${dy.toFixed(0)} => ${dirTxt} APPLIED ✅${isOutside ? ' (upoutside)' : ''}`);
-  }
 
   // Stage-level fallback handlers (mobile reliability)
 // Stage-level instrumentation (does not affect gameplay)
 app.stage.on('pointerdown', (ev) => { _stageDbg(ev,'pointerdown'); });
 app.stage.on('pointermove', (ev) => { _stageDbg(ev,'pointermove'); });
 
-  app.stage.on('pointerup', (ev) => { _stageDbg(ev,'pointerup'); _resolveActiveGestureFromStage(ev, false); });
-  app.stage.on('pointerupoutside', (ev) => { _stageDbg(ev,'pointerupoutside'); _resolveActiveGestureFromStage(ev, true); });
+  app.stage.on('pointerup', (ev) => {
+  _stageDbg(ev,'pointerup');
+  if (EC.INPUT && typeof EC.INPUT.resolveActiveGestureFromStagePointerUp === 'function') EC.INPUT.resolveActiveGestureFromStagePointerUp(ev, false);
+});
+  app.stage.on('pointerupoutside', (ev) => {
+  _stageDbg(ev,'pointerupoutside');
+  if (EC.INPUT && typeof EC.INPUT.resolveActiveGestureFromStagePointerUp === 'function') EC.INPUT.resolveActiveGestureFromStagePointerUp(ev, true);
+});
   app.stage.on('pointercancel', (ev) => {
   _stageDbg(ev,'pointercancel');
   const st = (EC.INPUT && EC.INPUT.gestureState) ? EC.INPUT.gestureState : (EC.RENDER && EC.RENDER._gesture);
@@ -665,19 +581,20 @@ app.stage.on('pointermove', (ev) => { _stageDbg(ev,'pointermove'); });
   if (EC.tick) app.ticker.add(EC.tick);
 
   // SFX init (safe no-op until unlocked by user gesture)
-  try { if (EC.SFX && typeof EC.SFX.init === 'function') EC.SFX.init(); } catch (_) {}
-
+  if (typeof EC.safe === 'function') {
+    EC.safe('SFX.init', () => { if (EC.SFX && typeof EC.SFX.init === 'function') EC.SFX.init(); });
+  } else {
+    try { if (EC.SFX && typeof EC.SFX.init === 'function') EC.SFX.init(); } catch (_) {}
+  }
   // -----------------------------
   // Start
   // -----------------------------
-  if (EC.init) 
-
   // Hardening: verify required surface exists (no-op when healthy)
   if (EC.assertReady) {
     EC.assertReady('boot', ["EC.TUNING", "EC.makeWell", "EC.ensureWellView", "EC.applyImprintToWell", "EC.initUI", "EC.SIM"]);
   }
 
-EC.init();
+  if (typeof EC.init === 'function') EC.init();
 
   // Post-load layout reliability on mobile:
   // do a deterministic "double rAF" recompute after initial paint.

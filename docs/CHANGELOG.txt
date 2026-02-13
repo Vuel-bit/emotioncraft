@@ -1,29 +1,24 @@
-## v0_2_99_chunk3b_partB (2026-02-12)
-- CHUNK 3B: Removed Total Psyche cap/warning/break system (per-hue cap only).
-- CHUNK 3B: Center core now shows Treatment hold ring + countdown; PLAN_CHAIN hold is canonical 10s (except SPIN_ZERO).
-- CHUNK 3B: Mental breaks pause sim and show OK modal with well-name adjustments (hue bounds + jam breaks).
-- CHUNK 3B: Jam rule updates (Amount High Jam: jammed A=85, Spin +15 all, +100 to two lowest psyche; Spin Max Jam: S=+80, A+20 all, +100 to two lowest psyche).
-- Part A: Drawer layout fix so Next step stays on-screen; Zen timer standardized to 10:00 and shown in HUD; Intake congrats modal reliability + copy update.
-- Part B: Top HUD header split (Name+Traits / Quirks) with quirk text glow; Quirk scheduling enforces global min gap (T.DISP_MIN_GAP_SEC); Debug shows only raw quirk force totals by default.
+## v0_2_103_passD (2026-02-12)
+- passD Pass 1 — boot/start hardening (main.js).
+- Bootstrap: add EC._registerModule + EC.safe (debug-only warnings).
+- Bootstrap: fix BUILD_ID/BUILD metadata drift (v0_2_103_passD, 2026-02-12).
+- HUD: cache hot text/HTML writes to reduce per-tick DOM churn (no UI changes).
+- CONST: add EC.CONST.OPP compatibility alias.
+- passD Pass 2 — consolidate hue/well naming helpers (EC.hueKey/hueTitle/wellLabel*), update call sites (no text changes).
+- Input: move stage pointer-up gesture resolver from main.js into systems_input.js; main now forwards stage events.
+- SIM.initMVP: remove duplicate _activeLevelDef assignment and duplicate BREAK.reset block (no behavior changes).
+- passD Chunk 3B — roster swap + unlock gating + start-energy progression + mood/vibe tuning + break HUD text removal.
+- Dispositions (random): added global quiet/burst cadence windows (DISP_CADENCE_*), applied only to random scheduling (no force/balance math changes).
+- Dispositions: implemented authoritative per-run quirk timeline buffer (SIM._quirkTimeline), event-based and capped; accumulates unshielded force per instance.
+- Debug HUD: now prints quirk timeline (mm:ss start time, type, tier label, well name, unshielded force, duration, gap).
+- Mental breaks: no modal popup; break details append to Log overlay. Added hit-stop + HUD toast + center/well FX.
+- Psyche warning flashes restored on threshold crossing (>=450 or <=50).
+- Lobby: Heroes page for Transcended; Sally portrait wired.
+- Patient WIN auto-returns to lobby to show post-win popups; reset guard per run.
 
-## Prior (summary)
-- FIX: Lobby plan choice overlay no longer auto-hides; Start works for intake-complete patients.
-- NEW: One-time Intake Complete popup on return to lobby.
-- UI: Bottom drawer header shows 3-line current step + next step indicator.
-- SFX: Implemented EC.SFX.error() for no-energy swipe.
-- FIX: Zero Pair cost symmetric across either well selection; spend matches display.
-
-- Pass A: Next-step drawer fixed + multi-line next step; Log overlay w/ pause; mental breaks logged + hit-stop + FX (no modal); psyche 450/50 flash restored; no-energy SFX via EC.SFX.error; removed fragile trait.
-
-- Pass B: Sally portrait now loads (assets/patients/sally_sadeyes.png); in-game portrait nudged up/right; patient WIN auto-returns to lobby (no SUCCESS banner); added lobby Heroes button + Transcended overlay.
-
-v0_2_102_passC
-- FIX Sally portrait wiring (roster portrait path).
-- FIX Reset patient WIN auto-return guard each run.
-- DEBUG Add quirk timeline (event-based) and show it in Debug panel; keep totals as optional summary.
-
-v0_2_103_passD
-- FIX Implement SIM._quirkTimeline as real per-instance end-event buffer (tStart/tEnd/dur/type/tier/hue/force), capped at 60.
-- DEBUG Timeline uses tStart for mm:ss and gaps; optional cadence line shown.
-- TUNE Add global quiet/burst cadence modulation for random dispositions scheduling only (no scheduled-mode changes).
-- CLEAN Gate dispositions console spam behind ?dispconsole=1.
+- passD Chunk 3A — warn flashes + goal sync + log + break banner cleanup.
+## Prior notable changes (rolled into this build lineage)
+- Total Psyche cap system removed; psyche is per-hue only (0..500).
+- Center core replaced with Treatment hold ring + countdown (PLAN_CHAIN).
+- Zen timer standardized to 10:00 and shown in HUD during Zen.
+- Set-0 costs are integer energy units (display/gate/spend match).
