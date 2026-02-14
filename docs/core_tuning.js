@@ -136,7 +136,7 @@ BREAK_WARN_FLASH_SEC: 1.0,
     ZEN_HIGH: 120,
     ZEN_HOLD_SECONDS: 10,
     // Zen run time limit (displayed in HUD)
-    ZEN_TIME_LIMIT_SEC: 10 * 60,
+    ZEN_TIME_LIMIT_SEC: 12 * 60,
 
     // Dispositions (v2) — external well-only waves (Level 3)
     DISP_DEFAULT_DURATION: 30,
@@ -188,11 +188,11 @@ BREAK_WARN_FLASH_SEC: 1.0,
     // ---------------------------------------------------------------------
     // Mindset total psyche targets (sum across 6 hues). Each label samples from a range.
     PAT_MINDSET_TOTAL_RANGES: {
-      Spent: [500, 800],
-      Drained: [800, 1100],
-      Steady: [1100, 1500],
-      Antsy: [1500, 2000],
-      Overwhelmed: [2000, 2500]
+      Spent: [600, 900],
+      Drained: [900, 1300],
+      Steady: [1300, 1700],
+      Antsy: [1700, 2100],
+      Overwhelmed: [2100, 2400]
     },
     // Mindset distribution guardrails
     PAT_PSY_START_MIN: 50,

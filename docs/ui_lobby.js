@@ -36,6 +36,7 @@
       btnAuthSignIn: $("btnAuthSignIn"),
       btnAuthSignOut: $("btnAuthSignOut"),
       authUser: $("authUser"),
+      startEnergyEl: $("lobbyStartEnergy"),
       portraitImg: $("lobbyPortraitImg"),
       detailsName: $("lobbyDetailsName"),
       detailsTagline: $("lobbyDetailsTagline"),
@@ -1132,6 +1133,22 @@ function render() {
     if (want) {
       // Keep auth UI fresh while lobby is visible.
       try { updateAuthUI(els); } catch (_) {}
+
+      // Lobby: show the session starting energy (same logic as core_model.js uses).
+      try {
+        if (els.startEnergyEl) {
+          const T = EC.TUNE || {};
+          const base = (typeof T.ENERGY_START === 'number') ? T.ENERGY_START : 0;
+          const cap = (typeof T.ENERGY_CAP === 'number') ? T.ENERGY_CAP : ((typeof T.E_MAX === 'number') ? T.E_MAX : 200);
+          let bonus = 0;
+          try {
+            if (EC.PAT && typeof EC.PAT.getStartEnergyBonus === 'function') bonus = (EC.PAT.getStartEnergyBonus() || 0);
+          } catch (_) { bonus = 0; }
+          const x = Math.max(0, Math.min(cap, base + bonus));
+          els.startEnergyEl.textContent = `Starting Energy: ${Math.round(x)}`;
+          els.startEnergyEl.style.display = '';
+        }
+      } catch (_) {}
       // Toggle Resume visibility based on whether there's a paused, resumable session.
       const isWin = (SIM.levelState === 'win') || !!SIM.mvpWin;
       const isLose = (SIM.levelState === 'lose') || !!SIM.mvpLose || !!SIM.gameOver;

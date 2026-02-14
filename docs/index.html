@@ -64,13 +64,13 @@
       white-space: pre-line;
       overflow: hidden;
     }
-    .hudLine1,
+    /* Allow name line (Line1) to wrap so traits remain readable on mobile. */
     .hudLine2{
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
+      opacity: 0.92;
     }
-    .hudLine2{ opacity: 0.92; }
     .hudTraitWord{
       font-weight: 800;
       margin-left: 6px;
@@ -312,6 +312,7 @@
     /* Lobby auth mini-row (minimal functional scaffolding) */
     .lobbyAuth{ display:flex; justify-content:flex-end; align-items:center; gap: 8px; margin: 0 0 10px 0; flex-wrap: wrap; }
     .lobbyAuthUser{ font-size: 12px; color: rgba(232,238,252,0.72); max-width: 420px; overflow:hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .lobbyStartEnergy{ font-size: 12px; color: rgba(232,238,252,0.72); opacity: 0.88; white-space: nowrap; }
     .lobbyBtn[disabled]{ opacity: 0.55; cursor: not-allowed; }
 
     .lobbyDetails{
@@ -840,6 +841,7 @@
       <div class="lobbyAuth" id="lobbyAuth" aria-hidden="false">
         <button id="btnAuthSignIn" class="lobbyBtn">Sign in with Google</button>
         <div id="authUser" class="lobbyAuthUser" style="display:none;"></div>
+        <div id="lobbyStartEnergy" class="lobbyStartEnergy">Starting Energy: 0</div>
         <button id="btnAuthSignOut" class="lobbyBtn" style="display:none;">Sign out</button>
       </div>
 
@@ -897,7 +899,7 @@
   
   <div class="energyHud" id="energyHud">⚡ 0/200</div>
 
-  <div class="zenTimerHud" id="zenTimerHud" aria-hidden="true">ZEN 10:00</div>
+  <div class="zenTimerHud" id="zenTimerHud" aria-hidden="true">ZEN 12:00</div>
 
 <div class="drawer" id="drawer">
     <div class="drawerTop" style="margin-bottom:6px;">

@@ -93,7 +93,7 @@ const SIM = (EC.SIM = EC.SIM || {
     const _pk = String(SIM._activePlanKey || '').toUpperCase();
     const _isTimed = (_pk === 'ZEN' || _pk === 'TRANQUILITY' || _pk === 'TRANSCENDENCE');
     if (_isTimed) {
-      const LIMIT = (typeof T.ZEN_TIME_LIMIT_SEC === 'number') ? T.ZEN_TIME_LIMIT_SEC : (10 * 60);
+      const LIMIT = (typeof T.ZEN_TIME_LIMIT_SEC === 'number') ? T.ZEN_TIME_LIMIT_SEC : (12 * 60);
       if (typeof SIM.zenTimeRemainingSec !== 'number' || !isFinite(SIM.zenTimeRemainingSec)) {
         SIM.zenTimeRemainingSec = LIMIT;
       }

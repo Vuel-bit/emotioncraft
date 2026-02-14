@@ -456,7 +456,7 @@ function netSwirl(w, now) {
     const _isTimedPlan = (_timedKey === 'ZEN' || _timedKey === 'TRANQUILITY' || _timedKey === 'TRANSCENDENCE');
     if (_isTimedPlan) {
       const T = EC.TUNE || {};
-      SIM.zenTimeRemainingSec = (typeof T.ZEN_TIME_LIMIT_SEC === 'number') ? T.ZEN_TIME_LIMIT_SEC : (10 * 60);
+      SIM.zenTimeRemainingSec = (typeof T.ZEN_TIME_LIMIT_SEC === 'number') ? T.ZEN_TIME_LIMIT_SEC : (12 * 60);
     } else {
       SIM.zenTimeRemainingSec = null;
     }

@@ -521,8 +521,8 @@
       }
       if (patientInfoEl) {
         // Top HUD: 2-line patient header
-        // Line1: Name + Traits (single-word, colored)
-        // Line2: Quirks as colored words (Lobby-style labels) with telegraph/active glow
+        // Line1: Name + Traits (plain text)
+        // Line2: Quirks as colored pills with telegraph/active glow
 
         const esc = (s) => String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 
@@ -533,9 +533,10 @@
         } catch (_) { traits = []; }
 
         const traitLabel = (k) => {
-          const s = String(k || '').trim();
-          if (!s) return '';
-          return s.charAt(0).toUpperCase() + s.slice(1);
+          const raw = String(k || '').trim();
+          if (!raw) return '';
+          const s = raw.replace(/[_\-]+/g, ' ').replace(/\s+/g, ' ').trim().toLowerCase();
+          return s.replace(/\b\w/g, (m) => m.toUpperCase());
         };
         // Quirks source of truth
         let patientId = (def && def._patientId) ? def._patientId : null;
@@ -579,9 +580,13 @@
 
         let line1 = `<span class="hudPatientName">${esc(pName)}</span>`;
         if (traits && traits.length) {
+          const labs = [];
           for (const tr of traits) {
             const lab = traitLabel(tr);
-            if (!lab) continue;            line1 += ` <span class="hudTraitWord">${esc(lab)}</span>`;
+            if (lab) labs.push(lab);
+          }
+          if (labs.length) {
+            line1 += ` — ${esc(labs.join(', '))}`;
           }
         }
 
