@@ -485,6 +485,13 @@
   // Random schedule state (slot-based)
   // Each slot is an independent exponential clock.
   let _slots = [];         // [{ tpl, nextT }]
+
+  // Random schedule state (ramp-based)
+  // Pre-partitioned pool per tier to avoid per-second scans.
+  let _poolByTier = [[], [], []];
+  // Per-template ramp timers (random mode only): each tpl tracks elapsed seconds and lock state.
+  // Guard to ensure ramp checks only run when crossing whole seconds.
+  let _lastWholeSec = -1;
   // Multiple concurrent disposition instances (telegraph or active).
   // Constraint enforced: at most one instance per well in telegraph OR active.
   // Instance shape:
@@ -675,10 +682,19 @@
       _mode = 'random';
       const src = (levelDef && Array.isArray(levelDef.dispositionsPool)) ? levelDef.dispositionsPool : ((levelDef && Array.isArray(levelDef.dispositions)) ? levelDef.dispositions : []);
       _pool = src.map((d) => normWave(d, false));
-      // Cadence (quiet/burst) scheduling is global and applies only in random mode.
-      _cadenceInit();
-      _cadenceTick(_t);
-      buildSlotsFromPool(_t);
+      // Ramp-based random scheduling: pre-partition the pool per tier once.
+      _poolByTier = [[], [], []];
+      for (let i = 0; i < _pool.length; i++) {
+        const tpl = _pool[i];
+        if (tpl) { tpl._rampElapsedSec = 0; tpl._rampLocked = false; }
+        const tier = (tpl && typeof tpl.intensityTier === 'number') ? (tpl.intensityTier | 0) : 0;
+        if (tier >= 0 && tier <= 2) _poolByTier[tier].push(tpl);
+      }
+      _lastWholeSec = 0;
+
+      // Slot/cadence scheduling is legacy and intentionally disabled for random mode in this build.
+      _slots = [];
+      try { EC.SIM._dispCadenceDbg = null; } catch (_) {}
       return;
     }
 
@@ -772,8 +788,62 @@
     _renderList = [];
 
     if (_mode === 'random') {
-      _cadenceTick(_t);
       const retryDelay = 0.5;
+
+      // Ramp-based random scheduling (random mode only):
+      // Per-template ramp timers: each tpl increments once per second while idle.
+      // At most one new quirk is scheduled per second.
+      const STEP_BY_TIER = [0.025, 0.05, 0.1]; // tier 0/1/2
+
+      function tplWeight(tpl) {
+        const w = (tpl && typeof tpl._freqMult === 'number') ? Number(tpl._freqMult) : 1;
+        return (isFinite(w) && w > 0) ? w : 1;
+      }
+
+      function pickWeightedTpl(arr) {
+        if (!arr || arr.length === 0) return null;
+        let sum = 0;
+        for (let i = 0; i < arr.length; i++) sum += tplWeight(arr[i]);
+        if (!(sum > 0)) return arr[(Math.random() * arr.length) | 0];
+        let r = Math.random() * sum;
+        for (let i = 0; i < arr.length; i++) {
+          r -= tplWeight(arr[i]);
+          if (r <= 0) return arr[i];
+        }
+        return arr[arr.length - 1];
+      }
+
+      function rampTickOneSecond(nowT) {
+        const winners = [];
+        for (let i = 0; i < _pool.length; i++) {
+          const tpl = _pool[i];
+          if (!tpl) continue;
+          if (tpl._rampLocked) continue; // idle-only increment/roll
+          tpl._rampElapsedSec = (tpl._rampElapsedSec | 0) + 1;
+          const tier = (tpl && typeof tpl.intensityTier === 'number') ? (tpl.intensityTier | 0) : 0;
+          const step = (tier >= 0 && tier <= 2) ? STEP_BY_TIER[tier] : STEP_BY_TIER[0];
+          const chance = Math.min(1, (tpl._rampElapsedSec | 0) * step);
+          if (Math.random() < chance) winners.push(tpl);
+        }
+        if (winners.length === 0) return;
+
+        const chosen = pickWeightedTpl(winners);
+        if (!chosen) return;
+
+        // Preserve a full telegraph window: schedule fireAt = now + telegraph.
+        enqueuePending({ tpl: chosen, slotIdx: -1, fireAt: nowT + tele });
+        // Lock immediately; unlock/reset only when this tpl's instance ends (or cancelAll/break reset).
+        chosen._rampLocked = true;
+      }
+
+      // Run ramp checks only when crossing whole seconds.
+      const wholeNow = Math.floor(_t);
+      if (wholeNow > _lastWholeSec) {
+        for (let s = _lastWholeSec + 1; s <= wholeNow; s++) {
+          rampTickOneSecond(_t);
+        }
+        _lastWholeSec = wholeNow;
+      }
 
       function isReservedWell(idx) {
         for (let k = 0; k < _instances.length; k++) {
@@ -790,16 +860,30 @@
         return free;
       }
 
+      // Returns:
+      //   1 = telegraph started
+      //   0 = no free well (retry-delay)
+      //  -1 = deferred (min-gap pushed fireAt; preserve full telegraph)
       function beginTelegraphFromPending(p) {
-        const free = getFreeWells();
-        if (free.length === 0) return false;
-        const hi = free[(Math.random() * free.length) | 0];
         const tpl = p.tpl;
-        const type = tpl.type;
+        if (!tpl) return 1;
         // Enforce global minimum gap between scheduled events so telegraphs don't clump.
+        // IMPORTANT: preserve full telegraph by delaying start if min-gap pushes fireAt forward.
         const mg = minGapSec();
         let fireAt = Number(p.fireAt || 0);
-        if (mg > 0 && fireAt < (_lastScheduledFireAt + mg)) fireAt = _lastScheduledFireAt + mg;
+        if (mg > 0 && fireAt < (_lastScheduledFireAt + mg)) {
+          fireAt = _lastScheduledFireAt + mg;
+          p.fireAt = fireAt;
+          // keep sorted by fireAt
+          _pending.sort((a, b) => a.fireAt - b.fireAt);
+          return -1;
+        }
+
+        const free = getFreeWells();
+        if (free.length === 0) return 0;
+        const hi = free[(Math.random() * free.length) | 0];
+        const type = tpl.type;
+
         _lastScheduledFireAt = fireAt;
         const inst = {
           id: _nextId++,
@@ -816,33 +900,33 @@
           env: null
         };
         _instances.push(inst);
-        return true;
+        return 1;
       }
 
-      // 1) Announce arrivals early enough to show the full telegraph window.
-      announceArrivalsForTelegraph(_t, tele);
-
-      // 2) Start telegraphs for pending arrivals when in warning window
+      // 1) Start telegraphs for pending arrivals when in warning window
       //    If no wells are free, delay the arrival (do not discard).
       for (let i = 0; i < _pending.length; i++) {
         const p = _pending[i];
         if (!p) continue;
         if (_t < (p.fireAt - tele)) continue; // not yet in telegraph window
         // Try to allocate a free well.
-        const ok = beginTelegraphFromPending(p);
-        if (ok) {
+        const r = beginTelegraphFromPending(p);
+        if (r === 1) {
           _pending.splice(i, 1);
           i--;
-        } else {
+        } else if (r === 0) {
           // Delay and retry later
           p.fireAt = _t + retryDelay;
           // keep sorted by fireAt
           _pending.sort((a, b) => a.fireAt - b.fireAt);
           break;
+        } else {
+          // Deferred due to min-gap adjustment (fireAt already updated). Stop for this tick.
+          break;
         }
       }
 
-      // 3) Promote telegraphs to active when their fire time hits.
+      // 2) Promote telegraphs to active when their fire time hits.
       for (let k = 0; k < _instances.length; k++) {
         const inst = _instances[k];
         if (!inst || inst.state !== 'telegraph') continue;
@@ -895,11 +979,7 @@
 
           // Cache warning brightness for telegraph rendering.
           inst._warnBright = warnBrightnessForTier((inst.tpl && typeof inst.tpl.intensityTier === 'number') ? (inst.tpl.intensityTier | 0) : 0);
-          // Now that the event has actually fired, reschedule its slot and clear "announced".
-          if (inst.slotIdx != null && inst.slotIdx >= 0) {
-            rescheduleSlot(inst.slotIdx, inst.fireAt);
-            if (_slots && _slots[inst.slotIdx]) _slots[inst.slotIdx].announced = false;
-          }
+          // Slot-based rescheduling is intentionally unused in ramp-based random mode.
           // Roll is per-event; record fire for debug stats
           if (EC.DEBUG) _dbgFireTs.push(_t);
         }
@@ -1040,6 +1120,11 @@
                 SIM._quirkTimeline.push(e);
                 while (SIM._quirkTimeline.length > 60) SIM._quirkTimeline.shift();
               }
+            } catch (_) {}
+            // Per-template ramp: unlock/reset only when this instance ends.
+            try {
+              const tpl = inst.tpl;
+              if (tpl) { tpl._rampLocked = false; tpl._rampElapsedSec = 0; }
             } catch (_) {}
             _instances.splice(k, 1);
             k--;
@@ -1190,6 +1275,18 @@
       }
     }
 
+    // Reset per-template ramp timers/locks (random mode only).
+    try {
+      if (_pool && _pool.length) {
+        for (let i = 0; i < _pool.length; i++) {
+          const tpl = _pool[i];
+          if (tpl) { tpl._rampLocked = false; tpl._rampElapsedSec = 0; }
+        }
+      }
+    } catch (_) {}
+    // Align whole-second guard so we don't immediately ramp/schedule on the same tick as a break.
+    try { _lastWholeSec = Math.floor(_t); } catch (_) {}
+
     _hud.telegraphText = '';
     _hud.activeText = '';
     // Reset safety net so we don't immediately re-fire a stacked burst after a break.
@@ -1200,5 +1297,13 @@
       const nexts = _slots.map(s => (s ? (s.nextT != null ? Number(s.nextT).toFixed(1) : 'na') : 'na')).join(',');
       console.log('[EC] DISP cancelAll (break): scheduler intact. slots=' + _slots.length + ' nextT=[' + nexts + ']');
     }
+  };
+
+  // Public helper: reset all quirk timers and cancel any pending/telegraph/active quirks.
+  // Safe/no-throw; used by mental breaks so quirks do not carry through a break.
+  EC.DISP.resetAllQuirkTimers = function resetAllQuirkTimers() {
+    try {
+      if (EC.DISP && typeof EC.DISP.cancelAll === 'function') EC.DISP.cancelAll();
+    } catch (_) {}
   };
 })();

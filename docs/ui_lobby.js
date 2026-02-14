@@ -681,6 +681,41 @@
           els.portraitImg.style.opacity = '0';
         }
       }
+
+      // Milestone badges (below portrait)
+      try {
+        let ms = document.getElementById('lobbyMilestones');
+        const parent = (els.portraitImg && els.portraitImg.parentNode) ? els.portraitImg.parentNode : null;
+        if (!ms && parent) {
+          ms = document.createElement('div');
+          ms.id = 'lobbyMilestones';
+          ms.style.marginTop = '6px';
+          ms.style.display = 'flex';
+          ms.style.justifyContent = 'center';
+          ms.style.gap = '8px';
+          ms.style.flexWrap = 'wrap';
+          parent.appendChild(ms);
+        }
+
+        if (ms) {
+          ms.innerHTML = '';
+          const addPill = (txt) => {
+            const sp = document.createElement('span');
+            sp.textContent = txt;
+            sp.style.padding = '2px 8px';
+            sp.style.borderRadius = '999px';
+            sp.style.border = '1px solid rgba(255,255,255,0.12)';
+            sp.style.background = 'rgba(255,255,255,0.08)';
+            sp.style.fontSize = '11px';
+            sp.style.fontWeight = '700';
+            ms.appendChild(sp);
+          };
+
+          if (p && p.zenDone) addPill('Zen ✓');
+          if (p && p.tranquilityDone) addPill('Tranquility ✓');
+          ms.style.display = (p && (p.zenDone || p.tranquilityDone)) ? 'flex' : 'none';
+        }
+      } catch (_) {}
     } catch (_) {}
   }
 
@@ -867,7 +902,7 @@
           return;
         }
 
-        // Otherwise: choose plan (Weekly vs Zen) WITHOUT reserving/removing yet.
+        // Otherwise: choose plan WITHOUT reserving/removing yet.
         pendingPlanPickPatientId = pid;
         showPlanChoice(els, p.name);
       });
@@ -898,6 +933,31 @@
         });
       }
 
+      if (els.planTranquilityBtn && !els.planTranquilityBtn._ecBound) {
+        els.planTranquilityBtn._ecBound = true;
+        els.planTranquilityBtn.addEventListener('click', () => {
+          const pid = pendingPlanPickPatientId;
+          pendingPlanPickPatientId = null;
+          hidePlanChoice(els);
+          if (pid && EC.PAT && EC.PAT.beginFromLobby) EC.PAT.beginFromLobby(pid);
+          if (EC.PAT && EC.PAT.startPending) EC.PAT.startPending('TRANQUILITY');
+          SIM.inLobby = false;
+          hide(els);
+        });
+      }
+      if (els.planTranscendenceBtn && !els.planTranscendenceBtn._ecBound) {
+        els.planTranscendenceBtn._ecBound = true;
+        els.planTranscendenceBtn.addEventListener('click', () => {
+          const pid = pendingPlanPickPatientId;
+          pendingPlanPickPatientId = null;
+          hidePlanChoice(els);
+          if (pid && EC.PAT && EC.PAT.beginFromLobby) EC.PAT.beginFromLobby(pid);
+          if (EC.PAT && EC.PAT.startPending) EC.PAT.startPending('TRANSCENDENCE');
+          SIM.inLobby = false;
+          hide(els);
+        });
+      }
+
       if (els.planCancelBtn && !els.planCancelBtn._ecBound) {
         els.planCancelBtn._ecBound = true;
         els.planCancelBtn.addEventListener('click', () => {
@@ -917,7 +977,9 @@
     let ov = document.getElementById('planChoiceOverlay');
     let titleEl = document.getElementById('planChoiceTitle');
     let btnWeekly = document.getElementById('btnPlanWeekly');
+    let btnTranquility = document.getElementById('btnPlanTranquility');
     let btnZen = document.getElementById('btnPlanZen');
+    let btnTranscendence = document.getElementById('btnPlanTranscendence');
     let btnCancel = document.getElementById('btnPlanCancel');
 
     if (!ov) {
@@ -968,10 +1030,20 @@
       btnWeekly.className = 'lobbyBtn primary';
       btnWeekly.textContent = 'Weekly Treatment';
 
+      btnTranquility = document.createElement('button');
+      btnTranquility.id = 'btnPlanTranquility';
+      btnTranquility.className = 'lobbyBtn';
+      btnTranquility.textContent = 'Tranquility (Timed)';
+
       btnZen = document.createElement('button');
       btnZen.id = 'btnPlanZen';
       btnZen.className = 'lobbyBtn';
       btnZen.textContent = 'Zen (Timed)';
+
+      btnTranscendence = document.createElement('button');
+      btnTranscendence.id = 'btnPlanTranscendence';
+      btnTranscendence.className = 'lobbyBtn';
+      btnTranscendence.textContent = 'Transcendence (Timed)';
 
       btnCancel = document.createElement('button');
       btnCancel.id = 'btnPlanCancel';
@@ -979,7 +1051,9 @@
       btnCancel.textContent = 'Cancel';
 
       btnWrap.appendChild(btnWeekly);
+      btnWrap.appendChild(btnTranquility);
       btnWrap.appendChild(btnZen);
+      btnWrap.appendChild(btnTranscendence);
       btnWrap.appendChild(btnCancel);
       card.appendChild(btnWrap);
 
@@ -990,7 +1064,9 @@
     els.planOverlay = ov;
     els.planTitleEl = titleEl;
     els.planWeeklyBtn = btnWeekly;
+    els.planTranquilityBtn = btnTranquility;
     els.planZenBtn = btnZen;
+    els.planTranscendenceBtn = btnTranscendence;
     els.planCancelBtn = btnCancel;
   }
 
@@ -1000,9 +1076,11 @@
     if (els.planTitleEl) {
       els.planTitleEl.textContent = patientName ? `Choose a plan for ${patientName}` : 'Choose a plan';
     }
+
+    const pid = pendingPlanPickPatientId;
+
     // Weekly availability gating (no improvable/removable attributes -> hide/disable Weekly).
     try {
-      const pid = pendingPlanPickPatientId;
       const ok = !(EC.PAT && typeof EC.PAT.hasWeeklyOptions === 'function') ? true : !!EC.PAT.hasWeeklyOptions(pid);
       if (els.planWeeklyBtn) {
         els.planWeeklyBtn.style.display = ok ? '' : 'none';
@@ -1010,11 +1088,21 @@
       }
     } catch (_) {}
 
-        els.planOverlay.style.display = 'flex';
+    // Transcendence gating: only after Zen + Tranquility completed.
+    try {
+      const p = (EC.PAT && typeof EC.PAT.get === 'function') ? EC.PAT.get(pid) : null;
+      const okT = !!(p && p.zenDone && p.tranquilityDone);
+      if (els.planTranscendenceBtn) {
+        els.planTranscendenceBtn.style.display = okT ? '' : 'none';
+        els.planTranscendenceBtn.disabled = !okT;
+      }
+    } catch (_) {}
+
+    els.planOverlay.style.display = 'flex';
     _planChoiceOpen = true;
   }
 
-  function hidePlanChoice(els) {
+function hidePlanChoice(els) {
     ensurePlanChoiceUI(els);
     if (!els || !els.planOverlay) return;
     els.planOverlay.style.display = 'none';

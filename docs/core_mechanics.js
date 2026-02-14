@@ -89,11 +89,13 @@ const SIM = (EC.SIM = EC.SIM || {
       SIM._planStepFlashT = Math.max(0, SIM._planStepFlashT - dt);
     }
 
-    // Zen timed run. Only active when the level's planKey is ZEN.
-    if (String(SIM._activePlanKey || '').toUpperCase() === 'ZEN') {
-      const ZEN_LIMIT = (typeof T.ZEN_TIME_LIMIT_SEC === 'number') ? T.ZEN_TIME_LIMIT_SEC : (10 * 60);
+    // Timed patient runs (ZEN / TRANQUILITY / TRANSCENDENCE). Uses SIM.zenTimeRemainingSec.
+    const _pk = String(SIM._activePlanKey || '').toUpperCase();
+    const _isTimed = (_pk === 'ZEN' || _pk === 'TRANQUILITY' || _pk === 'TRANSCENDENCE');
+    if (_isTimed) {
+      const LIMIT = (typeof T.ZEN_TIME_LIMIT_SEC === 'number') ? T.ZEN_TIME_LIMIT_SEC : (10 * 60);
       if (typeof SIM.zenTimeRemainingSec !== 'number' || !isFinite(SIM.zenTimeRemainingSec)) {
-        SIM.zenTimeRemainingSec = ZEN_LIMIT;
+        SIM.zenTimeRemainingSec = LIMIT;
       }
       SIM.zenTimeRemainingSec = Math.max(0, SIM.zenTimeRemainingSec - dt);
       if (SIM.zenTimeRemainingSec <= 0) {
@@ -104,6 +106,7 @@ const SIM = (EC.SIM = EC.SIM || {
         return;
       }
     }
+
 
     // Ensure required arrays exist
     if (!SIM.wellsA || SIM.wellsA.length !== 6) SIM.wellsA = new Array(6).fill(50);
@@ -443,7 +446,7 @@ const SIM = (EC.SIM = EC.SIM || {
 
     if (winDef && winDef.type === 'PLAN_CHAIN' && Array.isArray(winDef.steps)) {
       const eps = (typeof T.PAT_SPIN_ZERO_EPS === 'number') ? T.PAT_SPIN_ZERO_EPS : 1.0;
-      const HOLD_REQ_SEC = 10; // canonical: all non-SPIN_ZERO steps require 10s hold
+      const psyI = (i) => Math.round(SIM.psyP[i] || 0);
       const FLASH_SEC = (typeof T.PLAN_STEP_FLASH_SEC === 'number') ? T.PLAN_STEP_FLASH_SEC : 0.45;
       if (typeof SIM.planStep !== 'number') SIM.planStep = 0;
       if (typeof SIM.planHoldSec !== 'number') SIM.planHoldSec = 0;
@@ -455,12 +458,12 @@ const SIM = (EC.SIM = EC.SIM || {
       const st = winDef.steps[stepIdx];
       const kind = st ? String(st.kind || '').toUpperCase() : '';
       const isSpinZeroStep = (kind === 'SPIN_ZERO');
-      const holdReq = isSpinZeroStep ? 0 : HOLD_REQ_SEC;
+      const holdReq = isSpinZeroStep ? 0 : ((st && typeof st.holdSec === 'number') ? st.holdSec : 10);
 
       let ok = true;
       if (kind === 'ALL_OVER') {
         const thr = (typeof st.threshold === 'number') ? st.threshold : 0;
-        for (let k = 0; k < 6; k++) { if ((SIM.psyP[k] || 0) < thr) { ok = false; break; } }
+        for (let k = 0; k < 6; k++) { if (psyI(k) < thr) { ok = false; break; } }
         SIM.goalViz = SIM.goalViz || { perHue: new Array(6).fill(null) };
         SIM.goalViz.perHue = new Array(6).fill(null).map(() => ({ type: 'OVER', target: thr }));
       } else if (kind === 'SET_BOUNDS') {
@@ -471,7 +474,7 @@ const SIM = (EC.SIM = EC.SIM || {
         const isHigh = (i) => highs.indexOf(i) >= 0;
         const isLow  = (i) => lows.indexOf(i) >= 0;
         for (let k = 0; k < 6; k++) {
-          const v = (SIM.psyP[k] || 0);
+          const v = psyI(k);
           if (isHigh(k)) { if (v < hiMin) { ok = false; break; } }
           else if (isLow(k)) { if (v > loMax) { ok = false; break; } }
         }
@@ -487,7 +490,7 @@ const SIM = (EC.SIM = EC.SIM || {
         const low = (typeof st.low === 'number') ? st.low : 0;
         const high = (typeof st.high === 'number') ? st.high : 999999;
         for (let k = 0; k < 6; k++) {
-          const v = (SIM.psyP[k] || 0);
+          const v = psyI(k);
           if (v < low || v > high) { ok = false; break; }
         }
         SIM.goalViz = SIM.goalViz || { perHue: new Array(6).fill(null) };
@@ -507,7 +510,7 @@ const SIM = (EC.SIM = EC.SIM || {
 
       // Canonical hold:
       // - SPIN_ZERO: no hold, advances immediately on satisfied
-      // - all other steps: must remain satisfied for 10s; reset if broken
+      // - all other steps: must remain satisfied for holdReq seconds; reset if broken
       // After completion: brief flash, then advance (no extra hidden delay)
       const inFlash = (SIM.planAdvanceT || 0) > 0;
       if (holdReq > 0) {
@@ -531,7 +534,7 @@ const SIM = (EC.SIM = EC.SIM || {
         SIM.planAdvanceT = 0;
       }
 
-      // Completion state: for held steps, once the 10s hold is met we treat the step as complete
+      // Completion state: for held steps, once the hold requirement is met we treat the step as complete
       // even if the condition breaks during the brief completion flash.
       const stepHeld = (holdReq <= 0) ? ok : (SIM.planHoldSec >= holdReq);
 

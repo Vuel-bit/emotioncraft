@@ -803,6 +803,7 @@ if (verbose) {
           '<div class="dbgTop">',
           '  <div class="dbgTitle">DEBUG</div>',
           '  <div class="dbgActions">',
+          '    <button class="dbgBtn" id="btnCopyDebug" type="button">Copy Debug</button>',
           '    <button class="dbgBtn" id="btnCopyInputLog" type="button">Copy Input Log</button>',
           '  </div>',
           '</div>',
@@ -815,6 +816,34 @@ if (verbose) {
         const btn = document.getElementById('btnCopyInputLog');
         if (btn) btn.style.display = verbose ? '' : 'none';
       } catch (_) {}
+
+      // Wire Copy Debug button once (copies the currently displayed debug text)
+      const btnDbg = document.getElementById('btnCopyDebug');
+      if (btnDbg && !UI_STATE._copyDbgWired) {
+        UI_STATE._copyDbgWired = true;
+        btnDbg.addEventListener('click', async () => {
+          try {
+            const pre = document.getElementById('debugPre');
+            const txt = (pre && pre.textContent != null) ? String(pre.textContent) : '';
+            if (navigator.clipboard && navigator.clipboard.writeText) await navigator.clipboard.writeText(txt);
+            else {
+              const ta = document.createElement('textarea');
+              ta.value = txt;
+              ta.style.position = 'fixed';
+              ta.style.left = '-9999px';
+              document.body.appendChild(ta);
+              ta.select();
+              document.execCommand('copy');
+              document.body.removeChild(ta);
+            }
+            UI_STATE.uiMsg = 'Copied debug.';
+            UI_STATE.uiMsgT = 1.5;
+          } catch (_) {
+            UI_STATE.uiMsg = 'Copy failed.';
+            UI_STATE.uiMsgT = 1.5;
+          }
+        });
+      }
 
       // Wire copy button once (works when verbose is enabled)
       const btn = document.getElementById('btnCopyInputLog');

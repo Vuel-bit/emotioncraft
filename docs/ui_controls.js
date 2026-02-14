@@ -642,17 +642,20 @@ if (btnZeroPairEl) {
       energyHudEl2.textContent = `⚡ ${(SIM.energy || 0).toFixed(0)}/${E_CAP2}`;
     }
 
-    // Zen timer HUD (upper-right)
+    // Timed plan timer HUD (upper-right)
+    // Reuses the Zen timer field for any timed patient plan.
     try {
       const zEl = dom.zenTimerHudEl || document.getElementById('zenTimerHud');
       if (zEl) {
-        const isZen = String(SIM._activePlanKey || '').toUpperCase() === 'ZEN';
+        const pk = String(SIM._activePlanKey || '').toUpperCase();
         const t = SIM.zenTimeRemainingSec;
-        if (isZen && typeof t === 'number' && isFinite(t)) {
-          const s = Math.max(0, Math.floor(t));
-          const mm = Math.floor(s / 60);
-          const ss = s % 60;
-          const txt = `ZEN ${String(mm).padStart(2, '0')}:${String(ss).padStart(2, '0')}`;
+        const isTimed = (pk === 'ZEN' || pk === 'TRANQUILITY' || pk === 'TRANSCENDENCE');
+        if (isTimed && typeof t === 'number' && isFinite(t)) {
+          const label = (pk === 'ZEN') ? 'ZEN' : (pk === 'TRANQUILITY') ? 'TRANQ' : (pk === 'TRANSCENDENCE') ? 'TRANSCEND' : 'TIME';
+          const sec = Math.max(0, Math.floor(t));
+          const mm = Math.floor(sec / 60);
+          const ss = sec % 60;
+          const txt = `${label} ${String(mm).padStart(2, '0')}:${String(ss).padStart(2, '0')}`;
           if (zEl.textContent !== txt) zEl.textContent = txt;
           zEl.style.display = 'block';
         } else {
@@ -660,6 +663,7 @@ if (btnZeroPairEl) {
         }
       }
     } catch (_) {}
+
 
     let sel = (typeof SIM.selectedWellIndex === 'number') ? SIM.selectedWellIndex : -1;
     // Robust selection for bottom-bar costs: fall back to last known UI selection

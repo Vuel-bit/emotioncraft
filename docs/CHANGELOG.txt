@@ -14,7 +14,10 @@
 - Mental breaks: no modal popup; break details append to Log overlay. Added hit-stop + HUD toast + center/well FX.
 - Psyche warning flashes restored on threshold crossing (>=450 or <=50).
 - Lobby: Heroes page for Transcended; Sally portrait wired.
-- Rename quirk labels: Locks In → Fixates; Amped → Obsesses.
+- Rename quirk labels: LOCKS_IN → Fixates; AMPED → Obsesses.
+- Patients: last-treatment quirk naming cleanup (Fixates/Obsesses; legacy aliases).
+- PLAN_CHAIN: evaluation uses rounded psyche (matches HUD numbers).
+- PLAN_CHAIN: per-step holdSec supported (default 10; SPIN_ZERO 0).
 - Roster: wire portraits for all patients (assets/patients/<id>.png).
 - Patient WIN auto-returns to lobby to show post-win popups; reset guard per run.
 
@@ -24,3 +27,16 @@
 - Center core replaced with Treatment hold ring + countdown (PLAN_CHAIN).
 - Zen timer standardized to 10:00 and shown in HUD during Zen.
 - Set-0 costs are integer energy units (display/gate/spend match).
+
+2026-02-13 — v0_2_103_passD_pass5
+- Treatment plans: Intake is now 3 steps (no spin step; Step 3 is no-hold), Weekly is now 3 steps (removed final spin-zero step), and Zen has a new 4-step timed sequence.
+- Added new timed plans: Tranquility + Transcendence.
+- Progression: after Intake, choose Weekly / Zen / Tranquility; Transcendence unlocks after Zen + Tranquility are completed for that patient; transcending only occurs after completing Transcendence.
+- Timed plan timer generalized to Zen/Tranquility/Transcendence; lobby plan picker updated and lobby detail panel shows Zen/Tranquility completion badges.
+
+2026-02-13 — v0_2_103_passD_pass6
+- Dispositions (random): replaced slot/cadence scheduling with a per-second tier ramp chance (0.025 / 0.05 / 0.1), capped to at most one new schedule per second, while preserving telegraph + global min-gap.
+- Debug HUD: added “Copy Debug” button to copy the currently displayed debug text.
+
+2026-02-13 — v0_2_103_passD_pass7
+- Dispositions (random): ramp timers are now per-template (reset only when that quirk instance ends); mental breaks cancel pending/telegraph/active quirks and reset all ramp timers.

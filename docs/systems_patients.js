@@ -261,116 +261,171 @@
   }
 
   // ---------------------------------------------------------------------------
-  // Treatment plan generators (rolled per start)
-  function planName(key) {
-    const k = String(key || '').toUpperCase();
-    if (k === 'ZEN') return 'Zen';
-    if (k === 'WEEKLY') return 'Weekly Checkup';
-    if (k === 'INTAKE') return 'Intake Patient';
-    return key;
-  }
-
-  function buildPlanZen() {
-    const holdSec = (typeof T().PAT_BAND_HOLD_SECONDS === 'number') ? T().PAT_BAND_HOLD_SECONDS : 10;
-    return {
-      planKey: 'ZEN',
-      steps: [
-        { kind: 'ALL_OVER', threshold: 200, holdSec, text: `Step 1: All hues ≥ 200 (hold ${holdSec}s)` },
-        { kind: 'ALL_BAND', low: 140, high: 175, holdSec, text: `Step 2: All hues 140–175 (hold ${holdSec}s)` },
-        { kind: 'ALL_BAND', low: 100, high: 115, holdSec, text: `Step 3: All hues 100–115 (hold ${holdSec}s)` },
-        { kind: 'SPIN_ZERO', text: `Step 4: All well spins = 0` },
-      ],
-      goalVizPerHue: new Array(6).fill(null).map(() => ({ type: 'OVER', target: 200 })),
-    };
-  }
-
-  function buildPlanWeekly() {
-    const holdSec = (typeof T().PAT_BAND_HOLD_SECONDS === 'number') ? T().PAT_BAND_HOLD_SECONDS : 10;
-    const even = [0,2,4];
-    const odd = [1,3,5];
-    const pickEven = Math.random() < 0.5;
-    const hiSet = pickEven ? even : odd;
-    const loSet = pickEven ? odd : even;
-
-    const s1hi = 350, s1lo = 150;
-    const s2hi = 300, s2lo = 200;
-    const bandLow = 200, bandHigh = 300;
-
-    const setLabel = pickEven ? '{0,2,4}' : '{1,3,5}';
-
-    const steps = [
-      {
-        kind: 'SET_BOUNDS', highs: hiSet.slice(), lows: loSet.slice(), hiMin: s1hi, loMax: s1lo,
-        text: `Step 1: Alternating ${setLabel} ≥ ${s1hi}; other 3 ≤ ${s1lo}`
-      },
-      {
-        kind: 'SET_BOUNDS', highs: loSet.slice(), lows: hiSet.slice(), hiMin: s2hi, loMax: s2lo,
-        text: `Step 2: Swap — previous highs ≤ ${s2lo}; other 3 ≥ ${s2hi}`
-      },
-      {
-        kind: 'ALL_BAND', low: bandLow, high: bandHigh, holdSec,
-        text: `Step 3: All hues 200–300 (hold ${holdSec}s)`
-      },
-      { kind: 'SPIN_ZERO', text: `Step 4: All well spins = 0` },
-    ];
-
-    // Seed goal viz with step 1
-    const isHigh = (i) => hiSet.indexOf(i) >= 0;
-    const isLow = (i) => loSet.indexOf(i) >= 0;
-    const goalVizPerHue = new Array(6).fill(null).map((_, i) => {
-      if (isHigh(i)) return { type: 'OVER', target: s1hi };
-      if (isLow(i)) return { type: 'UNDER', target: s1lo };
-      return null;
-    });
-
-    return { planKey: 'WEEKLY', steps, goalVizPerHue, rolled: { pickEven } };
-  }
-
-  function buildPlanIntake() {
-    const holdSec = (typeof T().PAT_BAND_HOLD_SECONDS === 'number') ? T().PAT_BAND_HOLD_SECONDS : 10;
-    const pairStart = randInt(0, 5);
-    const pair = [pairStart, (pairStart + 1) % 6];
-    const remaining = [0,1,2,3,4,5].filter((h) => pair.indexOf(h) < 0);
-    const third = pick(remaining);
-
-    const s1hi = 300, s1lo = 150;
-    const s2hi = 300, s2lo = 200;
-    const bandLow = 200, bandHigh = 300;
-
-    const steps = [
-      {
-        kind: 'SET_BOUNDS', highs: pair.slice(), lows: remaining.slice(), hiMin: s1hi, loMax: s1lo,
-        text: `Step 1: Adjacent ${hueName(pair[0])} + ${hueName(pair[1])} ≥ ${s1hi}; other 4 ≤ ${s1lo}`
-      },
-      {
-        kind: 'SET_BOUNDS', highs: [third], lows: [0,1,2,3,4,5].filter((h) => h !== third), hiMin: s2hi, loMax: s2lo,
-        text: `Step 2: Shift — ${hueName(third)} ≥ ${s2hi}; all others ≤ ${s2lo}`
-      },
-      {
-        kind: 'ALL_BAND', low: bandLow, high: bandHigh, holdSec,
-        text: `Step 3: All hues 200–300 (hold ${holdSec}s)`
-      },
-      { kind: 'SPIN_ZERO', text: `Step 4: All well spins = 0` },
-    ];
-
-    // Seed goal viz with step 1
-    const isHigh = (i) => (i === pair[0] || i === pair[1]);
-    const goalVizPerHue = new Array(6).fill(null).map((_, i) => {
-      if (isHigh(i)) return { type: 'OVER', target: s1hi };
-      return { type: 'UNDER', target: s1lo };
-    });
-
-    return { planKey: 'INTAKE', steps, goalVizPerHue, rolled: { pair, third } };
-  }
-
-  function buildTreatmentPlan(planKey) {
-    const k = String(planKey || '').toUpperCase();
-    if (k === 'WEEKLY') return buildPlanWeekly();
-    if (k === 'INTAKE') return buildPlanIntake();
-    return buildPlanZen();
-  }
-
   // ---------------------------------------------------------------------------
+// Treatment plan generators (rolled per start)
+function planName(key) {
+  const k = String(key || '').toUpperCase();
+  if (k === 'ZEN') return 'Zen';
+  if (k === 'TRANQUILITY') return 'Tranquility';
+  if (k === 'TRANSCENDENCE') return 'Transcendence';
+  if (k === 'WEEKLY') return 'Weekly Checkup';
+  if (k === 'INTAKE') return 'Intake Patient';
+  return key;
+}
+
+function buildPlanZen() {
+  // Timed 10:00 (timer handled by core_mechanics). No holds unless specified.
+  return {
+    planKey: 'ZEN',
+    steps: [
+      { kind: 'SET_BOUNDS', highs: [], lows: [0,1,2,3,4,5], hiMin: 0, loMax: 99, holdSec: 0, text: 'Step 1: All hues < 100' },
+      { kind: 'ALL_BAND', low: 200, high: 250, holdSec: 0, text: 'Step 2: All hues 200–250' },
+      { kind: 'ALL_OVER', threshold: 401, holdSec: 0, text: 'Step 3: All hues > 400' },
+      { kind: 'SPIN_ZERO', text: 'Step 4: All well spins = 0' },
+    ],
+    // Seed goal viz with step 1
+    goalVizPerHue: new Array(6).fill(null).map(() => ({ type: 'UNDER', target: 99 })),
+  };
+}
+
+function buildPlanTranquility() {
+  return {
+    planKey: 'TRANQUILITY',
+    steps: [
+      { kind: 'ALL_OVER', threshold: 401, holdSec: 0, text: 'Step 1: All hues > 400' },
+      { kind: 'ALL_BAND', low: 200, high: 250, holdSec: 0, text: 'Step 2: All hues 200–250' },
+      { kind: 'ALL_BAND', low: 100, high: 125, holdSec: 0, text: 'Step 3: All hues 100–125' },
+      { kind: 'SPIN_ZERO', text: 'Step 4: All well spins = 0' },
+    ],
+    goalVizPerHue: new Array(6).fill(null).map(() => ({ type: 'OVER', target: 401 })),
+  };
+}
+
+function buildPlanTranscendence() {
+  const even = [0,2,4];
+  const odd = [1,3,5];
+  const pickEvenLow = Math.random() < 0.5;
+  const lowSet = pickEvenLow ? even : odd;
+  const highSet = pickEvenLow ? odd : even;
+
+  // "below 50" => <= 49; "above 450" => >= 451 (psyche is integer-rounded in PLAN_CHAIN)
+  const loMax = 49;
+  const hiMin = 451;
+
+  const lowLabel = pickEvenLow ? '{0,2,4}' : '{1,3,5}';
+  const highLabel = pickEvenLow ? '{1,3,5}' : '{0,2,4}';
+
+  const steps = [
+    { kind: 'ALL_BAND', low: 240, high: 260, holdSec: 0, text: 'Step 1: All hues 240–260' },
+    {
+      kind: 'SET_BOUNDS', highs: highSet.slice(), lows: lowSet.slice(), hiMin, loMax, holdSec: 0,
+      text: `Step 2: Alternating — ${lowLabel} < 50; ${highLabel} > 450`
+    },
+    {
+      kind: 'SET_BOUNDS', highs: lowSet.slice(), lows: highSet.slice(), hiMin, loMax, holdSec: 0,
+      text: 'Step 3: Swap Step 2'
+    },
+    { kind: 'SPIN_ZERO', text: 'Step 4: All well spins = 0' },
+  ];
+
+  const goalVizPerHue = new Array(6).fill(null).map(() => ({ type: 'BAND', low: 240, high: 260 }));
+  return { planKey: 'TRANSCENDENCE', steps, goalVizPerHue, rolled: { pickEvenLow } };
+}
+
+function buildPlanWeekly() {
+  const holdSec = (typeof T().PAT_BAND_HOLD_SECONDS === 'number') ? T().PAT_BAND_HOLD_SECONDS : 10;
+  const even = [0,2,4];
+  const odd = [1,3,5];
+  const pickEven = Math.random() < 0.5;
+  const hiSet = pickEven ? even : odd;
+  const loSet = pickEven ? odd : even;
+
+  const s1hi = 350, s1lo = 150;
+  const s2hi = 300, s2lo = 200;
+  const bandLow = 200, bandHigh = 300;
+
+  const setLabel = pickEven ? '{0,2,4}' : '{1,3,5}';
+
+  const steps = [
+    {
+      kind: 'SET_BOUNDS', highs: hiSet.slice(), lows: loSet.slice(), hiMin: s1hi, loMax: s1lo,
+      text: `Step 1: Alternating ${setLabel} ≥ ${s1hi}; other 3 ≤ ${s1lo}`
+    },
+    {
+      kind: 'SET_BOUNDS', highs: loSet.slice(), lows: hiSet.slice(), hiMin: s2hi, loMax: s2lo,
+      text: `Step 2: Swap — previous highs ≤ ${s2lo}; other 3 ≥ ${s2hi}`
+    },
+    {
+      kind: 'ALL_BAND', low: bandLow, high: bandHigh, holdSec,
+      text: `Step 3: All hues 200–300 (hold ${holdSec}s)`
+    },
+  ];
+
+  // Seed goal viz with step 1
+  const isHigh = (i) => hiSet.indexOf(i) >= 0;
+  const isLow = (i) => loSet.indexOf(i) >= 0;
+  const goalVizPerHue = new Array(6).fill(null).map((_, i) => {
+    if (isHigh(i)) return { type: 'OVER', target: s1hi };
+    if (isLow(i)) return { type: 'UNDER', target: s1lo };
+    return null;
+  });
+
+  return { planKey: 'WEEKLY', steps, goalVizPerHue, rolled: { pickEven } };
+}
+
+function buildPlanIntake() {
+  // INTAKE (3 steps):
+  // 1) Adjacent hues > 350; others < 150 (hold 10s)
+  // 2) One non-adjacent hue > 300; others < 200 (hold 10s)
+  // 3) All hues 200–300 (no hold)
+  const pairStart = randInt(0, 5);
+  const pair = [pairStart, (pairStart + 1) % 6];
+  const remaining = [0,1,2,3,4,5].filter((h) => pair.indexOf(h) < 0);
+
+  // Non-adjacent to the pair: the opposite pair (pairStart+3 or pairStart+4 mod 6)
+  const cand = [ (pairStart + 3) % 6, (pairStart + 4) % 6 ];
+  const third = pick(cand);
+
+  // Integers match PLAN_CHAIN rounded psyche comparisons.
+  const s1hi = 351, s1lo = 149;
+  const s2hi = 301, s2lo = 199;
+
+  const steps = [
+    {
+      kind: 'SET_BOUNDS', highs: pair.slice(), lows: remaining.slice(), hiMin: s1hi, loMax: s1lo, holdSec: 10,
+      text: `Step 1: Adjacent ${hueName(pair[0])} + ${hueName(pair[1])} > 350; other 4 < 150 (hold 10s)`
+    },
+    {
+      kind: 'SET_BOUNDS', highs: [third], lows: [0,1,2,3,4,5].filter((h) => h !== third), hiMin: s2hi, loMax: s2lo, holdSec: 10,
+      text: `Step 2: Shift — ${hueName(third)} > 300; all others < 200 (hold 10s)`
+    },
+    {
+      kind: 'ALL_BAND', low: 200, high: 300, holdSec: 0,
+      text: 'Step 3: All hues 200–300'
+    },
+  ];
+
+  // Seed goal viz with step 1
+  const isHigh = (i) => (i === pair[0] || i === pair[1]);
+  const goalVizPerHue = new Array(6).fill(null).map((_, i) => {
+    if (isHigh(i)) return { type: 'OVER', target: s1hi };
+    return { type: 'UNDER', target: s1lo };
+  });
+
+  return { planKey: 'INTAKE', steps, goalVizPerHue, rolled: { pair, third, pairStart } };
+}
+
+function buildTreatmentPlan(planKey) {
+  const k = String(planKey || '').toUpperCase();
+  if (k === 'WEEKLY') return buildPlanWeekly();
+  if (k === 'INTAKE') return buildPlanIntake();
+  if (k === 'TRANQUILITY') return buildPlanTranquility();
+  if (k === 'TRANSCENDENCE') return buildPlanTranscendence();
+  return buildPlanZen();
+}
+
+// ---------------------------------------------------------------------------
+// ---------------------------------------------------------------------------
     // -------------------------------------------------------------------------
   // Patient roster (authoritative) + lobby rotation state
   // Notes:
@@ -734,6 +789,8 @@ function _uniq(arr) {
         quirks: Array.isArray(p.quirks) ? p.quirks.map((q) => ({ type: q.type, intensityTier: (typeof q.intensityTier === 'number') ? q.intensityTier : 0 })) : [],
         // Runtime state (persist later; in-memory for now)
         intakeDone: false,
+        zenDone: false,
+        tranquilityDone: false,
         lastOutcome: '—',
       };
     });
@@ -829,7 +886,7 @@ function _uniq(arr) {
   }
 
   function _weeklyRewardLabel(kind, detail) {
-    if (kind === 'QUIRK') return `Weekly success: eased ${_titlecase(detail)}.`;
+    if (kind === 'QUIRK') return `Weekly success: eased ${quirkTypeName(detail)}.`;
     if (kind === 'MOOD') return 'Weekly success: mood steadier.';
     if (kind === 'VIBE') return 'Weekly success: vibe steadier.';
     if (kind === 'TRAIT') return `Weekly success: removed trait ${_titlecase(detail)}.`;
@@ -962,6 +1019,8 @@ function _uniq(arr) {
         traits: Array.isArray(p.traits) ? p.traits.slice() : [],
         quirks: Array.isArray(p.quirks) ? p.quirks.map((q) => ({ type: q.type, intensityTier: (typeof q.intensityTier === 'number') ? q.intensityTier : 0 })) : [],
         intakeDone: !!p.intakeDone,
+        zenDone: !!p.zenDone,
+        tranquilityDone: !!p.tranquilityDone,
         lastOutcome: (typeof p.lastOutcome === 'string') ? p.lastOutcome : '—',
         quirkCount: Array.isArray(p.quirks) ? p.quirks.length : 0,
       });
@@ -1064,50 +1123,91 @@ function _uniq(arr) {
         const isLose = !!((SIM && (SIM.levelState === 'lose')) || (SIM && SIM.mvpLose) || (SIM && SIM.gameOver));
         const reason = (SIM && typeof SIM.gameOverReason === 'string') ? SIM.gameOverReason : '';
 
-        // INTAKE progression: on win, unlock plans.
-        if (planKey === 'INTAKE' && isWin) {
-          p.intakeDone = true;
-          p.lastOutcome = 'Intake complete.';
-          // Show one-time lobby popup on return.
-          STATE.pendingIntakeCongratsId = p.id;
 
-          // Return to rotation.
-          if (!isTranscended(p.id)) {
-            const inSlots = STATE.lobbySlots.indexOf(p.id) >= 0;
-            const inQueue = STATE.poolQueue.indexOf(p.id) >= 0;
-            if (!inSlots && !inQueue) STATE.poolQueue.push(p.id);
-          }
-          try { requestSave('intake_complete'); } catch (_) {}
-        } else if (planKey === 'WEEKLY') {
-          if (isWin) {
-            // Hold out of rotation until reward is chosen.
-            STATE.pendingWeeklyRewardId = p.id;
-            p.lastOutcome = 'Weekly success.';
-            // Do not return to queue yet.
-          } else if (isLose) {
-            p.lastOutcome = 'Weekly failed.';
-            const inSlots = STATE.lobbySlots.indexOf(p.id) >= 0;
-            const inQueue = STATE.poolQueue.indexOf(p.id) >= 0;
-            if (!inSlots && !inQueue && !isTranscended(p.id)) STATE.poolQueue.push(p.id);
-            ensurePoolIntegrity();
-            try { requestSave('weekly_loss'); } catch (_) {}
-          }
-        } else if (planKey === 'ZEN') {
-          if (isWin) {
-            p.lastOutcome = 'Transcended.';
-            // Permanently remove.
-            transcendPatient(p.id);
-            STATE.pendingZenCongratsId = p.id;
-            try { requestSave('zen_transcend'); } catch (_) {}
-          } else if (isLose) {
-            if (reason === 'Time expired.') p.lastOutcome = 'Zen failed: time expired.';
-            else p.lastOutcome = 'Zen failed.';
-            const inSlots = STATE.lobbySlots.indexOf(p.id) >= 0;
-            const inQueue = STATE.poolQueue.indexOf(p.id) >= 0;
-            if (!inSlots && !inQueue && !isTranscended(p.id)) STATE.poolQueue.push(p.id);
-            ensurePoolIntegrity();
-            try { requestSave('zen_loss'); } catch (_) {}
-          }
+// INTAKE progression: on win, unlock plans.
+if (planKey === 'INTAKE') {
+  if (isWin) {
+    p.intakeDone = true;
+    p.lastOutcome = 'Intake complete.';
+    // Show one-time lobby popup on return.
+    STATE.pendingIntakeCongratsId = p.id;
+
+    // Return to rotation.
+    if (!isTranscended(p.id)) {
+      const inSlots = STATE.lobbySlots.indexOf(p.id) >= 0;
+      const inQueue = STATE.poolQueue.indexOf(p.id) >= 0;
+      if (!inSlots && !inQueue) STATE.poolQueue.push(p.id);
+    }
+    try { requestSave('intake_complete'); } catch (_) {}
+  }
+} else if (planKey === 'WEEKLY') {
+  if (isWin) {
+    // Hold out of rotation until reward is chosen.
+    STATE.pendingWeeklyRewardId = p.id;
+    p.lastOutcome = 'Weekly success.';
+    // Do not return to queue yet.
+  } else if (isLose) {
+    p.lastOutcome = 'Weekly failed.';
+    const inSlots = STATE.lobbySlots.indexOf(p.id) >= 0;
+    const inQueue = STATE.poolQueue.indexOf(p.id) >= 0;
+    if (!inSlots && !inQueue && !isTranscended(p.id)) STATE.poolQueue.push(p.id);
+    ensurePoolIntegrity();
+    try { requestSave('weekly_loss'); } catch (_) {}
+  }
+} else if (planKey === 'ZEN') {
+  if (isWin) {
+    p.zenDone = true;
+    p.lastOutcome = 'Zen complete.';
+    // Return to rotation like a normal session.
+    const inSlots = STATE.lobbySlots.indexOf(p.id) >= 0;
+    const inQueue = STATE.poolQueue.indexOf(p.id) >= 0;
+    if (!inSlots && !inQueue && !isTranscended(p.id)) STATE.poolQueue.push(p.id);
+    ensurePoolIntegrity();
+    try { requestSave('zen_complete'); } catch (_) {}
+  } else if (isLose) {
+    if (reason === 'Time expired.') p.lastOutcome = 'Zen failed: time expired.';
+    else p.lastOutcome = 'Zen failed.';
+    const inSlots = STATE.lobbySlots.indexOf(p.id) >= 0;
+    const inQueue = STATE.poolQueue.indexOf(p.id) >= 0;
+    if (!inSlots && !inQueue && !isTranscended(p.id)) STATE.poolQueue.push(p.id);
+    ensurePoolIntegrity();
+    try { requestSave('zen_loss'); } catch (_) {}
+  }
+} else if (planKey === 'TRANQUILITY') {
+  if (isWin) {
+    p.tranquilityDone = true;
+    p.lastOutcome = 'Tranquility complete.';
+    const inSlots = STATE.lobbySlots.indexOf(p.id) >= 0;
+    const inQueue = STATE.poolQueue.indexOf(p.id) >= 0;
+    if (!inSlots && !inQueue && !isTranscended(p.id)) STATE.poolQueue.push(p.id);
+    ensurePoolIntegrity();
+    try { requestSave('tranquility_complete'); } catch (_) {}
+  } else if (isLose) {
+    if (reason === 'Time expired.') p.lastOutcome = 'Tranquility failed: time expired.';
+    else p.lastOutcome = 'Tranquility failed.';
+    const inSlots = STATE.lobbySlots.indexOf(p.id) >= 0;
+    const inQueue = STATE.poolQueue.indexOf(p.id) >= 0;
+    if (!inSlots && !inQueue && !isTranscended(p.id)) STATE.poolQueue.push(p.id);
+    ensurePoolIntegrity();
+    try { requestSave('tranquility_loss'); } catch (_) {}
+  }
+} else if (planKey === 'TRANSCENDENCE') {
+  if (isWin) {
+    p.lastOutcome = 'Transcended.';
+    // Permanently remove.
+    transcendPatient(p.id);
+    // Reuse the existing transcend congrats modal wiring.
+    STATE.pendingZenCongratsId = p.id;
+    try { requestSave('transcendence_win'); } catch (_) {}
+  } else if (isLose) {
+    if (reason === 'Time expired.') p.lastOutcome = 'Transcendence failed: time expired.';
+    else p.lastOutcome = 'Transcendence failed.';
+    const inSlots = STATE.lobbySlots.indexOf(p.id) >= 0;
+    const inQueue = STATE.poolQueue.indexOf(p.id) >= 0;
+    if (!inSlots && !inQueue && !isTranscended(p.id)) STATE.poolQueue.push(p.id);
+    ensurePoolIntegrity();
+    try { requestSave('transcendence_loss'); } catch (_) {}
+  }
         } else {
           // Fallback sessions.
           const label = planKey || 'Session';
@@ -1194,6 +1294,8 @@ function openLobbyPause() {
       if (!p || !id) return;
       out.patients[id] = {
         intakeDone: !!p.intakeDone,
+        zenDone: !!p.zenDone,
+        tranquilityDone: !!p.tranquilityDone,
         lastOutcome: (typeof p.lastOutcome === 'string') ? p.lastOutcome : '—',
         traits: Array.isArray(p.traits) ? p.traits.filter((x) => typeof x === 'string') : [],
         mood: {
@@ -1248,6 +1350,8 @@ function openLobbyPause() {
         if (!dst || !src || typeof src !== 'object') return;
 
         if (typeof src.intakeDone === 'boolean') dst.intakeDone = src.intakeDone;
+        if (typeof src.zenDone === 'boolean') dst.zenDone = src.zenDone;
+        if (typeof src.tranquilityDone === 'boolean') dst.tranquilityDone = src.tranquilityDone;
         if (typeof src.lastOutcome === 'string') dst.lastOutcome = src.lastOutcome;
 
         if (Array.isArray(src.traits)) {

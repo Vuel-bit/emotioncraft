@@ -101,6 +101,10 @@
 
   function _triggerBreakUI(sim, titleLine, before, after) {
     if (!sim) return;
+    // Quirks must not carry through a mental break: cancel pending/telegraph/active and reset ramp timers.
+    try {
+      if (EC.DISP && typeof EC.DISP.resetAllQuirkTimers === 'function') EC.DISP.resetAllQuirkTimers();
+    } catch (_) {}
     // 0.5s hit-stop
     sim._hitStopT = 0.5;
     // FX masks

@@ -1,6 +1,6 @@
-# Emotioncraft — Current Build Handoff (2026-02-12)
+# Emotioncraft — Current Build Handoff (2026-02-13)
 
-Build ID: **v0_2_103_passD**
+Build ID: **v0_2_103_passD_pass5**
 
 ## Non‑negotiables (project guardrails)
 - **docs/** is the runnable web root (GitHub Pages).
@@ -10,7 +10,7 @@ Build ID: **v0_2_103_passD**
 
 ## What this build is
 - Lobby-driven patient roster (10 total; lobby shows 3 slots at a time).
-- Each patient must complete **INTAKE** once; then player can choose **WEEKLY** or **ZEN** from the plan-choice overlay.
+- Each patient must complete **INTAKE** once; then player can choose **WEEKLY**, **ZEN**, or **TRANQUILITY** from the plan-choice overlay.
 - Core gameplay: stabilize 6 Wells (Amount + Spin) against timed Quirks.
 - Patient **WIN** auto-returns to Lobby so post-win popups appear without pressing Lobby. LOSE does not auto-return.
 
@@ -22,7 +22,7 @@ Build ID: **v0_2_103_passD**
 - PLAN_CHAIN: `SIM.planStepIndex`, `SIM.planHoldSec`, `SIM._planHoldReqSec`, `SIM._planStepFlashT`
 - Pause flags: `SIM._uiPaused` (Log overlay), `SIM._hitStopT` (break hit-stop)
 - Break visuals: `SIM._breakFx`, `SIM._breakToastT`, `SIM._breakToastText`
-- Zen: `SIM.zenTimeRemainingSec`
+- Timed plans: `SIM.zenTimeRemainingSec` (countdown reused for Zen / Tranquility / Transcendence)
 - Debug: `SIM._quirkTimeline` (event-based), `SIM._quirkForceTotals` (optional)
 
 ## Player-facing well names (index 0..5)
@@ -34,7 +34,7 @@ Grit, Ego, Chill, Nerves, Focus, Pep
   - line 2: quirk pills; telegraph/active highlight via EC.DISP.getRenderStates()
   - line 3: transient alerts (MENTAL BREAK)
   - Log button opens opaque Log overlay and pauses sim (`SIM._uiPaused`)
-  - Zen timer pill appears top-right in Zen
+  - Timed plan timer pill appears top-right in Zen / Tranquility / Transcendence
 - Bottom drawer: `docs/ui_controls.js` formats Treatment step UI (current/next; 3 lines each) and Set-0 buttons/costs.
 
 ## Mental breaks (no popup)
@@ -63,7 +63,11 @@ Source: `docs/systems_dispositions.js`
 ## Patients / Lobby / Progression
 Source: `docs/systems_patients.js`, `docs/ui_lobby.js`
 - Patient progress is stored per-user (Firestore) when signed in.
-- Zen win → patient added to `transcendedIds` and removed from pool.
+- After **INTAKE**, choose **WEEKLY**, **ZEN** (timed 10:00), or **TRANQUILITY** (timed 10:00).
+- **ZEN win** sets `zenDone: true` (persists) and returns the patient to rotation.
+- **TRANQUILITY win** sets `tranquilityDone: true` (persists) and returns the patient to rotation.
+- **TRANSCENDENCE** (timed 10:00) unlocks only when `zenDone && tranquilityDone` for that patient.
+- **TRANSCENDENCE win** adds the patient to `transcendedIds` (removed from rotation) and shows the existing Transcended congrats overlay.
 - Lobby Heroes button shows transcended list.
 
 ## Tuning knobs (common)
@@ -76,7 +80,7 @@ Source: `docs/systems_patients.js`, `docs/ui_lobby.js`
 3) Complete a patient board → auto-return to lobby and post-win popup appears.
 4) Trigger a mental break → hit-stop + HUD toast + log entry appears; no popup.
 5) Enable Debug → quirk timeline fills as quirks occur.
-6) Zen plan → top-right timer counts down.
+6) Zen / Tranquility / Transcendence plans → top-right timer counts down; timer-expiry loss reason is exactly "Time expired."
 
 ## Notes for future polish (not required)
 - Add more patient portraits under `docs/assets/patients/`
