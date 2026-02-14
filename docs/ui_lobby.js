@@ -533,6 +533,14 @@
     let name = '';
     try {
       const p = (EC.PAT && typeof EC.PAT.get === 'function') ? EC.PAT.get(pid) : null;
+      if (els.planZenBtn) {
+        els.planZenBtn.style.display = (p && p.zenDone) ? 'none' : '';
+        els.planZenBtn.disabled = !!(p && p.zenDone);
+      }
+      if (els.planTranquilityBtn) {
+        els.planTranquilityBtn.style.display = (p && p.tranquilityDone) ? 'none' : '';
+        els.planTranquilityBtn.disabled = !!(p && p.tranquilityDone);
+      }
       name = p && p.name ? String(p.name) : '';
     } catch (_) {}
     if (els.intakeCongratsBodyEl) {
@@ -684,19 +692,7 @@
 
       // Milestone badges (below portrait)
       try {
-        let ms = document.getElementById('lobbyMilestones');
-        const parent = (els.portraitImg && els.portraitImg.parentNode) ? els.portraitImg.parentNode : null;
-        if (!ms && parent) {
-          ms = document.createElement('div');
-          ms.id = 'lobbyMilestones';
-          ms.style.marginTop = '6px';
-          ms.style.display = 'flex';
-          ms.style.justifyContent = 'center';
-          ms.style.gap = '8px';
-          ms.style.flexWrap = 'wrap';
-          parent.appendChild(ms);
-        }
-
+        const ms = document.getElementById('lobbyMilestones');
         if (ms) {
           ms.innerHTML = '';
           const addPill = (txt) => {
@@ -1091,6 +1087,14 @@
     // Transcendence gating: only after Zen + Tranquility completed.
     try {
       const p = (EC.PAT && typeof EC.PAT.get === 'function') ? EC.PAT.get(pid) : null;
+      if (els.planZenBtn) {
+        els.planZenBtn.style.display = (p && p.zenDone) ? 'none' : '';
+        els.planZenBtn.disabled = !!(p && p.zenDone);
+      }
+      if (els.planTranquilityBtn) {
+        els.planTranquilityBtn.style.display = (p && p.tranquilityDone) ? 'none' : '';
+        els.planTranquilityBtn.disabled = !!(p && p.tranquilityDone);
+      }
       const okT = !!(p && p.zenDone && p.tranquilityDone);
       if (els.planTranscendenceBtn) {
         els.planTranscendenceBtn.style.display = okT ? '' : 'none';
@@ -1177,17 +1181,6 @@ function render() {
         } else if (_congratsShowingFor) {
           _congratsShowingFor = null;
           hideZenCongrats(els);
-        }
-        // Intake completion congrats (one-time)
-        const iid = (EC.PAT && EC.PAT.getPendingIntakeCongratsId) ? EC.PAT.getPendingIntakeCongratsId() : null;
-        if (iid) {
-          if (_intakeCongratsShowingFor !== iid) {
-            _intakeCongratsShowingFor = iid;
-            showIntakeCongrats(els, iid);
-          }
-        } else if (_intakeCongratsShowingFor) {
-          _intakeCongratsShowingFor = null;
-          hideIntakeCongrats(els);
         }
       } catch (_) {}
       show(els);

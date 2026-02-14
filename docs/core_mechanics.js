@@ -459,7 +459,8 @@ const SIM = (EC.SIM = EC.SIM || {
       const st = winDef.steps[stepIdx];
       const kind = st ? String(st.kind || '').toUpperCase() : '';
       const isSpinZeroStep = (kind === 'SPIN_ZERO');
-      const holdReq = isSpinZeroStep ? 0 : ((st && typeof st.holdSec === 'number') ? st.holdSec : 10);
+      const hasHoldOverride = (st && Number.isFinite(st.holdSec) && st.holdSec > 0);
+      const holdReq = hasHoldOverride ? st.holdSec : (isSpinZeroStep ? 3 : 10);
 
       let ok = true;
       if (kind === 'ALL_OVER') {
@@ -510,8 +511,9 @@ const SIM = (EC.SIM = EC.SIM || {
       SIM._planHoldReqSec = holdReq;
 
       // Canonical hold:
-      // - SPIN_ZERO: no hold, advances immediately on satisfied
-      // - all other steps: must remain satisfied for holdReq seconds; reset if broken
+      // - All steps require a satisfied hold for holdReq seconds (defaults: 10s non-spin, 3s SPIN_ZERO),
+      //   unless a positive holdSec override is provided on the step.
+      // - Reset the hold timer if the condition breaks (except during the brief completion flash).
       // After completion: brief flash, then advance (no extra hidden delay)
       const inFlash = (SIM.planAdvanceT || 0) > 0;
       if (holdReq > 0) {
@@ -547,15 +549,15 @@ const SIM = (EC.SIM = EC.SIM || {
         if (!SIM.objectives[i]) continue;
         if (i < SIM.planStep) SIM.objectives[i].complete = true;
         else if (i === SIM.planStep) {
-          // Mark current step complete once the canonical hold is met (or immediate for SPIN_ZERO).
+          // Mark current step complete once the canonical hold is met (SPIN_ZERO is held too; default 3s).
           SIM.objectives[i].complete = stepHeld;
         }
         else SIM.objectives[i].complete = false;
       }
 
       // Advance:
-      // - SPIN_ZERO: immediate
-      // - others: after the brief flash window
+      // - SPIN_ZERO: advance as soon as its hold requirement is met.
+      // - others: advance after the hold is met and the brief flash window completes.
       const flashLeft = (typeof SIM._planStepFlashT === 'number') ? SIM._planStepFlashT : 0;
       if ((isSpinZeroStep && stepHeld) || (!isSpinZeroStep && stepHeld && (SIM.planAdvanceT <= 0) && (flashLeft <= 0))) {
         SIM.planStep += 1;
@@ -1136,6 +1138,32 @@ EC.init = function init() {
   if (EC.initUI) EC.initUI();
   if (EC.resetRun) EC.resetRun();
 };
+
+
+  // Helper: force-end all break telegraphs/active state (safe no-op if absent).
+  EC.endAllMentalBreaks = function endAllMentalBreaks() {
+    const sim = EC.SIM || {};
+    try {
+      if (Array.isArray(sim.wells)) {
+        for (let i = 0; i < sim.wells.length; i++) {
+          const w = sim.wells[i];
+          if (!w || typeof w !== 'object') continue;
+          if ('breakTelegraphAt' in w) w.breakTelegraphAt = 0;
+          if ('breakStart' in w) w.breakStart = 0;
+          if ('breakUntil' in w) w.breakUntil = 0;
+          if ('breakBoost' in w) w.breakBoost = 0;
+          if ('breakDir' in w) w.breakDir = 1;
+          if ('breakCueUntil' in w) w.breakCueUntil = 0;
+          if ('breakCooldownUntil' in w) w.breakCooldownUntil = 0;
+          if ('lastBreakSoundAt' in w) w.lastBreakSoundAt = 0;
+        }
+      }
+      if ('_hitStopT' in sim) sim._hitStopT = 0;
+      if ('_breakFx' in sim) sim._breakFx = null;
+      if ('_breakToastT' in sim) sim._breakToastT = 0;
+      if ('_breakToastText' in sim) sim._breakToastText = '';
+    } catch (_) {}
+  };
 
 
 

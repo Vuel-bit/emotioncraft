@@ -280,13 +280,13 @@ function buildPlanZen() {
   return {
     planKey: 'ZEN',
     steps: [
-      { kind: 'SET_BOUNDS', highs: [], lows: [0,1,2,3,4,5], hiMin: 0, loMax: 99, text: 'Step 1: All hues < 100' },
+      { kind: 'SET_BOUNDS', highs: [], lows: [0,1,2,3,4,5], hiMin: 0, loMax: 100, text: 'Step 1: All hues ≤ 100' },
       { kind: 'ALL_BAND', low: 200, high: 250, text: 'Step 2: All hues 200–250' },
-      { kind: 'ALL_OVER', threshold: 401, text: 'Step 3: All hues > 400' },
+      { kind: 'ALL_OVER', threshold: 400, text: 'Step 3: All hues ≥ 400' },
       { kind: 'SPIN_ZERO', text: 'Step 4: All well spins = 0' },
     ],
     // Seed goal viz with step 1
-    goalVizPerHue: new Array(6).fill(null).map(() => ({ type: 'UNDER', target: 99 })),
+    goalVizPerHue: new Array(6).fill(null).map(() => ({ type: 'UNDER', target: 100 })),
   };
 }
 
@@ -294,12 +294,12 @@ function buildPlanTranquility() {
   return {
     planKey: 'TRANQUILITY',
     steps: [
-      { kind: 'ALL_OVER', threshold: 401, text: 'Step 1: All hues > 400' },
+      { kind: 'ALL_OVER', threshold: 400, text: 'Step 1: All hues ≥ 400' },
       { kind: 'ALL_BAND', low: 200, high: 250, text: 'Step 2: All hues 200–250' },
       { kind: 'ALL_BAND', low: 100, high: 125, text: 'Step 3: All hues 100–125' },
       { kind: 'SPIN_ZERO', text: 'Step 4: All well spins = 0' },
     ],
-    goalVizPerHue: new Array(6).fill(null).map(() => ({ type: 'OVER', target: 401 })),
+    goalVizPerHue: new Array(6).fill(null).map(() => ({ type: 'OVER', target: 400 })),
   };
 }
 
@@ -310,9 +310,9 @@ function buildPlanTranscendence() {
   const lowSet = pickEvenLow ? even : odd;
   const highSet = pickEvenLow ? odd : even;
 
-  // "below 50" => <= 49; "above 450" => >= 451 (psyche is integer-rounded in PLAN_CHAIN)
-  const loMax = 49;
-  const hiMin = 451;
+  // "below 50" => <= 50; "above 450" => >= 450 (psyche is integer-rounded in PLAN_CHAIN)
+  const loMax = 50;
+  const hiMin = 450;
 
   const lowLabel = pickEvenLow ? '{0,2,4}' : '{1,3,5}';
   const highLabel = pickEvenLow ? '{1,3,5}' : '{0,2,4}';
@@ -320,7 +320,7 @@ function buildPlanTranscendence() {
   const steps = [
     { kind: 'ALL_BAND', low: 240, high: 260, text: 'Step 1: All hues 240–260' },
     {
-      kind: 'SET_BOUNDS', highs: highSet.slice(), lows: lowSet.slice(), hiMin, loMax, text: `Step 2: Alternating — ${lowLabel} < 50; ${highLabel} > 450`
+      kind: 'SET_BOUNDS', highs: highSet.slice(), lows: lowSet.slice(), hiMin, loMax, text: `Step 2: Alternating — ${lowLabel} ≤ ${loMax}; ${highLabel} ≥ ${hiMin} (hold 10s)`
     },
     {
       kind: 'SET_BOUNDS', highs: lowSet.slice(), lows: highSet.slice(), hiMin, loMax, text: 'Step 3: Swap Step 2'
@@ -375,8 +375,8 @@ function buildPlanWeekly() {
 
 function buildPlanIntake() {
   // INTAKE (3 steps):
-  // 1) Adjacent hues > 350; others < 150 (hold 10s)
-  // 2) One non-adjacent hue > 300; others < 200 (hold 10s)
+  // 1) Adjacent hues ≥ 350; others ≤ 150 (hold 10s)
+  // 2) One non-adjacent hue ≥ 300; others ≤ 200 (hold 10s)
   // 3) All hues 200–300
   const pairStart = randInt(0, 5);
   const pair = [pairStart, (pairStart + 1) % 6];
@@ -387,17 +387,17 @@ function buildPlanIntake() {
   const third = pick(cand);
 
   // Integers match PLAN_CHAIN rounded psyche comparisons.
-  const s1hi = 351, s1lo = 149;
-  const s2hi = 301, s2lo = 199;
+  const s1hi = 350, s1lo = 150;
+  const s2hi = 300, s2lo = 200;
 
   const steps = [
     {
       kind: 'SET_BOUNDS', highs: pair.slice(), lows: remaining.slice(), hiMin: s1hi, loMax: s1lo, holdSec: 10,
-      text: `Step 1: Adjacent ${hueName(pair[0])} + ${hueName(pair[1])} > 350; other 4 < 150 (hold 10s)`
+      text: `Step 1: Adjacent ${hueName(pair[0])} + ${hueName(pair[1])} ≥ ${s1hi}; other 4 ≤ ${s1lo} (hold 10s)`
     },
     {
       kind: 'SET_BOUNDS', highs: [third], lows: [0,1,2,3,4,5].filter((h) => h !== third), hiMin: s2hi, loMax: s2lo, holdSec: 10,
-      text: `Step 2: Shift — ${hueName(third)} > 300; all others < 200 (hold 10s)`
+      text: `Step 2: Shift — ${hueName(third)} ≥ ${s2hi}; all others ≤ ${s2lo} (hold 10s)`
     },
     {
       kind: 'ALL_BAND', low: 200, high: 300, text: 'Step 3: All hues 200–300'
@@ -614,6 +614,7 @@ function buildTreatmentPlan(planKey) {
     poolQueue: [],
     lobbySlots: [null, null, null],
     transcendedIds: [],
+    points: 0,
     // Post-run progression UI state
     pendingWeeklyRewardId: null,
     pendingZenCongratsId: null,
@@ -1066,8 +1067,12 @@ function _uniq(arr) {
   function startRun(id, planKey) {
     const p = getById(id);
     if (!p) return;
+    let k = String(planKey || '').toUpperCase();
 
-    const k = String(planKey || '').toUpperCase();
+    // Safety: prevent replaying completed boards.
+    if (k === 'ZEN' && p.zenDone) k = 'WEEKLY';
+    if (k === 'TRANQUILITY' && p.tranquilityDone) k = 'WEEKLY';
+
     const useKey = k || (p.intakeDone ? 'WEEKLY' : 'INTAKE');
 
     // Attach current patient traits to SIM (used by EC.TRAITS).
@@ -1126,8 +1131,6 @@ if (planKey === 'INTAKE') {
   if (isWin) {
     p.intakeDone = true;
     p.lastOutcome = 'Intake complete.';
-    // Show one-time lobby popup on return.
-    STATE.pendingIntakeCongratsId = p.id;
 
     // Return to rotation.
     if (!isTranscended(p.id)) {
@@ -1153,7 +1156,9 @@ if (planKey === 'INTAKE') {
   }
 } else if (planKey === 'ZEN') {
   if (isWin) {
+    const wasZenDone = !!p.zenDone;
     p.zenDone = true;
+    if (!wasZenDone) STATE.points = (STATE.points|0) + 1;
     p.lastOutcome = 'Zen complete.';
     // Return to rotation like a normal session.
     const inSlots = STATE.lobbySlots.indexOf(p.id) >= 0;
@@ -1192,7 +1197,9 @@ if (planKey === 'INTAKE') {
   if (isWin) {
     p.lastOutcome = 'Transcended.';
     // Permanently remove.
+    const wasTranscended = isTranscended(p.id);
     transcendPatient(p.id);
+    if (!wasTranscended) STATE.points = (STATE.points|0) + 1;
     // Reuse the existing transcend congrats modal wiring.
     STATE.pendingZenCongratsId = p.id;
     try { requestSave('transcendence_win'); } catch (_) {}
@@ -1283,6 +1290,7 @@ function openLobbyPause() {
       poolQueue: Array.isArray(STATE.poolQueue) ? STATE.poolQueue.slice() : [],
       lobbySlots: Array.isArray(STATE.lobbySlots) ? STATE.lobbySlots.slice(0, 3) : [null, null, null],
       transcendedIds: Array.isArray(STATE.transcendedIds) ? STATE.transcendedIds.slice() : [],
+      points: (typeof STATE.points === 'number') ? (STATE.points|0) : 0,
     };
 
     const byId = STATE.patientsById || {};
@@ -1380,6 +1388,8 @@ function openLobbyPause() {
       STATE.transcendedIds = _uniqIds(patBlob.transcendedIds).filter((id) => knownIds.has(id));
     }
 
+    STATE.points = (typeof patBlob.points === 'number') ? (patBlob.points|0) : 0;
+
     // Apply lobbySlots and poolQueue, validating aggressively.
     let slots = Array.isArray(patBlob.lobbySlots) ? patBlob.lobbySlots.slice(0, 3) : null;
     let queue = Array.isArray(patBlob.poolQueue) ? patBlob.poolQueue.slice() : null;
@@ -1467,7 +1477,7 @@ function openLobbyPause() {
 
 
   function getStartEnergyBonus() {
-    return 5 * getTranscendedCount();
+    return 3 * getTranscendedCount();
   }
 
   function hasWeeklyOptions(pid) {

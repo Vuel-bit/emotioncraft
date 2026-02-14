@@ -86,7 +86,7 @@
       const idx = Math.max(0, Math.min(total - 1, step));
       const st = steps[idx] || {};
       const kind = String(st.kind || '').toUpperCase();
-      const holdReq = (typeof st.holdSec === 'number') ? st.holdSec : 0;
+      const holdReq = (typeof SIM._planHoldReqSec === 'number') ? SIM._planHoldReqSec : (((typeof st.holdSec === 'number') && st.holdSec > 0) ? st.holdSec : ((kind === 'SPIN_ZERO') ? 3 : 10));
       const holdCur = (typeof SIM.planHoldSec === 'number') ? SIM.planHoldSec : 0;
       const rawText = String(st.text || `Step ${idx+1}`);
       const clean = stripStepPrefix(rawText);
@@ -97,13 +97,17 @@
 
       if (postOn) {
         prog = ` — Confirm: ${postLeft.toFixed(1)}s left`;
-      } else if (holdReq > 0) {
-        prog = ` — Hold: ${holdCur.toFixed(1)} / ${holdReq.toFixed(1)}s`;
       } else if (kind === 'SPIN_ZERO') {
         const eps = (typeof EC.TUNE.PAT_SPIN_ZERO_EPS === 'number') ? EC.TUNE.PAT_SPIN_ZERO_EPS : 1.0;
         let n = 0;
         for (let i = 0; i < 6; i++) if (Math.abs((SIM.wellsS && SIM.wellsS[i]) || 0) <= eps) n++;
-        prog = ` — Spins at 0: ${n}/6`;
+        if (n < 6) {
+          prog = ` — Spins at 0: ${n}/6`;
+        } else if (holdReq > 0) {
+          prog = ` — Hold: ${holdCur.toFixed(1)} / ${holdReq.toFixed(1)}s`;
+        }
+      } else if (holdReq > 0) {
+        prog = ` — Hold: ${holdCur.toFixed(1)} / ${holdReq.toFixed(1)}s`;
       } else {
         // Psyche goals: count satisfied hues based on current goalViz.
         const goals = (SIM.goalViz && Array.isArray(SIM.goalViz.perHue)) ? SIM.goalViz.perHue : null;
@@ -410,9 +414,14 @@
     // without requiring the player to press Lobby. Do not auto-advance on lose.
     const _isWinNow = (SIM.levelState === 'win') || !!SIM.mvpWin;
     if (_isWinNow && SIM._patientActive && !SIM._autoWinHandled) {
+      const pk = String((SIM && (SIM._patientPlanKey || SIM._activePlanKey)) || '').toUpperCase();
       SIM._autoWinHandled = true;
-      try { if (EC.PAT && typeof EC.PAT.backToLobby === 'function') EC.PAT.backToLobby(); } catch (_) {}
-      return;
+      if (pk === 'INTAKE') {
+        try { if (EC.endAllMentalBreaks) EC.endAllMentalBreaks(); } catch (_) {}
+      } else {
+        try { if (EC.PAT && typeof EC.PAT.backToLobby === 'function') EC.PAT.backToLobby(); } catch (_) {}
+        return;
+      }
     }
 
     const T = EC.TUNE || {};
@@ -465,7 +474,8 @@
 
       if (isWin) {
         setText(patientInfoEl, 'patientInfo', 'SUCCESS!');
-        setText(notifyTextEl, 'notifyText', 'Treatment complete');
+        const pk = String((SIM && (SIM._patientPlanKey || SIM._activePlanKey)) || '').toUpperCase();
+        setText(notifyTextEl, 'notifyText', (pk === 'INTAKE') ? 'Treatment Complete' : 'Treatment complete');
       } else if (isLose) {
         setText(patientInfoEl, 'patientInfo', 'TREATMENT FAILED');
         // Optional second line: keep it short + player-facing.
