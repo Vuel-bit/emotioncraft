@@ -64,9 +64,9 @@ Emotioncraft — bootstrap + hardening helpers (no gameplay behavior changes)
   // Build / handoff metadata (non-functional)
   EC.BUILD = EC.BUILD || {
     name: 'emotioncraft-psyche-mvp',
-    tag: 'v0_2_103_passD',
-    updatedAt: '2026-02-12',
-    notes: 'passD: roster/unlocks + quirk timeline + boot/UI safe fixes.',
+    tag: 'v0_2_103_passD_pass7',
+    updatedAt: '2026-02-13',
+    notes: 'pass7: plans/progression (Tranquility/Transcendence) + per-template quirk ramp + break reset + Copy Debug.',
   };
 
   try { console.log('[EC] Build: ' + EC.BUILD_ID); } catch (e) {}

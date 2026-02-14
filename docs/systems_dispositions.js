@@ -1,17 +1,19 @@
 /* systems_dispositions.js — Quirks (random-ready)
-   - Owns EC.DISP (initLevel/update/getHudState/cancelAll)
-   - Applies well-only drift during telegraphed waves
+   - Owns EC.DISP (initLevel/update/getHudState/cancelAll/resetAllQuirkTimers)
+   - Applies well-only drift during telegraph + active phases
    - No direct psyche modification (psyche changes only via existing well→psyche drive)
 
    Quirk types (player-facing):
-     AFFINITY  = Amount ↑
-     AVERSION  = Amount ↓
-     TENDENCY  = Spin ↑  (always pushes upward)
-     DAMPING   = Spin ↓  (always pushes downward)
+     LOCKS_IN = Fixates  (Amount ↑)
+     CRASHES  = Crashes  (Amount ↓)
+     AMPED    = Obsesses (Spin -> +100)
+     SPIRALS  = Spirals  (Spin -> -100)
 
    Scheduling modes:
      - Scheduled: waves have explicit startTime (legacy test levels)
-     - Random: a pool is provided; one wave is selected at a random time
+     - Random: a pool is provided; scheduling uses a per-template per-second ramp chance
+       (tier steps 0.025 / 0.05 / 0.1), resetting when that quirk instance ends.
+       Scheduler is capped to at most one newly scheduled quirk per second.
 
    Notes:
    - Wave shape is smooth 0→1→0 over duration (sin(pi*phase))
@@ -793,7 +795,9 @@
       // Ramp-based random scheduling (random mode only):
       // Per-template ramp timers: each tpl increments once per second while idle.
       // At most one new quirk is scheduled per second.
-      const STEP_BY_TIER = [0.025, 0.05, 0.1]; // tier 0/1/2
+
+      // Per-second ramp step expressed as probability (0..1). 0.00025 = 0.025% per sec.
+      const STEP_BY_TIER = [0.00025, 0.0005, 0.001]; // tier 0/1/2
 
       function tplWeight(tpl) {
         const w = (tpl && typeof tpl._freqMult === 'number') ? Number(tpl._freqMult) : 1;

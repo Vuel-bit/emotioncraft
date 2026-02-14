@@ -1,20 +1,16 @@
 Emotioncraft Psyche MVP
-Build: v0_2_103_passD
-Date: 2026-02-12
+Build: v0_2_103_passD (pass8)
+Date: 2026-02-14
 
 Highlights (current build)
-- passD Chunk 3A — warn flashes + goal sync + log + break banner cleanup.
-- passD Chunk 3B — roster swap + unlock gating + start-energy progression + mood/vibe tuning + break HUD text removal.
-- Lobby-driven patient loop with INTAKE / WEEKLY / ZEN plan selection (after Intake completion). Patient WIN auto-returns to Lobby to show post-win popups (no SUCCESS banner). LOSE does not auto-return.
+- Lobby-driven patient loop with INTAKE gating. After Intake, choose WEEKLY / ZEN / TRANQUILITY; TRANSCENDENCE unlocks only after Zen + Tranquility are completed for that patient.
+- Patient WIN auto-returns to Lobby to show post-win popups (no SUCCESS banner). LOSE does not auto-return.
 - Psyche is per-hue only (0..500 each). Center core is the Treatment hold timer ring + countdown; it flashes red on mental breaks.
-- PLAN_CHAIN: canonical 10s hold for all steps except SPIN_ZERO; hold only accumulates while all conditions are satisfied; completion flash then immediate step advance.
-- Bottom drawer Treatment display: LEFT shows current step (header + up to 2 conditions; 3 lines). RIGHT shows next step in the same 3-line format.
-- Energy: displayed/charged as whole units (Math.round). Set-0 buttons (Spin->0, Zero Pair) use integer energy units; display/gating/spend match.
-- Log overlay: top HUD has Log button; opening Log pauses the sim (SIM._uiPaused). Mental breaks append detailed, color-coded entries (well/hue names).
-- Mental breaks: no modal popup. On break: dispositions cancel, ~0.5s hit-stop, HUD line 3 shows MENTAL BREAK ~5s, center flash + affected wells/hues pulse. Break triggers: psyche hue out of bounds (<0 or >500) and jam breaks (Amount/Spin extremes).
-- Psyche warning flashes (visual-only): wedge flashes 3x when a hue crosses >=450 or <=50.
-- Quirks: random mode supports telegraph + active phases. Scheduling uses global min spacing (DISP_MIN_GAP_SEC) plus a global quiet/burst cadence window system (DISP_CADENCE_*).
-- Debug: default debug panel shows event-based Quirk timeline (mm:ss, type, tier label, well, unshielded force, duration, gap), capped 60. Input instrumentation hidden unless ?inputdebug=1.
-- Lobby: Heroes button shows Transcended patients (Zen winners). Sally Sadeyes portrait wired (assets/patients/sally_sadeyes.png). Zen timer shows in top-right during Zen (mm:ss).
+- PLAN_CHAIN: psyche comparisons use rounded values (matches HUD numbers) and each plan step can define holdSec (default 10s; 0s for no-hold steps). INTAKE Step 3 is no-hold; WEEKLY is 3 steps (no spin-zero step).
+- Timed plans: ZEN / TRANQUILITY / TRANSCENDENCE run on a 10:00 timer (shown as a small pill in the top-right HUD). Timer-expiry loss reason is exactly: "Time expired."
+- Mental breaks: no modal popup. On break: quirks are cancelled and all quirk ramp timers reset; ~0.5s hit-stop; center flash + affected wells/hues pulse; break details append to the Log overlay.
+- Quirks: Fixates (Amount up), Crashes (Amount down), Obsesses (Spin to +100), Spirals (Spin to -100). Telegraph + active phases. Random scheduling uses per-template per-second ramp chances (tier steps 0.00025 / 0.0005 / 0.001) (0.025% / 0.05% / 0.1% per sec), resetting only when that quirk instance ends; capped to at most one newly scheduled quirk per second; global min-gap still applies.
+- Debug: default debug panel shows event-based Quirk timeline (mm:ss, type, tier label, well, unshielded force, duration, gap), capped 60. Debug overlay includes a Copy Debug button to copy the current debug text.
+- Lobby: Heroes button shows transcended patients (completed TRANSCENDENCE). Lobby details panel shows small badges when Zen and/or Tranquility are completed.
 
 Run root: open docs/index.html

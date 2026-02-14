@@ -1,7 +1,9 @@
-/* Emotioncraft — Patients (v0_2_92_set0_units)
+/* Emotioncraft — Patients (MVP)
    - Authoritative 10-patient roster + 3-slot lobby rotation (pool queue).
-   - Intake gating + plan choice (Weekly vs Zen timed).
-   - Minimal outcome tracking (intakeDone + lastOutcome), in-memory only (no save schema yet).
+   - Intake gating + plan choice: after INTAKE, choose WEEKLY / ZEN / TRANQUILITY.
+   - TRANSCENDENCE unlocks only after Zen + Tranquility are completed for that patient.
+   - Progress tracking: intakeDone + lastOutcome + zenDone + tranquilityDone; transcendedIds list.
+   - Persistence: patient roster/progress is saved (Firestore) when signed in.
    - Exposes: list(), get(id), beginFromLobby(id), startPending(planKey), startRun(id, planKey),
               start(id, planKey) (compat), backToLobby(), openLobbyPause(), resumeFromLobby(),
               restartActive(), update(dt) (no-op hook).
@@ -425,14 +427,12 @@ function buildTreatmentPlan(planKey) {
 }
 
 // ---------------------------------------------------------------------------
+// Patient roster (authoritative) + lobby rotation state
+// Notes:
+// - Mood label is player-facing; mood.template is internal-only (generation).
+// - Lobby shows 3 patients at a time (slots), drawn from a shuffled pool queue.
+// - Progress is persisted via Firebase/Firestore when signed in (schema v2).
 // ---------------------------------------------------------------------------
-    // -------------------------------------------------------------------------
-  // Patient roster (authoritative) + lobby rotation state
-  // Notes:
-  // - Mood label is player-facing; mood.template is internal-only (generation).
-  // - Lobby shows 3 patients at a time (slots), drawn from a shuffled pool queue.
-  // - Runtime state is kept in-memory (no save schema yet in this chunk).
-  // -------------------------------------------------------------------------
 
   const ROSTER = [
     {
