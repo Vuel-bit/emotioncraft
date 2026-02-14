@@ -453,6 +453,7 @@ const SIM = (EC.SIM = EC.SIM || {
       if (typeof SIM.planAdvanceT !== 'number') SIM.planAdvanceT = 0;
       if (typeof SIM._planStepOk !== 'boolean') SIM._planStepOk = false;
       if (typeof SIM._planHoldReqSec !== 'number') SIM._planHoldReqSec = 0;
+      if (typeof SIM._planStepFlashT !== 'number') SIM._planStepFlashT = 0;
 
       const stepIdx = Math.max(0, Math.min(winDef.steps.length - 1, SIM.planStep));
       const st = winDef.steps[stepIdx];
@@ -555,7 +556,8 @@ const SIM = (EC.SIM = EC.SIM || {
       // Advance:
       // - SPIN_ZERO: immediate
       // - others: after the brief flash window
-      if ((isSpinZeroStep && stepHeld) || (!isSpinZeroStep && stepHeld && (SIM.planAdvanceT <= 0) && (SIM._planStepFlashT <= 0))) {
+      const flashLeft = (typeof SIM._planStepFlashT === 'number') ? SIM._planStepFlashT : 0;
+      if ((isSpinZeroStep && stepHeld) || (!isSpinZeroStep && stepHeld && (SIM.planAdvanceT <= 0) && (flashLeft <= 0))) {
         SIM.planStep += 1;
         SIM.planHoldSec = 0;
         SIM.planAdvanceT = 0;

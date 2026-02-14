@@ -276,13 +276,13 @@ function planName(key) {
 }
 
 function buildPlanZen() {
-  // Timed 10:00 (timer handled by core_mechanics). No holds unless specified.
+  // Timed 10:00 (timer handled by core_mechanics).
   return {
     planKey: 'ZEN',
     steps: [
-      { kind: 'SET_BOUNDS', highs: [], lows: [0,1,2,3,4,5], hiMin: 0, loMax: 99, holdSec: 0, text: 'Step 1: All hues < 100' },
-      { kind: 'ALL_BAND', low: 200, high: 250, holdSec: 0, text: 'Step 2: All hues 200–250' },
-      { kind: 'ALL_OVER', threshold: 401, holdSec: 0, text: 'Step 3: All hues > 400' },
+      { kind: 'SET_BOUNDS', highs: [], lows: [0,1,2,3,4,5], hiMin: 0, loMax: 99, text: 'Step 1: All hues < 100' },
+      { kind: 'ALL_BAND', low: 200, high: 250, text: 'Step 2: All hues 200–250' },
+      { kind: 'ALL_OVER', threshold: 401, text: 'Step 3: All hues > 400' },
       { kind: 'SPIN_ZERO', text: 'Step 4: All well spins = 0' },
     ],
     // Seed goal viz with step 1
@@ -294,9 +294,9 @@ function buildPlanTranquility() {
   return {
     planKey: 'TRANQUILITY',
     steps: [
-      { kind: 'ALL_OVER', threshold: 401, holdSec: 0, text: 'Step 1: All hues > 400' },
-      { kind: 'ALL_BAND', low: 200, high: 250, holdSec: 0, text: 'Step 2: All hues 200–250' },
-      { kind: 'ALL_BAND', low: 100, high: 125, holdSec: 0, text: 'Step 3: All hues 100–125' },
+      { kind: 'ALL_OVER', threshold: 401, text: 'Step 1: All hues > 400' },
+      { kind: 'ALL_BAND', low: 200, high: 250, text: 'Step 2: All hues 200–250' },
+      { kind: 'ALL_BAND', low: 100, high: 125, text: 'Step 3: All hues 100–125' },
       { kind: 'SPIN_ZERO', text: 'Step 4: All well spins = 0' },
     ],
     goalVizPerHue: new Array(6).fill(null).map(() => ({ type: 'OVER', target: 401 })),
@@ -318,14 +318,12 @@ function buildPlanTranscendence() {
   const highLabel = pickEvenLow ? '{1,3,5}' : '{0,2,4}';
 
   const steps = [
-    { kind: 'ALL_BAND', low: 240, high: 260, holdSec: 0, text: 'Step 1: All hues 240–260' },
+    { kind: 'ALL_BAND', low: 240, high: 260, text: 'Step 1: All hues 240–260' },
     {
-      kind: 'SET_BOUNDS', highs: highSet.slice(), lows: lowSet.slice(), hiMin, loMax, holdSec: 0,
-      text: `Step 2: Alternating — ${lowLabel} < 50; ${highLabel} > 450`
+      kind: 'SET_BOUNDS', highs: highSet.slice(), lows: lowSet.slice(), hiMin, loMax, text: `Step 2: Alternating — ${lowLabel} < 50; ${highLabel} > 450`
     },
     {
-      kind: 'SET_BOUNDS', highs: lowSet.slice(), lows: highSet.slice(), hiMin, loMax, holdSec: 0,
-      text: 'Step 3: Swap Step 2'
+      kind: 'SET_BOUNDS', highs: lowSet.slice(), lows: highSet.slice(), hiMin, loMax, text: 'Step 3: Swap Step 2'
     },
     { kind: 'SPIN_ZERO', text: 'Step 4: All well spins = 0' },
   ];
@@ -379,7 +377,7 @@ function buildPlanIntake() {
   // INTAKE (3 steps):
   // 1) Adjacent hues > 350; others < 150 (hold 10s)
   // 2) One non-adjacent hue > 300; others < 200 (hold 10s)
-  // 3) All hues 200–300 (no hold)
+  // 3) All hues 200–300
   const pairStart = randInt(0, 5);
   const pair = [pairStart, (pairStart + 1) % 6];
   const remaining = [0,1,2,3,4,5].filter((h) => pair.indexOf(h) < 0);
@@ -402,8 +400,7 @@ function buildPlanIntake() {
       text: `Step 2: Shift — ${hueName(third)} > 300; all others < 200 (hold 10s)`
     },
     {
-      kind: 'ALL_BAND', low: 200, high: 300, holdSec: 0,
-      text: 'Step 3: All hues 200–300'
+      kind: 'ALL_BAND', low: 200, high: 300, text: 'Step 3: All hues 200–300'
     },
   ];
 
