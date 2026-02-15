@@ -444,6 +444,13 @@ function netSwirl(w, now) {
     // One-shot auto-win return guard (patient sessions). Reset every run.
     SIM._autoWinHandled = false;
 
+    // Log overlay resets per run/patient.
+    try {
+      const UI = (EC.UI_STATE = EC.UI_STATE || {});
+      UI.logEntries = [];
+      UI._logRenderN = -1;
+    } catch (_) {}
+
     // Active plan key (patient plans) — used for timed Zen runs.
     try {
       const pk = def && def.win ? def.win.planKey : null;

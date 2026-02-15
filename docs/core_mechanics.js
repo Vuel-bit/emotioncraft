@@ -192,7 +192,7 @@ const SIM = (EC.SIM = EC.SIM || {
       // -------------------------------------------------------------------
       function propagateScalar(arr, vMin, vMax, ratePerSec, dtLocal, kindChar) {
         const EPS = 1e-6;
-        const MAX_ITERS = 24;
+        const MAX_ITERS = 96;
         let hitMax = false;
 
         for (let iter = 0; iter < MAX_ITERS; iter++) {
@@ -337,23 +337,47 @@ const SIM = (EC.SIM = EC.SIM || {
       // Choose the dominant unresolved overflow across A/S.
       const cand = [];
       // Trigger based on TOTAL unresolved overflow/underflow, not just max single-well.
+      // Spin jam may only happen when the full ring is saturated at the limit (no capacity anywhere).
+      const SPIN_SAT_EPS = 1e-6;
+      let spinAllMax = true;
+      let spinAllMin = true;
+      for (let i = 0; i < 6; i++) {
+        const sC = clampV((SIM.wellsS[i] || 0), S_MIN, S_MAX);
+        if (sC < (S_MAX - SPIN_SAT_EPS)) spinAllMax = false;
+        if (sC > (S_MIN + SPIN_SAT_EPS)) spinAllMin = false;
+      }
       if (aRes.posSum > JAM_SUM_EPS) cand.push({ cause: 'AMOUNT_HIGH_JAM', mag: aRes.posSum, idx: aRes.posIdx });
       if (aRes.negSum > JAM_SUM_EPS) cand.push({ cause: 'AMOUNT_LOW_JAM', mag: aRes.negSum, idx: aRes.negIdx });
-      if (sRes.posSum > JAM_SUM_EPS) cand.push({ cause: 'SPIN_MAX_JAM', mag: sRes.posSum, idx: sRes.posIdx });
-      if (sRes.negSum > JAM_SUM_EPS) cand.push({ cause: 'SPIN_MIN_JAM', mag: sRes.negSum, idx: sRes.negIdx });
+      if (sRes.posSum > JAM_SUM_EPS && spinAllMax) cand.push({ cause: 'SPIN_MAX_JAM', mag: sRes.posSum, idx: sRes.posIdx });
+      if (sRes.negSum > JAM_SUM_EPS && spinAllMin) cand.push({ cause: 'SPIN_MIN_JAM', mag: sRes.negSum, idx: sRes.negIdx });
       if (cand.length) {
         cand.sort((a, b) => b.mag - a.mag);
         jam = cand[0];
       }
 
       if (jam && EC.BREAK && typeof EC.BREAK.triggerJam === 'function') {
-        // Trigger jam break (relief + redirect only; no penalties for jam types).
-        EC.BREAK.triggerJam(jam.cause, { index: jam.idx, magnitude: jam.mag });
+        // Trigger jam break (relief + redirect + penalties for jam types).
+        const firstCause = jam.cause;
+        EC.BREAK.triggerJam(firstCause, { index: jam.idx, magnitude: jam.mag });
 
         // After relief/redirect, re-run propagation so redirects can overshoot and
         // still move outward via the refined spill rules (same tick).
-        propagateScalar(SIM.wellsA, A_MIN, A_MAX, A_RATE, dt, 'A');
-        propagateScalar(SIM.wellsS, S_MIN, S_MAX, S_RATE, dt, 'S');
+        const aRes2 = propagateScalar(SIM.wellsA, A_MIN, A_MAX, A_RATE, dt, 'A');
+        const sRes2 = propagateScalar(SIM.wellsS, S_MIN, S_MAX, S_RATE, dt, 'S');
+
+        // Jam cascade (spin jam → amount jam):
+        // If a SPIN_*_JAM redirect creates unavoidable amount overflow/underflow
+        // that spillover cannot resolve, trigger the corresponding AMOUNT_*_JAM
+        // BEFORE the final clamp would hide it.
+        if (firstCause === 'SPIN_MAX_JAM' && aRes2 && aRes2.posSum > JAM_SUM_EPS) {
+          EC.BREAK.triggerJam('AMOUNT_HIGH_JAM', { index: aRes2.posIdx, magnitude: aRes2.posSum });
+          propagateScalar(SIM.wellsA, A_MIN, A_MAX, A_RATE, dt, 'A');
+          propagateScalar(SIM.wellsS, S_MIN, S_MAX, S_RATE, dt, 'S');
+        } else if (firstCause === 'SPIN_MIN_JAM' && aRes2 && aRes2.negSum > JAM_SUM_EPS) {
+          EC.BREAK.triggerJam('AMOUNT_LOW_JAM', { index: aRes2.negIdx, magnitude: aRes2.negSum });
+          propagateScalar(SIM.wellsA, A_MIN, A_MAX, A_RATE, dt, 'A');
+          propagateScalar(SIM.wellsS, S_MIN, S_MAX, S_RATE, dt, 'S');
+        }
       }
 
       // Spillover debug flags

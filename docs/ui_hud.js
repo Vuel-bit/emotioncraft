@@ -332,6 +332,60 @@
         document.addEventListener('click', (e) => {
           const t = e.target;
           if (!t) return;
+
+          // Copy Log
+          if (t.id === 'btnLogCopy' || (t.closest && t.closest('#btnLogCopy'))) {
+            try {
+              const entries = (EC.UI_STATE && EC.UI_STATE.logEntries) ? EC.UI_STATE.logEntries : [];
+              const tmp = document.createElement('div');
+              const lines = [];
+              for (let i = 0; i < entries.length; i++) {
+                const e2 = entries[i] || {};
+                const tSec = (typeof e2.tSec === 'number') ? e2.tSec : 0;
+                const mm = String(Math.floor(tSec / 60)).padStart(2,'0');
+                const ss = String(Math.floor(tSec % 60)).padStart(2,'0');
+                const html = (e2.html != null) ? String(e2.html) : '';
+                tmp.innerHTML = html;
+                const msg = (tmp.textContent != null) ? String(tmp.textContent) : '';
+                const clean = msg.replace(/\s+/g, ' ').trim();
+                lines.push(`[${mm}:${ss}] ${clean}`.trim());
+              }
+              const out = lines.join('\n');
+
+              (async () => {
+                try {
+                  if (navigator.clipboard && navigator.clipboard.writeText) await navigator.clipboard.writeText(out);
+                  else {
+                    const ta = document.createElement('textarea');
+                    ta.value = out;
+                    ta.style.position = 'fixed';
+                    ta.style.left = '-9999px';
+                    document.body.appendChild(ta);
+                    ta.select();
+                    document.execCommand('copy');
+                    document.body.removeChild(ta);
+                  }
+                  if (EC.UI_STATE) {
+                    EC.UI_STATE.uiMsg = 'Copied log.';
+                    EC.UI_STATE.uiMsgT = 1.5;
+                  }
+                } catch (_) {
+                  if (EC.UI_STATE) {
+                    EC.UI_STATE.uiMsg = 'Copy failed.';
+                    EC.UI_STATE.uiMsgT = 1.5;
+                  }
+                }
+              })();
+            } catch (_) {
+              if (EC.UI_STATE) {
+                EC.UI_STATE.uiMsg = 'Copy failed.';
+                EC.UI_STATE.uiMsgT = 1.5;
+              }
+            }
+            return;
+          }
+
+          // Close Log
           if (t.id === 'btnLogClose' || (t.closest && t.closest('#btnLogClose'))) {
             setLog(false);
           }

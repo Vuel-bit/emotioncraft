@@ -20,6 +20,9 @@
 
   let _cooldownMsgT = 0;
   let _lastTickId = -1;
+  // Jam-only cascade guard (allows jam→jam within a single tick, capped)
+  let _lastJamTickId = -1;
+  let _jamCountThisTick = 0;
 
   function _wellName(i) {
     try {
@@ -484,7 +487,19 @@
     if (SIM.levelState === 'lose' || SIM.mvpLose || SIM.gameOver) return null;
 
     const tickId = _currentTickId(SIM);
-    if (tickId === _lastTickId) return null;
+
+    // Allow up to 2 jam breaks per tick (jam→jam only).
+    // This enables cascades (e.g., SPIN_MAX_JAM causing AMOUNT_HIGH_JAM)
+    // while still preventing psyche breaks from firing in the same tick.
+    if (tickId !== _lastJamTickId) {
+      _lastJamTickId = tickId;
+      _jamCountThisTick = 0;
+    }
+    if (_jamCountThisTick >= 2) return null;
+    _jamCountThisTick += 1;
+
+    // Still consume the shared per-tick break guard so psyche breaks
+    // cannot fire during the same tick as any jam break.
     _lastTickId = tickId;
 
     _triggerJam(SIM, cause, details);
@@ -534,6 +549,8 @@
     try {
       EC.BREAK.timestamps = [];
       _lastTickId = -1;
+      _lastJamTickId = -1;
+      _jamCountThisTick = 0;
       // Keep full history for debugging unless explicitly cleared
       // (history is bounded by BREAK_HISTORY_MAX).
       const UI = EC.UI_STATE || (EC.UI_STATE = {});

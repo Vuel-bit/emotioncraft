@@ -326,8 +326,8 @@
       margin-bottom: 12px;
     }
     .lobbyPortraitWrap{
-      width: 104px;
-      height: 104px;
+      width: 120px;
+      height: 120px;
       border-radius: 16px;
       background: rgba(255,255,255,0.06);
       border: 1px solid rgba(255,255,255,0.10);
@@ -343,19 +343,30 @@
       flex-direction: column;
       align-items: center;
       flex: 0 0 auto;
-      width: 104px;
-      min-width: 104px;
+      width: 120px;
+      min-width: 120px;
     }
     .lobbyMilestones{
       margin-top: 6px;
       display:flex;
-      flex-wrap: wrap;
-      gap: 6px;
+      flex-wrap: nowrap;
+      gap: 4px;
       justify-content: center;
       align-items: center;
       width: 100%;
       pointer-events: none;
     }
+    .lobbyMsPill{
+      padding: 2px 6px;
+      border-radius: 999px;
+      border: 1px solid rgba(255,255,255,0.12);
+      background: rgba(255,255,255,0.08);
+      font-size: 10px;
+      font-weight: 700;
+      line-height: 1.1;
+      letter-spacing: 0.1px;
+    }
+
     #lobbyPortraitImg{
       width: 100%;
       height: 100%;
@@ -795,7 +806,13 @@
       padding: 12px 14px;
       border-bottom: 1px solid rgba(255,255,255,0.10);
     }
-    .logHeader h2{ margin:0; font-size: 16px; color: rgba(232,238,252,0.95); }
+        .logHeaderBtns{
+      display:flex;
+      align-items:center;
+      gap: 8px;
+    }
+
+.logHeader h2{ margin:0; font-size: 16px; color: rgba(232,238,252,0.95); }
     .logBody{
       padding: 10px 12px;
       overflow: auto;
@@ -978,7 +995,10 @@
   <div class="logCard">
     <div class="logHeader">
       <h2>Log</h2>
-      <button class="btn" id="btnLogClose">Close</button>
+      <div class="logHeaderBtns">
+        <button class="btn" id="btnLogCopy">Copy</button>
+        <button class="btn" id="btnLogClose">Close</button>
+      </div>
     </div>
     <div id="logBody" class="logBody"></div>
   </div>

@@ -690,7 +690,6 @@
           els.portraitImg.style.opacity = '0';
         }
       }
-
       // Milestone badges (below portrait)
       try {
         const ms = document.getElementById('lobbyMilestones');
@@ -698,18 +697,13 @@
           ms.innerHTML = '';
           const addPill = (txt) => {
             const sp = document.createElement('span');
+            sp.className = 'lobbyMsPill';
             sp.textContent = txt;
-            sp.style.padding = '2px 8px';
-            sp.style.borderRadius = '999px';
-            sp.style.border = '1px solid rgba(255,255,255,0.12)';
-            sp.style.background = 'rgba(255,255,255,0.08)';
-            sp.style.fontSize = '11px';
-            sp.style.fontWeight = '700';
             ms.appendChild(sp);
           };
 
           if (p && p.zenDone) addPill('Zen ✓');
-          if (p && p.tranquilityDone) addPill('Tranquility ✓');
+          if (p && p.tranquilityDone) addPill('Tranq ✓');
           ms.style.display = (p && (p.zenDone || p.tranquilityDone)) ? 'flex' : 'none';
         }
       } catch (_) {}
