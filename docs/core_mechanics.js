@@ -512,6 +512,24 @@ const SIM = (EC.SIM = EC.SIM || {
           if (isLow(i)) return { type: 'UNDER', target: loMax };
           return null;
         });
+      } else if (kind === 'PER_HUE_BOUNDS') {
+        const bounds = Array.isArray(st.bounds) ? st.bounds : null;
+        ok = true;
+        SIM.goalViz = SIM.goalViz || { perHue: new Array(6).fill(null) };
+        SIM.goalViz.perHue = new Array(6).fill(null);
+        for (let i = 0; i < 6; i++) {
+          const b = bounds ? bounds[i] : null;
+          const lo = (b && typeof b.low === 'number') ? b.low : null;
+          const hi = (b && typeof b.high === 'number') ? b.high : null;
+          const v = psyI(i);
+          if (lo != null && v < lo) ok = false;
+          if (hi != null && v > hi) ok = false;
+          if (lo != null && hi != null) SIM.goalViz.perHue[i] = { type: 'BAND', low: lo, high: hi };
+          else if (lo != null) SIM.goalViz.perHue[i] = { type: 'OVER', target: lo };
+          else if (hi != null) SIM.goalViz.perHue[i] = { type: 'UNDER', target: hi };
+          else SIM.goalViz.perHue[i] = null;
+        }
+
       } else if (kind === 'ALL_BAND') {
         const low = (typeof st.low === 'number') ? st.low : 0;
         const high = (typeof st.high === 'number') ? st.high : 999999;

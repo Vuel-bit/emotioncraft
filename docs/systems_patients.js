@@ -270,7 +270,7 @@ function planName(key) {
   if (k === 'ZEN') return 'Zen';
   if (k === 'TRANQUILITY') return 'Tranquility';
   if (k === 'TRANSCENDENCE') return 'Transcendence';
-  if (k === 'WEEKLY') return 'Weekly Checkup';
+  if (k === 'WEEKLY' || k === 'WEEKLY_A' || k === 'WEEKLY_B' || k === 'WEEKLY_C') return 'Weekly Checkup';
   if (k === 'INTAKE') return 'Intake Patient';
   return key;
 }
@@ -291,16 +291,33 @@ function buildPlanZen() {
 }
 
 function buildPlanTranquility() {
-  return {
-    planKey: 'TRANQUILITY',
-    steps: [
-      { kind: 'ALL_OVER', threshold: 400, text: 'Step 1: All hues ≥ 400' },
-      { kind: 'ALL_BAND', low: 200, high: 250, text: 'Step 2: All hues 200–250' },
-      { kind: 'ALL_BAND', low: 100, high: 125, text: 'Step 3: All hues 100–125' },
-      { kind: 'SPIN_ZERO', text: 'Step 4: All well spins = 0' },
-    ],
-    goalVizPerHue: new Array(6).fill(null).map(() => ({ type: 'OVER', target: 400 })),
-  };
+  // New Tranquility (timed): 1) All over 300  2) Stairs (rolled primary)  3) All under 100  4) All spin stop
+  const primary = randInt(0, 5);
+  const bands = new Array(6);
+  const idx = (d) => (primary + d) % 6;
+
+  bands[idx(0)] = { low: 100, high: 150 };
+  bands[idx(1)] = { low: 150, high: 200 };
+  bands[idx(2)] = { low: 250, high: 300 };
+  bands[idx(3)] = { low: 300, high: 305 };
+  bands[idx(4)] = { low: 350, high: 400 };
+  // Neutral band for the remaining well (solvable and consistent).
+  bands[idx(5)] = { low: 100, high: 400 };
+
+  const steps = [
+    { kind: 'ALL_OVER', threshold: 300, text: 'Step 1: All over 300' },
+    {
+      kind: 'PER_HUE_BOUNDS',
+      bounds: bands,
+      primaryIndex: primary,
+      text: `Step 2: Stairs; Primary: ${hueName(primary)}`
+    },
+    { kind: 'SET_BOUNDS', highs: [], lows: [0,1,2,3,4,5], hiMin: 0, loMax: 100, text: 'Step 3: All under 100' },
+    { kind: 'SPIN_ZERO', text: 'Step 4: All spin stop' },
+  ];
+
+  const goalVizPerHue = new Array(6).fill(null).map(() => ({ type: 'OVER', target: 300 }));
+  return { planKey: 'TRANQUILITY', steps, goalVizPerHue, rolled: { primary } };
 }
 
 function buildPlanTranscendence() {
@@ -332,7 +349,8 @@ function buildPlanTranscendence() {
   return { planKey: 'TRANSCENDENCE', steps, goalVizPerHue, rolled: { pickEvenLow } };
 }
 
-function buildPlanWeekly() {
+function buildPlanWeeklyA() {
+  // Weekly A: preserves the prior Weekly plan logic.
   const holdSec = (typeof T().PAT_BAND_HOLD_SECONDS === 'number') ? T().PAT_BAND_HOLD_SECONDS : 10;
   const even = [0,2,4];
   const odd = [1,3,5];
@@ -370,7 +388,60 @@ function buildPlanWeekly() {
     return null;
   });
 
-  return { planKey: 'WEEKLY', steps, goalVizPerHue, rolled: { pickEven } };
+  return { planKey: 'WEEKLY_A', steps, goalVizPerHue, rolled: { pickEven } };
+}
+
+function buildPlanWeeklyB() {
+  const steps = [
+    { kind: 'SET_BOUNDS', highs: [], lows: [0,1,2,3,4,5], hiMin: 0, loMax: 150, text: 'Step 1: All under 150' },
+    { kind: 'ALL_BAND', low: 200, high: 300, text: 'Step 2: All 200–300' },
+    { kind: 'ALL_OVER', threshold: 350, text: 'Step 3: All over 350' },
+    { kind: 'SPIN_ZERO', text: 'Step 4: Spin 0' },
+  ];
+  const goalVizPerHue = new Array(6).fill(null).map(() => ({ type: 'UNDER', target: 150 }));
+  return { planKey: 'WEEKLY_B', steps, goalVizPerHue };
+}
+
+function buildPlanWeeklyC() {
+  const primary = randInt(0, 5);
+  const left = (primary + 5) % 6;
+  const right = (primary + 1) % 6;
+  const opp = (primary + 3) % 6;
+
+  const neutralLow = 100, neutralHigh = 400;
+  const makeNeutral = () => new Array(6).fill(null).map(() => ({ low: neutralLow, high: neutralHigh }));
+
+  const b1 = makeNeutral();
+  b1[primary] = { low: null, high: 50 };      // Primary: under 50 (≤ 50)
+  b1[left] = { low: 450, high: null };       // Neighbors: over 450 (≥ 450)
+  b1[right] = { low: 450, high: null };
+  b1[opp] = { low: 300, high: null };        // Opposite: over 300 (≥ 300)
+
+  const b3 = makeNeutral();
+  b3[primary] = { low: 50, high: null };     // Primary: over 50 (≥ 50)
+  b3[left] = { low: null, high: 150 };       // Neighbors: under 150 (≤ 150)
+  b3[right] = { low: null, high: 150 };
+  b3[opp] = { low: null, high: 200 };        // Opposite: under 200 (≤ 200)
+
+  const steps = [
+    { kind: 'PER_HUE_BOUNDS', bounds: b1, primaryIndex: primary, text: `Step 1: Primary ${hueName(primary)} ≤ 50; Neighbors ≥ 450` },
+    { kind: 'SPIN_ZERO', text: 'Step 2: All spin stop' },
+    { kind: 'PER_HUE_BOUNDS', bounds: b3, primaryIndex: primary, text: `Step 3: Primary ${hueName(primary)} ≥ 50; Neighbors ≤ 150` },
+    { kind: 'SPIN_ZERO', text: 'Step 4: All spin stop' },
+  ];
+
+  // Seed goal viz with step 1
+  const goalVizPerHue = new Array(6).fill(null).map((_, i) => {
+    const b = b1[i] || {};
+    const lo = (typeof b.low === 'number') ? b.low : null;
+    const hi = (typeof b.high === 'number') ? b.high : null;
+    if (lo != null && hi != null) return { type: 'BAND', low: lo, high: hi };
+    if (lo != null) return { type: 'OVER', target: lo };
+    if (hi != null) return { type: 'UNDER', target: hi };
+    return null;
+  });
+
+  return { planKey: 'WEEKLY_C', steps, goalVizPerHue, rolled: { primary } };
 }
 
 function buildPlanIntake() {
@@ -416,7 +487,18 @@ function buildPlanIntake() {
 
 function buildTreatmentPlan(planKey) {
   const k = String(planKey || '').toUpperCase();
-  if (k === 'WEEKLY') return buildPlanWeekly();
+
+  // Player-facing selection stays WEEKLY, but each run resolves to Weekly A/B/C.
+  if (k === 'WEEKLY') {
+    const variants = ['WEEKLY_A', 'WEEKLY_B', 'WEEKLY_C'];
+    const resolved = variants[Math.floor(Math.random() * variants.length)];
+    return buildTreatmentPlan(resolved);
+  }
+
+  if (k === 'WEEKLY_A') return buildPlanWeeklyA();
+  if (k === 'WEEKLY_B') return buildPlanWeeklyB();
+  if (k === 'WEEKLY_C') return buildPlanWeeklyC();
+
   if (k === 'INTAKE') return buildPlanIntake();
   if (k === 'TRANQUILITY') return buildPlanTranquility();
   if (k === 'TRANSCENDENCE') return buildPlanTranscendence();
@@ -1089,7 +1171,7 @@ function _uniq(arr) {
     SIM._patientActive = true;
     SIM._patientId = p.id;
     SIM._patientLevelId = def.id;
-    SIM._patientPlanKey = useKey;
+    SIM._patientPlanKey = plan && plan.planKey ? plan.planKey : useKey;
     SIM.inLobby = false;
 
     STATE.activePatientId = p.id;
@@ -1140,7 +1222,7 @@ if (planKey === 'INTAKE') {
     }
     try { requestSave('intake_complete'); } catch (_) {}
   }
-} else if (planKey === 'WEEKLY') {
+} else if (planKey === 'WEEKLY' || planKey === 'WEEKLY_A' || planKey === 'WEEKLY_B' || planKey === 'WEEKLY_C') {
   if (isWin) {
     // Hold out of rotation until reward is chosen.
     STATE.pendingWeeklyRewardId = p.id;
