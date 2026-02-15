@@ -717,6 +717,8 @@
     const S_MIN = (typeof T.S_MIN === 'number') ? T.S_MIN : -100;
     const S_MAX = (typeof T.S_MAX === 'number') ? T.S_MAX : 100;
 
+    const EPS = 1e-6; // cap-push epsilon (overshoot allowed)
+
     const traitMult = (EC.TRAITS && typeof EC.TRAITS.getQuirkStrengthMult === "function") ? EC.TRAITS.getQuirkStrengthMult(SIM) : 1.0;
     const rateRaw = (w.strength || 0) * sh; // per second (raw)
     const rate = rateRaw * traitMult;
@@ -752,8 +754,12 @@
       // Push toward +100 specifically (no clamping; overshoot allowed by design).
       const rateSpin = rate * (A_ref / 100);
       const target = S_MAX;
-      const delta = target - S_raw;
-      const deltaNorm = Math.max(-1, Math.min(1, delta / 100));
+      let deltaNorm;
+      if (S_raw >= target - EPS) {
+        deltaNorm = 1;
+      } else {
+        deltaNorm = Math.max(0, Math.min(1, (target - S_raw) / 100));
+      }
       SIM.wellsS[hi] = S_raw + rateSpin * deltaNorm * dt;
       // Track force ignoring A_ref/100 mitigation. Direction is by type (Amped=+).
       try { const mag = (rate * Math.abs(deltaNorm) * dt); SIM._quirkForceTotals.byWell[hi] += mag; SIM._quirkForceTotals.byType.AMPED[hi] += mag; } catch (_) {}
@@ -761,8 +767,12 @@
       // Push toward -100 specifically.
       const rateSpin = rate * (A_ref / 100);
       const target = S_MIN;
-      const delta = target - S_raw;
-      const deltaNorm = Math.max(-1, Math.min(1, delta / 100));
+      let deltaNorm;
+      if (S_raw <= target + EPS) {
+        deltaNorm = -1;
+      } else {
+        deltaNorm = Math.max(-1, Math.min(0, (target - S_raw) / 100));
+      }
       SIM.wellsS[hi] = S_raw + rateSpin * deltaNorm * dt;
       // Track force ignoring A_ref/100 mitigation. Direction is by type (Spirals=-).
       try { const mag = (rate * Math.abs(deltaNorm) * dt); SIM._quirkForceTotals.byWell[hi] -= mag; SIM._quirkForceTotals.byType.SPIRALS[hi] -= mag; } catch (_) {}
