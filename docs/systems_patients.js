@@ -1477,7 +1477,29 @@ function openLobbyPause() {
 
 
   function getStartEnergyBonus() {
-    return 3 * getTranscendedCount();
+    // +1 per Zen completion, +1 per Tranquility completion, +3 per Transcendence.
+    // Back-compat: a transcended patient counts as Zen+Tranquility even if old saves
+    // lack those flags.
+    let zenCount = 0;
+    let tranqCount = 0;
+    let transcendCount = 0;
+
+    for (let i = 0; i < ROSTER.length; i++) {
+      const id = ROSTER[i] && ROSTER[i].id ? String(ROSTER[i].id) : '';
+      if (!id) continue;
+
+      const transc = isTranscended(id);
+      if (transc) transcendCount += 1;
+
+      const p = STATE.patientsById ? STATE.patientsById[id] : null;
+      const zenDone = p && typeof p.zenDone === 'boolean' ? p.zenDone : false;
+      const tranqDone = p && typeof p.tranquilityDone === 'boolean' ? p.tranquilityDone : false;
+
+      if (transc || zenDone) zenCount += 1;
+      if (transc || tranqDone) tranqCount += 1;
+    }
+
+    return zenCount + tranqCount + (3 * transcendCount);
   }
 
   function hasWeeklyOptions(pid) {
