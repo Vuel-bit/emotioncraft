@@ -492,6 +492,13 @@ function computeZeroPairCostCanonical(i) {
 
         // Keep UI tidy (presentation only).
         if (res && res.ok) {
+          // Tutorial instrumentation
+          try {
+            if (SIM && SIM.tutorialActive) {
+              SIM._tutLastAction = { kind: 'SPIN_ZERO', well: i, cost: (res && typeof res.cost === 'number') ? res.cost : 0 };
+            }
+          } catch (_) {}
+
           UI.targetA = prev.A1;
           UI.targetS = prev.S1;
           if (deltaAEl) deltaAEl.value = String(UI.targetA);
@@ -538,6 +545,13 @@ if (btnZeroPairEl) {
         SIM.energy = Math.max(0, eU - pairUnits);
         SIM.wellsS[sel] = 0;
         SIM.wellsS[j] = 0;
+
+        // Tutorial instrumentation
+        try {
+          if (SIM && SIM.tutorialActive) {
+            SIM._tutLastAction = { kind: 'PAIR_ZERO', well: sel, oppIndex: j, cost: pairUnits };
+          }
+        } catch (_) {}
       });
     }
 
@@ -697,9 +711,25 @@ if (btnZeroPairEl) {
       if (btnSpinZeroEl2) {
         const changedSpin = (c1 && c1.changed);
         const spinUnits = changedSpin ? cost1Units : 0;
-        const canSpin = hasSel && changedSpin && (eU >= spinUnits);
+        let canSpin = hasSel && changedSpin && (eU >= spinUnits);
+        // Tutorial gating: Spin 0 only enabled on step 5 (index 4)
+        if (SIM && SIM.tutorialActive) {
+          const st = (typeof SIM._tutStep === 'number') ? (SIM._tutStep|0) : 0;
+          canSpin = canSpin && (st === 4);
+        }
         btnSpinZeroEl2.disabled = !canSpin;
         btnSpinZeroEl2.style.opacity = canSpin ? '1' : '0.55';
+
+        // Tutorial pulse highlight
+        try {
+          if (SIM && SIM.tutorialActive) {
+            const st = (typeof SIM._tutStep === 'number') ? (SIM._tutStep|0) : 0;
+            if (st === 4) btnSpinZeroEl2.classList.add('tutPulse');
+            else btnSpinZeroEl2.classList.remove('tutPulse');
+          } else {
+            btnSpinZeroEl2.classList.remove('tutPulse');
+          }
+        } catch (_) {}
       }
 
 
@@ -713,9 +743,25 @@ if (btnZeroPairEl) {
 
       // Gating must match displayed cost exactly.
       if (btnZeroPairEl2) {
-        const canPair = hasSel && changedPair && (eU >= pairUnits);
+        let canPair = hasSel && changedPair && (eU >= pairUnits);
+        // Tutorial gating: Pair 0 only enabled on step 6 (index 5)
+        if (SIM && SIM.tutorialActive) {
+          const st = (typeof SIM._tutStep === 'number') ? (SIM._tutStep|0) : 0;
+          canPair = canPair && (st === 5);
+        }
         btnZeroPairEl2.disabled = !canPair;
         btnZeroPairEl2.style.opacity = canPair ? '1' : '0.55';
+
+        // Tutorial pulse highlight
+        try {
+          if (SIM && SIM.tutorialActive) {
+            const st = (typeof SIM._tutStep === 'number') ? (SIM._tutStep|0) : 0;
+            if (st === 5) btnZeroPairEl2.classList.add('tutPulse');
+            else btnZeroPairEl2.classList.remove('tutPulse');
+          } else {
+            btnZeroPairEl2.classList.remove('tutPulse');
+          }
+        } catch (_) {}
       }
     }
   };

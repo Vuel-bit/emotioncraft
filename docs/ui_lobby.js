@@ -29,6 +29,7 @@
       overlay: $("lobbyOverlay"),
       list: $("patientList"),
       heroesBtn: $("btnLobbyHeroes"),
+      tutorialBtn: $("btnLobbyTutorial"),
       startBtn: $("btnLobbyStart"),
       resumeBtn: $("btnLobbyResume"),
       hint: $("lobbyHint"),
@@ -853,6 +854,24 @@
       els.heroesBtn.addEventListener('click', () => {
         if (_heroesOpen) hideHeroes(els);
         else showHeroes(els);
+      });
+    }
+
+    // Tutorial button (no patient / no save)
+    if (els.tutorialBtn && !els.tutorialBtn._ecBound) {
+      els.tutorialBtn._ecBound = true;
+      els.tutorialBtn.addEventListener('click', () => {
+        // Close any lobby sub-overlays similar to starting a run.
+        try { hidePlanChoice(els); } catch (_) {}
+        try { if (_heroesOpen) hideHeroes(els); } catch (_) {}
+        pendingPlanPickPatientId = null;
+
+        SIM.inLobby = false;
+        hide(els);
+
+        try {
+          if (EC.TUT && typeof EC.TUT.start === 'function') EC.TUT.start();
+        } catch (_) {}
       });
     }
     if (els.startBtn) {

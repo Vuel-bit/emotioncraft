@@ -414,6 +414,12 @@
     }
     .lobbyBtn.primary{ background: rgba(122, 162, 255, 0.18); border-color: rgba(122, 162, 255, 0.35); }
     .lobbyBtn:active{ transform: translateY(1px); }
+
+    @keyframes tutPulseKey {
+      0%, 100% { transform: translateY(0) scale(1.00); box-shadow: 0 0 0 rgba(255,255,255,0.0); }
+      50%      { transform: translateY(-1px) scale(1.03); box-shadow: 0 0 18px rgba(255,255,255,0.18); }
+    }
+    .tutPulse{ animation: tutPulseKey 0.95s ease-in-out infinite; }
     .drawer .row { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
     .drawer h3 { margin: 0; font-size: 14px; }
     .drawer .sub { font-size: 12px; color: var(--muted); margin-top: 2px; }
@@ -878,7 +884,8 @@
       </div>
       <div id="patientList" class="patientList"></div>
       <div class="lobbyActions">
-        <button id="btnLobbyHeroes" class="lobbyBtn" style="margin-right:auto;">Heroes</button>
+        <button id="btnLobbyHeroes" class="lobbyBtn">Heroes</button>
+        <button id="btnLobbyTutorial" class="lobbyBtn" style="margin-right:auto;">Tutorial</button>
         <button id="btnLobbyResume" class="lobbyBtn" style="display:none;">Resume</button>
         <button id="btnLobbyStart" class="lobbyBtn primary">Start Session</button>
       </div>
@@ -980,6 +987,7 @@
 <script src="./systems_dispositions.js"></script>
 <script src="./systems_breaks.js"></script>
 <script src="./systems_input.js"></script>
+<script src="./systems_tutorial.js"></script>
 <script src="./render_wells_init.js"></script>
 <script src="./render_wells_update.js"></script>
 <script src="./render_wells.js"></script>

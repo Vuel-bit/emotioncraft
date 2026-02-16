@@ -1196,6 +1196,13 @@ function _uniq(arr) {
   
 
   function backToLobby() {
+    // Tutorial runs are sessionless; ensure flags are cleared before returning.
+    try {
+      if (SIM && SIM.tutorialActive && EC.TUT && typeof EC.TUT.stop === 'function') {
+        EC.TUT.stop();
+      }
+    } catch (_) {}
+
     // Record outcome + progression logic before resetting SIM.
     try {
       const pid = (SIM && SIM._patientId) ? SIM._patientId : STATE.activePatientId;

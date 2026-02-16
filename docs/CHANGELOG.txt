@@ -45,3 +45,6 @@
 - Hotfix: quirk ramp STEP_BY_TIER corrected to 0.00025/0.0005/0.001 (was 100× too fast).
 - Hotfix: All plan steps now require 10s hold except SPIN_ZERO (0s); removed holdSec:0 from non-spin steps.
 - Hotfix: PLAN_CHAIN flash/advance gating hardened; fixes Tranquility Step 1 not starting hold.
+
+2026-02-16 — v0_2_103_passD_pass18
+- Added Lobby Tutorial button + primary tutorial board (mechanics walkthrough).

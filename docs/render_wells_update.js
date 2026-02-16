@@ -580,6 +580,11 @@
       // Crisp rim + selection (separate from outer halo)
       const sel = (typeof SIM.selectedWellIndex === 'number') ? SIM.selectedWellIndex : -1;
       const isSel = (i === sel);
+      const tutOn = !!SIM.tutorialActive;
+      const tutStep = (typeof SIM._tutStep === 'number') ? (SIM._tutStep|0) : 0;
+      const tutFocus = (typeof SIM._tutFocusWell === 'number') ? (SIM._tutFocusWell|0) : -1;
+      const tutOpp = (typeof SIM._tutFocusOpp === 'number') ? (SIM._tutFocusOpp|0) : -1;
+      const isTutTarget = tutOn && (i === tutFocus || (tutStep === 5 && i === tutOpp));
       if (rimG) {
         rimG.clear();
         // Rim must NOT read like a constant selection ring.
@@ -587,6 +592,11 @@
         const rimW = Math.max(1, r * 0.022);
         let rimA = isSel ? 0.18 : 0.08;
         let rimW2 = rimW;
+        if (isTutTarget) {
+          const p = 0.55 + 0.45 * Math.sin((tNow || 0) * 3.1 + i);
+          rimA = Math.max(rimA, 0.18 + 0.22 * p);
+          rimW2 = rimW + Math.max(1.5, r * 0.02);
+        }
         if (breakPulse > 0.01) {
           rimA = Math.min(1.0, rimA + 0.60 * breakPulse);
           rimW2 = rimW + 1.5;
@@ -602,10 +612,11 @@
       }
       if (selG) {
         selG.clear();
-        if (isSel) {
-          const pulse = 0.55 + 0.45 * Math.sin((tNow || 0) * 3.2);
+        if (isSel || isTutTarget) {
+          const pulse = 0.55 + 0.45 * Math.sin((tNow || 0) * 3.2 + (isTutTarget ? 0.6 : 0));
           const w = Math.max(2, r * 0.055);
-          selG.lineStyle(w, 0xffffff, 0.18 + 0.22 * pulse, 0.5);
+          const a = isTutTarget ? (0.24 + 0.30 * pulse) : (0.18 + 0.22 * pulse);
+          selG.lineStyle(w, 0xffffff, a, 0.5);
           selG.drawCircle(0, 0, r + Math.max(6, r * 0.12));
         }
       }

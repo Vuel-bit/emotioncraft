@@ -1,6 +1,6 @@
 Emotioncraft Psyche MVP
-Build: v0_2_103_passD (pass8)
-Date: 2026-02-14
+Build: v0_2_103_passD (pass18)
+Date: 2026-02-16
 
 Highlights (current build)
 - Lobby-driven patient loop with INTAKE gating. After Intake, choose WEEKLY / ZEN / TRANQUILITY; TRANSCENDENCE unlocks only after Zen + Tranquility are completed for that patient.
@@ -12,5 +12,6 @@ Highlights (current build)
 - Quirks: Fixates (Amount up), Crashes (Amount down), Obsesses (Spin to +100), Spirals (Spin to -100). Telegraph + active phases. Random scheduling uses per-template per-second ramp chances (tier steps 0.00025 / 0.0005 / 0.001) (0.025% / 0.05% / 0.1% per sec), resetting only when that quirk instance ends; capped to at most one newly scheduled quirk per second; global min-gap still applies.
 - Debug: default debug panel shows event-based Quirk timeline (mm:ss, type, tier label, well, unshielded force, duration, gap), capped 60. Debug overlay includes a Copy Debug button to copy the current debug text.
 - Lobby: Heroes button shows transcended patients (completed TRANSCENDENCE). Lobby details panel shows small badges when Zen and/or Tranquility are completed.
+- Lobby: added a Tutorial button that launches a sessionless mechanics walkthrough (no patient slot; no save/progression).
 
 Run root: open docs/index.html

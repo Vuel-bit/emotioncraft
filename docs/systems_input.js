@@ -445,12 +445,26 @@
         if (w < 0 || w > 5) {
           applied = 'fail';
           applyReason = 'invalid_idx';
-        } else if (cls === 'TAP') {
-          // TAP selects the well only (no sim change).
-          applied = '0';
-          applyReason = 'tap';
-          try { if (EC.SIM) EC.SIM.selectedWellIndex = w; } catch (e) {}
         } else {
+          // Tutorial gating: block non-focus interactions (and optionally block swipes entirely during button steps).
+          const tutOn = !!(EC.SIM && EC.SIM.tutorialActive);
+          const allow = tutOn && (typeof EC.SIM._tutAllowWell === 'number') ? (EC.SIM._tutAllowWell|0) : -1;
+          const blockSwipes = tutOn ? !!EC.SIM._tutBlockSwipes : false;
+
+          const tutGateTap = tutOn && (allow >= 0) && (w !== allow);
+          const tutGateSwipe = tutOn && ((blockSwipes && cls !== 'TAP') || ((allow >= 0) && (w !== allow)));
+
+          if (cls === 'TAP') {
+            // TAP selects the well only (no sim change). In tutorial mode, only the allowed well can be selected.
+            applied = '0';
+            applyReason = tutGateTap ? 'tut_gate' : 'tap';
+            if (!tutGateTap) {
+              try { if (EC.SIM) EC.SIM.selectedWellIndex = w; } catch (e) {}
+            }
+          } else if (tutGateSwipe) {
+            applied = '0';
+            applyReason = (blockSwipes && cls !== 'TAP') ? 'tut_block' : 'tut_gate';
+          } else {
           // FLICK and DRAG both route through the same flickStep() path for consistent energy/cost.
           dA = 0; dS = 0;
           const stepAmt = STEP_UNIT * (steps || 1);
@@ -494,6 +508,16 @@
           }
 try { if (EC.SIM) EC.SIM.selectedWellIndex = w; } catch (e) {}
 
+          // Tutorial instrumentation: record opposite spin before/after for step checks.
+          let oppIndex = -1;
+          let oppSpinBefore = 0;
+          try {
+            if (EC.SIM && EC.SIM.tutorialActive && EC.CONST && Array.isArray(EC.CONST.OPP)) {
+              oppIndex = EC.CONST.OPP[w];
+              if (oppIndex != null && oppIndex >= 0 && oppIndex < 6) oppSpinBefore = (EC.SIM.wellsS && typeof EC.SIM.wellsS[oppIndex] === 'number') ? EC.SIM.wellsS[oppIndex] : 0;
+            }
+          } catch (_) {}
+
           cost = 0;
           if (EC.UI_CONTROLS && typeof EC.UI_CONTROLS.flickStep === 'function') {
             try {
@@ -510,6 +534,26 @@ try { if (EC.SIM) EC.SIM.selectedWellIndex = w; } catch (e) {}
                   }
                 } catch (_) {}
               }
+
+              // Record the last successful tutorial action.
+              try {
+                if (EC.SIM && EC.SIM.tutorialActive && ok) {
+                  let oppSpinAfter = 0;
+                  if (oppIndex != null && oppIndex >= 0 && oppIndex < 6) {
+                    oppSpinAfter = (EC.SIM.wellsS && typeof EC.SIM.wellsS[oppIndex] === 'number') ? EC.SIM.wellsS[oppIndex] : 0;
+                  }
+                  EC.SIM._tutLastAction = {
+                    kind: 'SWIPE',
+                    well: w,
+                    dA: dA,
+                    dS: dS,
+                    cost: cost,
+                    oppIndex: oppIndex,
+                    oppSpinBefore: oppSpinBefore,
+                    oppSpinAfter: oppSpinAfter,
+                  };
+                }
+              } catch (_) {}
             } catch (e) {
               applied = 'fail';
               applyReason = 'apply_throw';
@@ -517,6 +561,7 @@ try { if (EC.SIM) EC.SIM.selectedWellIndex = w; } catch (e) {}
           } else {
             applied = 'fail';
             applyReason = 'missing_flickStep';
+          }
           }
         }
 

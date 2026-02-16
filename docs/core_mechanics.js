@@ -84,6 +84,13 @@ const SIM = (EC.SIM = EC.SIM || {
 
     SIM.mvpTime = (SIM.mvpTime || 0) + dt;
 
+    // Tutorial stepper (no patient / no save). Update early so HUD reads the new objective text this frame.
+    try {
+      if (EC.TUT && typeof EC.TUT.update === 'function' && SIM.tutorialActive) {
+        EC.TUT.update(dt);
+      }
+    } catch (_) {}
+
     // UI-only plan step flash timer (set when a hold completes)
     if (typeof SIM._planStepFlashT === 'number' && SIM._planStepFlashT > 0) {
       SIM._planStepFlashT = Math.max(0, SIM._planStepFlashT - dt);
