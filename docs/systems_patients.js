@@ -298,11 +298,10 @@ function buildPlanTranquility() {
 
   bands[idx(0)] = { low: 100, high: 150 };
   bands[idx(1)] = { low: 150, high: 200 };
-  bands[idx(2)] = { low: 250, high: 300 };
-  bands[idx(3)] = { low: 300, high: 305 };
-  bands[idx(4)] = { low: 350, high: 400 };
-  // Neutral band for the remaining well (solvable and consistent).
-  bands[idx(5)] = { low: 100, high: 400 };
+  bands[idx(2)] = { low: 200, high: 250 };
+  bands[idx(3)] = { low: 250, high: 300 };
+  bands[idx(4)] = { low: 300, high: 350 };
+  bands[idx(5)] = { low: 350, high: 400 };
 
   const steps = [
     { kind: 'ALL_OVER', threshold: 300, text: 'Step 1: All over 300' },
