@@ -48,3 +48,9 @@
 
 2026-02-16 — v0_2_103_passD_pass18
 - Added Lobby Tutorial button + primary tutorial board (mechanics walkthrough).
+
+2026-02-16 — v0_2_103_passD_pass19
+- Progression: Intake is treated as complete for all patients (no Intake gating; enforced even when loading older saves).
+- Tutorial: added final win-conditions step and completion modal button; tutorial disables spillover + mental breaks.
+- Normal gameplay: first-time spill + mental break popups pause and explain what happened.
+- Lobby: added “?” toggle with detailed explanations for the selected patient’s Mood/Vibe/Traits/Quirks.

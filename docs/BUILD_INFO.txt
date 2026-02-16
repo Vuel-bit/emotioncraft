@@ -3,15 +3,16 @@ Build: v0_2_103_passD (pass18)
 Date: 2026-02-16
 
 Highlights (current build)
-- Lobby-driven patient loop with INTAKE gating. After Intake, choose WEEKLY / ZEN / TRANQUILITY; TRANSCENDENCE unlocks only after Zen + Tranquility are completed for that patient.
+- Lobby-driven patient loop. Intake is treated as complete for all patients (no Intake gating). Choose WEEKLY / ZEN / TRANQUILITY; TRANSCENDENCE unlocks only after Zen + Tranquility are completed for that patient.
 - Patient WIN auto-returns to Lobby to show post-win popups (no SUCCESS banner). LOSE does not auto-return.
 - Psyche is per-hue only (0..500 each). Center core is the Treatment hold timer ring + countdown; it flashes red on mental breaks.
 - PLAN_CHAIN: psyche comparisons use rounded values (matches HUD numbers) and each plan step can define holdSec (default 10s; 0s for no-hold steps). INTAKE Step 3 is no-hold; WEEKLY is 3 steps (no spin-zero step).
 - Timed plans: ZEN / TRANQUILITY / TRANSCENDENCE run on a 10:00 timer (shown as a small pill in the top-right HUD). Timer-expiry loss reason is exactly: "Time expired."
-- Mental breaks: no modal popup. On break: quirks are cancelled and all quirk ramp timers reset; ~0.5s hit-stop; center flash + affected wells/hues pulse; break details append to the Log overlay.
+- Mental breaks: first-time-only popups pause and explain break types; break mechanics remain as before (quirks cancelled + ramp timers reset; ~0.5s hit-stop; center flash + affected wells/hues pulse; break details append to the Log overlay).
 - Quirks: Fixates (Amount up), Crashes (Amount down), Obsesses (Spin to +100), Spirals (Spin to -100). Telegraph + active phases. Random scheduling uses per-template per-second ramp chances (tier steps 0.00025 / 0.0005 / 0.001) (0.025% / 0.05% / 0.1% per sec), resetting only when that quirk instance ends; capped to at most one newly scheduled quirk per second; global min-gap still applies.
 - Debug: default debug panel shows event-based Quirk timeline (mm:ss, type, tier label, well, unshielded force, duration, gap), capped 60. Debug overlay includes a Copy Debug button to copy the current debug text.
 - Lobby: Heroes button shows transcended patients (completed TRANSCENDENCE). Lobby details panel shows small badges when Zen and/or Tranquility are completed.
-- Lobby: added a Tutorial button that launches a sessionless mechanics walkthrough (no patient slot; no save/progression).
+- Lobby: Tutorial button launches a sessionless mechanics walkthrough (no patient slot; no save/progression). Tutorial ends via a completion modal button and disables spillover + mental breaks.
+- Lobby: “?” toggle shows detailed explanations for the selected patient’s Mood/Vibe/Traits/Quirks.
 
 Run root: open docs/index.html

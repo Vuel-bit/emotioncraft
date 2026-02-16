@@ -18,6 +18,36 @@
   // Rolling window timestamps for "Mind Shattered" lose condition
   EC.BREAK.timestamps = EC.BREAK.timestamps || [];
 
+  // One-time informational popups (per browser session, in-memory).
+  EC.BREAK.showInfoOnce = function showInfoOnce(key, title, lines, okText, onOk) {
+    const SIM = EC.SIM;
+    if (!SIM) return false;
+    // Never show in tutorial / hazards disabled.
+    if (SIM._tutNoHazards) return false;
+    // If another modal is already visible, do nothing.
+    if (SIM._breakModal) return false;
+
+    const UI = EC.UI_STATE || (EC.UI_STATE = {});
+    UI._seenFirstPopups = UI._seenFirstPopups || {};
+    const k = String(key || '');
+    if (!k) return false;
+    if (UI._seenFirstPopups[k]) return false;
+    UI._seenFirstPopups[k] = true;
+
+    try {
+      SIM._breakPaused = true;
+      SIM._breakModal = {
+        title: String(title || 'Info'),
+        lines: Array.isArray(lines) ? lines.map((x) => String(x)) : [String(lines || '')],
+        okText: okText ? String(okText) : 'OK',
+        onOk: (typeof onOk === 'function') ? onOk : null
+      };
+      return true;
+    } catch (_) {
+      return false;
+    }
+  };
+
   let _cooldownMsgT = 0;
   let _lastTickId = -1;
   // Jam-only cascade guard (allows jam→jam within a single tick, capped)
@@ -321,6 +351,23 @@
 
     const after = _snap(sim);
     const typeLine = `Mental Break: Hue Break — ${_wellName(h)} ${kind === 'LOW' ? 'below 0' : 'above cap'}`;
+
+    // First-time informational popup (additive; does not change mechanics).
+    try {
+      if (EC.BREAK && typeof EC.BREAK.showInfoOnce === 'function') {
+        if (kind === 'LOW') {
+          EC.BREAK.showInfoOnce('break_hue_under_floor', 'Mental Break: Hue under 0', [
+            'A hue’s Psyche dropped below 0.',
+            'A Mental Break fires: the game applies relief + redirects, and adjusts nearby wells.'
+          ]);
+        } else {
+          EC.BREAK.showInfoOnce('break_hue_over_cap', 'Mental Break: Hue over cap', [
+            'A hue’s Psyche exceeded the cap.',
+            'A Mental Break fires: the game applies relief + redirects, and adjusts nearby wells.'
+          ]);
+        }
+      }
+    } catch (_) {}
     const msgLines = [
       typeLine,
       _formatPsycheDelta(before.psy, after.psy),
@@ -461,6 +508,23 @@
 
     const after = _snap(sim);
     const typeLine = `Mental Break: Jam Break — ${String(cause || '').replace(/_/g, ' ')}`;
+
+    // First-time informational popup (spin jam min/max required).
+    try {
+      if (EC.BREAK && typeof EC.BREAK.showInfoOnce === 'function') {
+        if (cause === 'SPIN_MAX_JAM') {
+          EC.BREAK.showInfoOnce('break_jam_spin_max', 'Mental Break: Spin jam (max)', [
+            'The entire ring saturated at the maximum Spin limit.',
+            'A Jam Break fires: spins and amounts are forcefully redirected.'
+          ]);
+        } else if (cause === 'SPIN_MIN_JAM') {
+          EC.BREAK.showInfoOnce('break_jam_spin_min', 'Mental Break: Spin jam (min)', [
+            'The entire ring saturated at the minimum Spin limit.',
+            'A Jam Break fires: spins and amounts are forcefully redirected.'
+          ]);
+        }
+      }
+    } catch (_) {}
     const msgLines = [
       typeLine,
       _formatPsycheDelta(before.psy, after.psy),
@@ -510,6 +574,9 @@
   EC.BREAK.checkBreaks = function checkBreaks(dt) {
     const SIM = EC.SIM;
     if (!SIM || !SIM.psyP || !SIM.wellsS) return null;
+
+    // Tutorial safety: never process breaks when hazards are disabled.
+    if (SIM._tutNoHazards) return null;
 
     // If the run is already over, do not process additional breaks.
     if (SIM.levelState === 'lose' || SIM.mvpLose || SIM.gameOver) return null;

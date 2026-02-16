@@ -1020,12 +1020,17 @@ if (verbose) {
         const lines = Array.isArray(modal.lines) ? modal.lines : [String(modal.lines||'')];
         el.b.textContent = lines.join('\n');
       }
+	      try { if (el.ok) el.ok.textContent = String(modal.okText || 'OK'); } catch(_){ }
       if (el.ok && !el.ok._ecBound) {
         el.ok._ecBound = true;
         el.ok.addEventListener('click', function(){
-          try { SIM._breakModal = null; } catch(_){}
+	          let m = null;
+	          try { m = SIM._breakModal; } catch(_) { m = null; }
+	          try { SIM._breakModal = null; } catch(_){}
           try { SIM._breakPaused = false; } catch(_){}
           try { const ov = qs('breakOverlay'); if (ov){ ov.classList.remove('show'); ov.setAttribute('aria-hidden','true'); } } catch(_){}
+	          try { if (m && typeof m.onOk === 'function') m.onOk(); } catch(_){}
+	          try { if (el.ok) el.ok.textContent = 'OK'; } catch(_){}
         });
       }
     } else {

@@ -867,7 +867,8 @@ function _uniq(arr) {
         traits: Array.isArray(p.traits) ? p.traits.slice() : [],
         quirks: Array.isArray(p.quirks) ? p.quirks.map((q) => ({ type: q.type, intensityTier: (typeof q.intensityTier === 'number') ? q.intensityTier : 0 })) : [],
         // Runtime state (persist later; in-memory for now)
-        intakeDone: false,
+        // Global rule: Intake is always treated as complete for all patients.
+        intakeDone: true,
         zenDone: false,
         tranquilityDone: false,
         lastOutcome: '—',
@@ -1522,6 +1523,14 @@ function openLobbyPause() {
         if (!STATE.lobbySlots[i]) fillSlot(i);
       }
     }
+
+    // Global rule: never allow any save blob to set intakeDone back to false.
+    try {
+      Object.keys(STATE.patientsById || {}).forEach((id) => {
+        const p = STATE.patientsById[id];
+        if (p) p.intakeDone = true;
+      });
+    } catch (_) {}
 
     // Final integrity pass (no save on load).
     ensurePoolIntegrity();

@@ -182,7 +182,9 @@ const SIM = (EC.SIM = EC.SIM || {
     // Amount overflow/underflow transfers raw amount; Spin overflow/underflow transfers raw spin.
     const clampV = EC.clamp || ((v, a, b) => Math.max(a, Math.min(b, v)));
 
-    (function stageSpillover(_dt) {
+    // 2) Overflow/Underflow Equalization (Spillover) — PURE OVERFLOW (authoritative)
+    // Tutorial safety: when SIM._tutNoHazards is set, spillover is skipped entirely.
+    if (!SIM._tutNoHazards) (function stageSpillover(_dt) {
       // For minimal debug visibility
       spillActive = false;
       spillATotal = 0;
@@ -201,6 +203,8 @@ const SIM = (EC.SIM = EC.SIM || {
         const EPS = 1e-6;
         const MAX_ITERS = 96;
         let hitMax = false;
+        let didPos = false;
+        let didNeg = false;
 
         for (let iter = 0; iter < MAX_ITERS; iter++) {
           let movedThisIter = 0;
@@ -253,6 +257,9 @@ const SIM = (EC.SIM = EC.SIM || {
             const giveR = mag * wR;
             const given = giveL + giveR;
             if (given <= EPS) continue;
+
+            if (sign > 0) didPos = true;
+            else didNeg = true;
 
             // Apply raw transfer (may create overflow in neighbors; that's desired)
             arr[i] = (arr[i] || 0) - sign * given;
@@ -308,7 +315,7 @@ const SIM = (EC.SIM = EC.SIM || {
           if (over > 0) posSum += over;
           else if (over < 0) negSum += -over;
         }
-        return { hitMaxIters: hitMax, posMax, posIdx, negMax, negIdx, posSum, negSum };
+        return { hitMaxIters: hitMax, posMax, posIdx, negMax, negIdx, posSum, negSum, didPos, didNeg };
       }
 
       // PASS 1 (Amount)
@@ -316,6 +323,31 @@ const SIM = (EC.SIM = EC.SIM || {
 
       // PASS 2 (Spin)
       const sRes = propagateScalar(SIM.wellsS, S_MIN, S_MAX, S_RATE, dt, 'S');
+
+      // First-time informational popups for spill events (normal gameplay only).
+      try {
+        if (!SIM._tutNoHazards && EC.BREAK && typeof EC.BREAK.showInfoOnce === 'function') {
+          if (aRes && aRes.didPos) EC.BREAK.showInfoOnce('spill_amount_up', 'Spill: Amount overflow', [
+            'A well exceeded its Amount cap.',
+            'The excess spills into neighboring wells until things stabilize.'
+          ]);
+          if (!SIM._breakPaused && aRes && aRes.didNeg) EC.BREAK.showInfoOnce('spill_amount_down', 'Spill: Amount underflow', [
+            'A well dropped below its minimum Amount.',
+            'The deficit pulls from neighboring wells until things stabilize.'
+          ]);
+          if (!SIM._breakPaused && sRes && sRes.didPos) EC.BREAK.showInfoOnce('spill_spin_up', 'Spill: Spin overflow', [
+            'A well exceeded its Spin limit.',
+            'The excess spin spills to neighboring wells.'
+          ]);
+          if (!SIM._breakPaused && sRes && sRes.didNeg) EC.BREAK.showInfoOnce('spill_spin_down', 'Spill: Spin underflow', [
+            'A well dropped below its Spin limit.',
+            'The deficit pulls spin from neighboring wells.'
+          ]);
+        }
+      } catch (_) {}
+
+      // Pause immediately if a first-time spill popup fired.
+      if (SIM._breakPaused) return;
 
       // Debug-only spill summary (helps tune jam thresholds)
       // Enabled only when EC.UI_STATE.debugOn === true; throttled to avoid spam.
@@ -393,6 +425,16 @@ const SIM = (EC.SIM = EC.SIM || {
       SIM._spillS = spillSTotal;
       SIM._spillMsg = (spillMsgs && spillMsgs.length) ? spillMsgs.slice(0, 3).join(' | ') : '';
     })(dt);
+    else {
+      // Spillover skipped (tutorial hazards disabled)
+      SIM._spillActive = false;
+      SIM._spillA = 0;
+      SIM._spillS = 0;
+      SIM._spillMsg = '';
+    }
+
+    // If a spill popup paused the sim, stop the tick immediately.
+    if (SIM._breakPaused) return;
 
     // 3) Final clamp AFTER spillover (authoritative ordering)
     // Dispositions + impulses may temporarily overshoot caps; spillover resolves
@@ -419,6 +461,7 @@ const SIM = (EC.SIM = EC.SIM || {
 
     // 4.5) Mental Breaks (psyche-based) — may modify psyche and well spins
     (function stageBreaks(_dt) {
+      if (SIM._tutNoHazards) return;
       if (EC.BREAK && typeof EC.BREAK.checkBreaks === 'function') {
         EC.BREAK.checkBreaks(_dt);
       }

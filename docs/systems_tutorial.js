@@ -19,7 +19,7 @@
   let _def = null;
   let _stepStarted = false;
   let _psySnap = 0;
-  let _completeT = 0;
+  let _didShowDone = false;
 
   function _setBtnPulse(spin0On, pairOn) {
     const b1 = _btn('btnSpinZero');
@@ -91,13 +91,15 @@
     SIM._tutFocusOpp = OPP[SIM._tutFocusWell] || 3;
     SIM._tutAllowWell = SIM._tutFocusWell;
     SIM._tutBlockSwipes = false;
+    // Strict safety: tutorial must never trigger spill or mental breaks.
+    SIM._tutNoHazards = true;
     _forceSelect(SIM._tutFocusWell);
 
     // Give generous energy for button steps.
     try { SIM.energy = Math.max(SIM.energy || 0, 160); } catch(_) {}
 
     _stepStarted = false;
-    _completeT = 0;
+    _didShowDone = false;
     _clearLastAction();
 
     // Clear any lingering UI pause.
@@ -111,12 +113,14 @@
     SIM._tutFocusOpp = null;
     SIM._tutAllowWell = null;
     SIM._tutBlockSwipes = false;
+    SIM._tutNoHazards = false;
+    try { delete SIM._tutNoHazards; } catch (_) {}
     _setBtnPulse(false, false);
     _setBtnsEnabled(false, false);
     _clearLastAction();
     _def = null;
     _stepStarted = false;
-    _completeT = 0;
+    _didShowDone = false;
   };
 
   function _setObjective(text) {
@@ -162,16 +166,24 @@
       _setBtnsEnabled(false, true);
       _setBtnPulse(false, true);
       _setObjective('Press Set Pair Spin 0 to zero the selected well AND its opposite (costs energy).');
-    } else {
-      SIM._tutBlockSwipes = true;
-      _setBtnsEnabled(false, false);
+    } else if (step === 6) {
+      // Final win-conditions step: allow full interaction.
+      SIM._tutAllowWell = null;
+      SIM._tutBlockSwipes = false;
+      _setBtnsEnabled(true, true);
       _setBtnPulse(false, false);
-      _setObjective('Tutorial complete. Returning to Lobby…');
-      _completeT = 0.75;
+      _setObjective('Win Conditions: Get Red (top) above 300 and Green (opposite) below 200, then stop all spin.');
+    } else {
+      // Safety fallback: treat as final step.
+      SIM._tutAllowWell = null;
+      SIM._tutBlockSwipes = false;
+      _setBtnsEnabled(true, true);
+      _setBtnPulse(false, false);
+      _setObjective('Win Conditions: Get Red (top) above 300 and Green (opposite) below 200, then stop all spin.');
     }
 
-    // Keep selection locked to focus well during tutorial.
-    _forceSelect(SIM._tutFocusWell|0);
+    // Keep selection locked to focus well during early steps.
+    if (step <= 5) _forceSelect(SIM._tutFocusWell|0);
   }
 
   function _advance() {
@@ -186,26 +198,8 @@
     const step = (SIM._tutStep|0);
     if (!_stepStarted) _onStepEnter(step);
 
-    // Keep selection stable.
-    _forceSelect(SIM._tutFocusWell|0);
-
-    // Completion countdown after final step.
-    if (step >= 6) {
-      _completeT = Math.max(0, (_completeT || 0) - (dt || 0));
-      if (_completeT <= 0) {
-        // Clean return to Lobby without patient.
-        MOD.stop();
-        try {
-          if (EC.PAT && typeof EC.PAT.backToLobby === 'function') EC.PAT.backToLobby();
-          else {
-            SIM.inLobby = true;
-            const ov = document.getElementById('lobbyOverlay');
-            if (ov) ov.classList.add('show');
-          }
-        } catch (_) {}
-      }
-      return;
-    }
+    // Keep selection stable during early steps.
+    if (step <= 5) _forceSelect(SIM._tutFocusWell|0);
 
     const i = SIM._tutFocusWell|0;
     const j = SIM._tutFocusOpp|0;
@@ -244,12 +238,49 @@
         const s1 = (SIM.wellsS && typeof SIM.wellsS[j] === 'number') ? SIM.wellsS[j] : 999;
         if (Math.abs(s0) <= 0.01 && Math.abs(s1) <= 0.01) _advance();
       }
+    } else if (step === 6) {
+      // Win conditions: Psyche[0] > 300, Psyche[3] < 200, and all spins are zero.
+      const eps = (EC.TUNE && typeof EC.TUNE.PAT_SPIN_ZERO_EPS === 'number') ? EC.TUNE.PAT_SPIN_ZERO_EPS : 0.01;
+      const p0 = (SIM.psyP && typeof SIM.psyP[0] === 'number') ? SIM.psyP[0] : 0;
+      const p3 = (SIM.psyP && typeof SIM.psyP[3] === 'number') ? SIM.psyP[3] : 0;
+      let allZero = true;
+      if (SIM.wellsS) {
+        for (let k = 0; k < 6; k++) {
+          const s = (typeof SIM.wellsS[k] === 'number') ? SIM.wellsS[k] : 0;
+          if (Math.abs(s) > eps) { allZero = false; break; }
+        }
+      }
+      if (!_didShowDone && p0 > 300 && p3 < 200 && allZero) {
+        _didShowDone = true;
+        // Pause + show completion modal with button.
+        try {
+          SIM._breakPaused = true;
+          SIM._breakModal = {
+            title: 'Tutorial complete',
+            lines: [
+              'Nice work.',
+              'You met the win conditions and stopped all spin.'
+            ],
+            okText: 'Back to Lobby',
+            onOk: function () {
+              try { MOD.stop(); } catch (_) {}
+              try {
+                if (EC.PAT && typeof EC.PAT.backToLobby === 'function') EC.PAT.backToLobby();
+                else {
+                  SIM.inLobby = true;
+                  const ov = document.getElementById('lobbyOverlay');
+                  if (ov) ov.classList.add('show');
+                }
+              } catch (_) {}
+            }
+          };
+        } catch (_) {}
+      }
     }
 
-    // Transition to completion state.
-    if ((SIM._tutStep|0) === 6 && step !== 6) {
+    // Transition into newly entered step.
+    if ((SIM._tutStep|0) !== step) {
       _stepStarted = false;
-      _onStepEnter(6);
     }
   };
 })();

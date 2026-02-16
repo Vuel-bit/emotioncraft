@@ -40,9 +40,11 @@
       startEnergyEl: $("lobbyStartEnergy"),
       portraitImg: $("lobbyPortraitImg"),
       detailsName: $("lobbyDetailsName"),
+      infoBtn: $("btnLobbyPatientInfo"),
       detailsTagline: $("lobbyDetailsTagline"),
       detailsMeta: $("lobbyDetailsMeta"),
       detailsQuirks: $("lobbyDetailsQuirks"),
+      detailsHelp: $("lobbyDetailsHelp"),
       // Created dynamically
       rewardOverlay: document.getElementById('weeklyRewardOverlay'),
       congratsOverlay: document.getElementById('zenCongratsOverlay'),
@@ -681,6 +683,58 @@
         els.detailsQuirks.appendChild(wrap);
       }
 
+      // Optional "?" details panel (per selected patient)
+      try {
+        const UI = EC.UI_STATE || (EC.UI_STATE = {});
+        const show = !!UI.lobbyPatientHelpOn;
+        if (els.detailsHelp) {
+          if (!show) {
+            els.detailsHelp.style.display = 'none';
+          } else {
+            const Tn = (EC.TUNE || {});
+            const moodLbl = p.moodLabel || '—';
+            const vibeLbl = p.vibeLabel || '—';
+            const totalR = (Tn.PAT_MINDSET_TOTAL_RANGES && Tn.PAT_MINDSET_TOTAL_RANGES[moodLbl]) ? Tn.PAT_MINDSET_TOTAL_RANGES[moodLbl] : null;
+            const tmpl = p.moodTemplate || p.spreadTemplate || p.template || '—';
+            const vibeB = (Tn.PAT_VIBE_BANDS && Tn.PAT_VIBE_BANDS[vibeLbl]) ? Tn.PAT_VIBE_BANDS[vibeLbl] : null;
+            const flipC = (typeof Tn.PAT_VIBE_FLIP_CHANCE === 'number') ? Tn.PAT_VIBE_FLIP_CHANCE : null;
+            const maxF = (typeof Tn.PAT_VIBE_MAX_FLIPS === 'number') ? Tn.PAT_VIBE_MAX_FLIPS : null;
+
+            const traitLines = [];
+            traitLines.push('stubborn: energy costs ×1.2');
+            traitLines.push('sensitive: quirk strength ×1.5');
+            traitLines.push('fragile: deprecated (no meaningful effect)');
+
+            const qLines = [];
+            qLines.push('Fixates: Amount ↑');
+            qLines.push('Crashes: Amount ↓');
+            qLines.push('Obsesses: Spin pushed toward +100');
+            qLines.push('Spirals: Spin pushed toward -100');
+            qLines.push('Note: Spin-quirk push scales with Amount (low Amount reduces effect).');
+
+            const parts = [];
+            parts.push('Mood');
+            parts.push('• Total starting Psyche: ' + (totalR ? (totalR[0] + '–' + totalR[1]) : '—'));
+            parts.push('• Template: ' + String(tmpl));
+            parts.push('');
+            parts.push('Vibe');
+            parts.push('• Spin band: ' + (vibeB ? (vibeB[0] + '–' + vibeB[1]) : '—'));
+            if (flipC != null || maxF != null) {
+              parts.push('• Flip chance: ' + (flipC != null ? (Math.round(flipC * 100) + '%') : '—') + (maxF != null ? (' (max ' + maxF + ' flips)') : ''));
+            }
+            parts.push('');
+            parts.push('Traits');
+            traitLines.forEach((t) => parts.push('• ' + t));
+            parts.push('');
+            parts.push('Quirks');
+            qLines.forEach((t) => parts.push('• ' + t));
+
+            els.detailsHelp.textContent = parts.join('\n');
+            els.detailsHelp.style.display = '';
+          }
+        }
+      } catch (_) {}
+
       if (els.portraitImg) {
         if (_hasPortrait(p)) {
           els.portraitImg.src = p.portrait;
@@ -806,6 +860,23 @@
     EC.UI_STATE = EC.UI_STATE || {};
     EC.UI_STATE.selectedPatientId = EC.UI_STATE.selectedPatientId || null;
     renderList(els);
+
+    // Patient "?" info toggle
+    try {
+      EC.UI_STATE.lobbyPatientHelpOn = !!EC.UI_STATE.lobbyPatientHelpOn;
+      if (els.infoBtn && !els.infoBtn._ecBound) {
+        els.infoBtn._ecBound = true;
+        els.infoBtn.addEventListener('click', () => {
+          EC.UI_STATE.lobbyPatientHelpOn = !EC.UI_STATE.lobbyPatientHelpOn;
+          // Re-render details for current selection
+          try {
+            const pid = EC.UI_STATE.selectedPatientId;
+            const p = (EC.PAT && typeof EC.PAT.getById === 'function') ? EC.PAT.getById(pid) : null;
+            renderDetails(els, p);
+          } catch (_) {}
+        });
+      }
+    } catch (_) {}
 
     // Auth UI (minimal)
     try {
