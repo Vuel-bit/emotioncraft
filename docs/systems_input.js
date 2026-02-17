@@ -8,8 +8,253 @@
   // Never replace this object reference; mutate fields only.
   if (!EC.INPUT.gestureState) {
     const rid = (Math.random().toString(16).slice(2, 6) + Math.random().toString(16).slice(2, 6)).slice(0, 8);
-    EC.INPUT.gestureState = { _id: rid, active: 0, key: '', kind: '', well: -1, x0: 0, y0: 0, t0: 0, touchId: null, pid: -1, wellId: null };
+    EC.INPUT.gestureState = { _id: rid, active: 0, key: '', kind: '', well: -1, x0: 0, y0: 0, t0: 0, touchId: null, pid: -1 };
   }
+
+
+// ------------------------------------------------------------
+// Input Debug helpers (moved from main.js)
+// ------------------------------------------------------------
+(function(){
+  let _cached = null;
+
+  EC.INPUT.isInputDebugEnabled = function isInputDebugEnabled(){
+    if (_cached != null) return _cached;
+    try {
+      const q = String((typeof location !== 'undefined' && location.search) ? location.search : '');
+      _cached = /(?:\?|&)inputdebug=1(?:&|$)/.test(q);
+    } catch (_) {
+      _cached = false;
+    }
+    return _cached;
+  };
+
+  EC.INPUT.ensureInputDbg = function ensureInputDbg(){
+    try {
+      EC.UI_STATE = EC.UI_STATE || {};
+      const D = EC.UI_STATE.inputDbg = EC.UI_STATE.inputDbg || {};
+      D.dom = D.dom || { pd:0, pm:0, pu:0, pc:0, ts:0, tm:0, te:0, tc:0 };
+      D.pixiStage = D.pixiStage || { pd:0, pm:0, pu:0, po:0, pc:0 };
+      D.pixiWell = D.pixiWell || { pd:0, pm:0, pu:0, po:0, pc:0 };
+      if (!('lastDomPointer' in D)) D.lastDomPointer = null;
+      if (!('lastDomTouch' in D)) D.lastDomTouch = null;
+      if (!('lastStage' in D)) D.lastStage = null;
+      if (!('lastWell' in D)) D.lastWell = null;
+      // Allocate log array only when explicitly enabled
+      if (EC.INPUT.isInputDebugEnabled()) {
+        if (!Array.isArray(D.log)) D.log = [];
+      }
+      return D;
+    } catch (_) {
+      return null;
+    }
+  };
+
+  function _stamp(){
+    const t = (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
+    return String(Math.floor(t)).padStart(6,'0');
+  }
+
+  function _touchXY(te){
+    try {
+      const ch = (te && te.changedTouches && te.changedTouches[0]) ? te.changedTouches[0] : null;
+      const t = ch || ((te && te.touches && te.touches[0]) ? te.touches[0] : null);
+      if (t) return { x: t.clientX, y: t.clientY };
+    } catch (_) {}
+    return { x: null, y: null };
+  }
+
+  EC.INPUT.dbgLog = function dbgLog(line){
+    if (!EC.INPUT.isInputDebugEnabled()) return;
+    const D = EC.INPUT.ensureInputDbg();
+    if (!D) return;
+    if (!Array.isArray(D.log)) D.log = [];
+    D.log.push(_stamp() + ' ' + line);
+    if (D.log.length > 120) D.log.splice(0, D.log.length - 120);
+  };
+
+  EC.INPUT.dbgRecordDomPointer = function dbgRecordDomPointer(e, phase, extra){
+    if (!EC.INPUT.isInputDebugEnabled()) return;
+    const D = EC.INPUT.ensureInputDbg();
+    if (!D) return;
+    D.dom[phase] = (D.dom[phase]||0) + 1;
+    D.lastDomPointer = {
+      type: e && e.type,
+      pid: e && e.pointerId,
+      pointerType: e && e.pointerType,
+      isPrimary: !!(e && e.isPrimary),
+      x: (e && typeof e.clientX === 'number') ? Math.round(e.clientX) : null,
+      y: (e && typeof e.clientY === 'number') ? Math.round(e.clientY) : null,
+      defaultPrevented: !!(e && e.defaultPrevented),
+      capture: extra || '',
+    };
+    EC.INPUT.dbgLog(`DOM ${e && e.type ? e.type : '?'} pid=${e && e.pointerId != null ? e.pointerId : '?'} pt=${(e && e.pointerType) ? e.pointerType : '?'} x=${D.lastDomPointer.x} y=${D.lastDomPointer.y} defPrev=${D.lastDomPointer.defaultPrevented?'Y':'n'} ${extra||''}`.trim());
+  };
+
+  EC.INPUT.dbgRecordDomTouch = function dbgRecordDomTouch(e, phase){
+    if (!EC.INPUT.isInputDebugEnabled()) return;
+    const D = EC.INPUT.ensureInputDbg();
+    if (!D) return;
+    D.dom[phase] = (D.dom[phase]||0) + 1;
+    const xy = _touchXY(e);
+    D.lastDomTouch = {
+      type: e && e.type,
+      touches: (e && e.touches && e.touches.length) ? e.touches.length : 0,
+      changed: (e && e.changedTouches && e.changedTouches.length) ? e.changedTouches.length : 0,
+      x: (typeof xy.x === 'number') ? Math.round(xy.x) : null,
+      y: (typeof xy.y === 'number') ? Math.round(xy.y) : null,
+      defaultPrevented: !!(e && e.defaultPrevented),
+    };
+    EC.INPUT.dbgLog(`DOM ${e && e.type ? e.type : '?'} touches=${D.lastDomTouch.touches} changed=${D.lastDomTouch.changed} x=${D.lastDomTouch.x} y=${D.lastDomTouch.y} defPrev=${D.lastDomTouch.defaultPrevented?'Y':'n'}`);
+  };
+
+  function _pidFromEv(ev){
+    return (ev && ev.pointerId != null) ? ev.pointerId : (ev && ev.data && ev.data.pointerId != null ? ev.data.pointerId : -1);
+  }
+
+  EC.INPUT.dbgStage = function dbgStage(ev, kind){
+    if (!EC.INPUT.isInputDebugEnabled()) return;
+    const D = EC.INPUT.ensureInputDbg();
+    if (!D) return;
+    const map = { pointerdown:'pd', pointermove:'pm', pointerup:'pu', pointerupoutside:'po', pointercancel:'pc' };
+    const k = map[kind] || null;
+    if (k) D.pixiStage[k] = (D.pixiStage[k]||0) + 1;
+
+    const pid = _pidFromEv(ev);
+    let x = null, y = null, src = 'global';
+    try {
+      const oe = ev && ev.data && ev.data.originalEvent;
+      if (oe && typeof oe.clientX === 'number') { x = Math.round(oe.clientX); y = Math.round(oe.clientY); src = 'originalEvent'; }
+      else if (oe && oe.changedTouches && oe.changedTouches[0]) { x = Math.round(oe.changedTouches[0].clientX); y = Math.round(oe.changedTouches[0].clientY); src = 'touch'; }
+      else if (ev && ev.global) { x = Math.round(ev.global.x); y = Math.round(ev.global.y); src = 'global'; }
+    } catch (_) {}
+    D.lastStage = { type: kind, pid, x, y, src };
+    EC.INPUT.dbgLog(`PIXI STAGE ${kind} pid=${pid} x=${x} y=${y} src=${src}`);
+  };
+
+  // Canonical DOM touchstart arming wrapper (keeps main.js thin)
+  EC.INPUT.armGestureFromDomTouchStart = function armGestureFromDomTouchStart(te){
+    try {
+      const oe = te;
+      const touchesN0 = (oe && oe.touches) ? oe.touches.length : 0;
+      if (touchesN0 > 1) {
+        EC.INPUT.dbgLog('TOUCHSTART_RETURN: reason=multitouch_block');
+        return false;
+      }
+      const ch = (oe && oe.changedTouches && oe.changedTouches.length) ? oe.changedTouches[0] : null;
+      const t = ch || ((oe && oe.touches && oe.touches.length) ? oe.touches[0] : null);
+      if (!t || t.identifier == null) {
+        EC.INPUT.dbgLog('TOUCHSTART_RETURN: reason=no_touch_identifier');
+        return false;
+      }
+      const clientX = t.clientX, clientY = t.clientY;
+      const touchId = t.identifier;
+      const nowMs = (performance && performance.now) ? Math.floor(performance.now()) : Date.now();
+
+      const pickFn = EC.INPUT && typeof EC.INPUT.pickWellIndexFromClientXY === 'function' ? EC.INPUT.pickWellIndexFromClientXY : null;
+      const armFn = EC.INPUT && typeof EC.INPUT.armGestureFromPick === 'function' ? EC.INPUT.armGestureFromPick : null;
+      if (!pickFn || !armFn) return false;
+
+      const pick = pickFn(clientX, clientY);
+      if (!pick || !pick.inside || pick.idx == null || pick.idx < 0) {
+        EC.INPUT.dbgLog(`PICK: idx=-1 cx/cy=${clientX.toFixed(1)},${clientY.toFixed(1)} inside=n`);
+        return false;
+      }
+      EC.INPUT.dbgLog(`PICK: idx=${pick.idx} cx/cy=${clientX.toFixed(1)},${clientY.toFixed(1)} inside=Y`);
+
+      const key = 't:' + touchId;
+      const armed = !!armFn({ kind:'touch', key, idx: pick.idx, clientX, clientY, t0: nowMs, touchId: touchId });
+      const lastArm = (EC.INPUT && EC.INPUT._lastArm) ? EC.INPUT._lastArm : null;
+      const reason = armed ? 'ok' : ((lastArm && lastArm.reason) ? lastArm.reason : 'unknown_false');
+      EC.INPUT.dbgLog(`ARM: ok=${armed?'y':'n'} key=${key} well=${pick.idx} reason=${reason}`);
+      return armed;
+    } catch (err) {
+      const msg = (err && err.message) ? err.message : String(err);
+      EC.INPUT.dbgLog('TOUCHSTART_THROW: ' + msg);
+      return false;
+    }
+  };
+
+})();
+  // ------------------------------------------------------------
+  // Gesture helpers + DOM pointer bridge (canonical: EC.INPUT.*)
+  // ------------------------------------------------------------
+  // Always-visible on-screen swipe debug line (gated by EC.DEBUG for console).
+  EC.INPUT._setGestureDebug = EC.INPUT._setGestureDebug || function _setGestureDebug(s) {
+    EC.UI_STATE = EC.UI_STATE || {};
+    EC.UI_STATE.gestureDebug = s;
+    if (EC.DEBUG) {
+      try { console.log(s); } catch (_) {}
+    }
+  };
+
+  // Robust extraction of clientX/clientY across Pixi events and DOM Pointer/Touch events.
+  EC.INPUT._getClientXY = EC.INPUT._getClientXY || function _getClientXY(ev) {
+    // Prefer Pixi-wrapped originalEvent when present
+    const oe = (ev && ev.data && ev.data.originalEvent) ? ev.data.originalEvent : (ev && ev.nativeEvent ? ev.nativeEvent : null);
+
+    // Raw DOM PointerEvent path
+    if (ev && ev.clientX != null && ev.clientY != null) {
+      return { x: ev.clientX, y: ev.clientY, oe: ev };
+    }
+
+    // PointerEvent path (originalEvent)
+    if (oe && oe.clientX != null && oe.clientY != null) {
+      return { x: oe.clientX, y: oe.clientY, oe };
+    }
+
+    // TouchEvent path
+    const t = (oe && oe.changedTouches && oe.changedTouches.length) ? oe.changedTouches[0]
+            : (oe && oe.touches && oe.touches.length) ? oe.touches[0]
+            : (ev && ev.changedTouches && ev.changedTouches.length) ? ev.changedTouches[0]
+            : (ev && ev.touches && ev.touches.length) ? ev.touches[0]
+            : null;
+    if (t && t.clientX != null && t.clientY != null) {
+      return { x: t.clientX, y: t.clientY, oe };
+    }
+
+    // Fallback: Pixi global coords
+    const x = (ev && ev.global ? ev.global.x : 0);
+    const y = (ev && ev.global ? ev.global.y : 0);
+    return { x, y, oe };
+  };
+
+  // DOM pointerdown bridge used by bootstrap (main.js).
+  EC.INPUT.armGestureFromDomPointerDown = EC.INPUT.armGestureFromDomPointerDown || function armGestureFromDomPointerDown(domEv) {
+    try {
+      if (!EC.INPUT || typeof EC.INPUT.pickWellIndexFromClientXY !== 'function' || typeof EC.INPUT.armGestureFromPick !== 'function') return false;
+      const pid = (domEv && domEv.pointerId != null) ? domEv.pointerId : 0;
+      const cx = (domEv && domEv.clientX != null) ? domEv.clientX : 0;
+      const cy = (domEv && domEv.clientY != null) ? domEv.clientY : 0;
+      const pick = EC.INPUT.pickWellIndexFromClientXY(cx, cy);
+      const idx = pick && typeof pick.idx === 'number' ? pick.idx : -1;
+      if (idx < 0) return false;
+      EC.INPUT.armGestureFromPick({ kind: 'pointer', pid, key: 'p:' + pid, idx, clientX: cx, clientY: cy });
+      return true;
+    } catch (_) {
+      return false;
+    }
+  };
+
+  // DOM pointerup/pointercancel bridge used by bootstrap (main.js).
+  EC.INPUT.resolveGestureFromDom = EC.INPUT.resolveGestureFromDom || function resolveGestureFromDom(domEv, kind) {
+    try {
+      if (!EC.INPUT) return false;
+      if (kind === 'cancel') {
+        if (typeof EC.INPUT.clearGesture === 'function') EC.INPUT.clearGesture('dom_cancel', { why: 'pointercancel' });
+        return true;
+      }
+      if (typeof EC.INPUT.resolveActiveGestureFromStagePointerUp !== 'function') return false;
+      const pid = (domEv && domEv.pointerId != null) ? domEv.pointerId : 0;
+      const wrapped = { pointerId: pid, data: { pointerId: pid, originalEvent: domEv } };
+      EC.INPUT.resolveActiveGestureFromStagePointerUp(wrapped, false);
+      return true;
+    } catch (_) {
+      return false;
+    }
+  };
+
+
 
   // Helper: safe number
   const _num = (v, d=0) => (typeof v === 'number' && isFinite(v)) ? v : d;
@@ -31,7 +276,7 @@
   }
 
   // Stable API: pick a well index from DOM client coords.
-  // Returns 0..5 or -1. Also stores last pick detail on EC.UI_STATE.inputDebug for snapshot/debug.
+  // Returns 0..5 or -1. Also stores last pick detail on EC.UI_STATE.inputDbg for snapshot/debug.
   EC.INPUT.pickWellIndexFromClientXY = function(clientX, clientY) {
     const app = (EC.RENDER && EC.RENDER.app) ? EC.RENDER.app : null;
     const map = _clientToRenderXY(clientX, clientY, app);
@@ -74,8 +319,8 @@
 // Snapshot for debug (optional; main.js also logs)
     try {
       EC.UI_STATE = EC.UI_STATE || {};
-      EC.UI_STATE.inputDebug = EC.UI_STATE.inputDebug || {};
-      EC.UI_STATE.inputDebug.lastPickDetail = out;
+      EC.UI_STATE.inputDbg = EC.UI_STATE.inputDbg || {};
+      EC.UI_STATE.inputDbg.lastPickDetail = out;
     } catch (_) {}
 
     return out;
@@ -162,7 +407,6 @@
         touchId,
         pid,
         well: idx,
-        wellId: (info.wellId != null ? info.wellId : null),
         t0,
         x0,
         y0,
@@ -226,7 +470,10 @@
       EC.UI_STATE = EC.UI_STATE || {};
       EC.UI_STATE.inputDbg = EC.UI_STATE.inputDbg || {};
       const D = EC.UI_STATE.inputDbg;
-      if (!Array.isArray(D.log)) D.log = [];
+      const enabled = (EC.INPUT && typeof EC.INPUT.isInputDebugEnabled === 'function') ? !!EC.INPUT.isInputDebugEnabled() : false;
+      if (enabled) {
+        if (!Array.isArray(D.log)) D.log = [];
+      }
       return D;
     } catch (e) {
       return null;
@@ -236,7 +483,7 @@
   function _ilog(line) {
     try {
       const D = _idbgSafe();
-      if (!D) return;
+      if (!D || !Array.isArray(D.log)) return;
       const ts = (typeof performance !== 'undefined' && performance.now) ? Math.floor(performance.now()) : Date.now();
       D.log.push(ts + ' ' + line);
       if (D.log.length > 260) D.log.splice(0, D.log.length - 260);
@@ -246,7 +493,7 @@
   function _setResolveLine(line, status) {
     try {
       const D = _idbgSafe();
-      if (!D) return;
+      if (!D || !Array.isArray(D.log)) return;
       D.resolveLine = String(line || '');
       D.lastResolve = D.resolveLine;
       D.lastResolveStatus = String(status || '');
@@ -596,27 +843,18 @@ try { if (EC.SIM) EC.SIM.selectedWellIndex = w; } catch (e) {}
     return (ev && ev.pointerId != null) ? ev.pointerId : (ev && ev.data && ev.data.pointerId != null ? ev.data.pointerId : -1);
   }
 
-  function _wellIndexByIdStage(wellId) {
-    const SIM = EC.SIM;
-    if (!SIM || !Array.isArray(SIM.wells)) return -1;
-    for (let k = 0; k < SIM.wells.length; k++) {
-      if (SIM.wells[k] && SIM.wells[k].id === wellId) return k;
-    }
-    return -1;
-  }
-
   EC.INPUT.resolveActiveGestureFromStagePointerUp = EC.INPUT.resolveActiveGestureFromStagePointerUp || function resolveActiveGestureFromStagePointerUp(ev, isOutside) {
     // NOTE: Stage fallback should only resolve pointer-based gestures.
     // Touch gestures are resolved via DOM touchend/touchcancel.
-    const st = (EC.INPUT && EC.INPUT.gestureState) ? EC.INPUT.gestureState : (EC.RENDER && EC.RENDER._gesture);
+    const st = EC.INPUT.gestureState;
     if (!st || !st.active) return;
     if (st.kind && st.kind !== 'pointer') return;
 
     const pid = _pidFromEvStage(ev);
     if (st.pid != null && st.pid >= 0 && pid != null && pid >= 0 && pid !== st.pid) return;
 
-    const getXY = EC.RENDER && EC.RENDER._getClientXY;
-    const setDbg = EC.RENDER && EC.RENDER._setGestureDebug;
+    const getXY = EC.INPUT._getClientXY;
+    const setDbg = EC.INPUT._setGestureDebug;
     const xy = (getXY ? getXY(ev) : null);
     if (!xy) return;
     const x = xy.x, y = xy.y, oe = xy.oe;
@@ -637,7 +875,6 @@ try { if (EC.SIM) EC.SIM.selectedWellIndex = w; } catch (e) {}
     // Determine target well index
     let iWell = -1;
     if (typeof st.well === 'number') iWell = st.well;
-    else if (typeof st.wellId !== 'undefined') iWell = _wellIndexByIdStage(st.wellId);
 
     // Clear gesture deterministically (canonical state)
     try {

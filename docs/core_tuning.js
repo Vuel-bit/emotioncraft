@@ -45,7 +45,7 @@ breaks: {
     },
 swirlAnim: {
       // Scaled up so differences are obvious (e.g., 0.6 looks ~3x faster than 0.2).
-      maxRadPerSec: 6.0, // at |netSwirl| = 1
+      maxRadPerSec: 6.0, // at peak swirl magnitude
     },
 
     // 0.1.6 UI state labels + feedback

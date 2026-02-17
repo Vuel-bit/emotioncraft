@@ -3,97 +3,6 @@
   const EC = (window.EC = window.EC || {});
   const TUNING = EC.TUNING;
 
-  const Hue = {
-    RED: 'red',
-    BLUE: 'blue',
-    YELLOW: 'yellow',
-};
-
-
-  const Lane = {
-    RED: 'red',
-    BLUE: 'blue',
-    YELLOW: 'yellow',
-    GREEN: 'green',
-    ORANGE: 'orange',
-    PURPLE: 'purple',
-  };
-
-  const LANE_ASPECTS = {
-    red:    { ccw: 'Anger',      still: 'Force',        cw: 'Resolve' },
-    blue:   { ccw: 'Fear',       still: 'Mystery',      cw: 'Wonder' },
-    yellow: { ccw: 'Greed',      still: 'Want',         cw: 'Purpose' },
-    green:  { ccw: 'Envy',       still: 'Comparison',   cw: 'Appreciation' },
-    orange: { ccw: 'Obsession',  still: 'Drive',        cw: 'Determination' },
-    purple: { ccw: 'Panic',      still: 'Alertness',    cw: 'Vigilance' },
-  };
-
-  function blendLaneFromPair(a, b) {
-    const set = new Set([a, b]);
-    if (set.has('blue') && set.has('yellow')) return Lane.GREEN;
-    if (set.has('red') && set.has('blue')) return Lane.PURPLE;
-    if (set.has('red') && set.has('yellow')) return Lane.ORANGE;
-    return a; // fallback (should not happen)
-  }
-
-  function computeDisplayBlendState(w) {
-    // Determine dominant/secondary amounts
-    const comps = [
-      { h: 'red', v: w.comp.red },
-      { h: 'blue', v: w.comp.blue },
-      { h: 'yellow', v: w.comp.yellow },
-    ].filter(o => o.v > 0.0001).sort((p,q)=>q.v-p.v);
-
-    if (comps.length < 2) {
-      // No meaningful secondary
-      w.displayBlend = false;
-      return;
-    }
-    const A1 = comps[0].v;
-    const A2 = comps[1].v;
-    const T = A1 + A2;
-    const r = T <= 0.0001 ? 0 : (A2 / T);
-    const enter = TUNING.stateLabels.blendEnter;
-    const exit = TUNING.stateLabels.blendExit;
-    if (!w.displayBlend) {
-      if (r >= enter) w.displayBlend = true;
-    } else {
-      if (r <= exit) w.displayBlend = false;
-    }
-  }
-
-  function computeLaneForDisplay(w) {
-    const comps = [
-      { h: 'red', v: w.comp.red },
-      { h: 'blue', v: w.comp.blue },
-      { h: 'yellow', v: w.comp.yellow },
-    ].filter(o => o.v > 0.0001).sort((p,q)=>q.v-p.v);
-
-    if (comps.length === 0) return Lane.BLUE;
-    if (comps.length === 1) return comps[0].h;
-
-    // Ensure blend flag updated
-    computeDisplayBlendState(w);
-
-    if (!w.displayBlend) {
-      return comps[0].h; // primary lane: dominant hue
-    }
-    return blendLaneFromPair(comps[0].h, comps[1].h);
-  }
-
-  function aspectZoneFromSwirl(s) {
-    const dz = TUNING.stateLabels.deadzone;
-    if (s <= -dz) return 'ccw';
-    if (s >= dz) return 'cw';
-    return 'still';
-  }
-
-  function aspectIcon(zone) {
-    if (zone === 'ccw') return '↺';
-    if (zone === 'cw') return '↻';
-    return '•';
-  }
-
   function clamp(v, a, b) { return Math.max(a, Math.min(b, v)); }
 
   function _ecStartEnergy() {
@@ -111,109 +20,13 @@
   function lerp(a, b, t) { return a + (b - a) * t; }
   function sign0(v) { return v === 0 ? 0 : (v > 0 ? 1 : -1); }
 
-  // -----------------------------
-  // State model (v0.3-aligned)
-  // -----------------------------
-  function makeWell(id, name, x, y) {
-    return {
-      id,
-      name,
-      pos: { x, y },
-      // Nonnegative component amounts
-      comp: { red: 0, blue: 0, yellow: 0 },
-      // Per-component swirl value in [-1, +1] (CCW negative, Still 0, CW positive)
-      swirl: { red: 0, blue: 0, yellow: 0 },
-// temporary event modifiers
-      breakTelegraphAt: 0,
-      breakStart: 0,
-      breakUntil: 0,
-      breakBoost: 0,
-      breakDir: 1,
-      breakCueUntil: 0,
-      lastBreakSoundAt: 0,
-      breakCooldownUntil: 0,
-      // UI feedback cooldowns (safe init; avoids NaN comparisons)
-      lastBlendAudioAt: -Infinity,
-      lastAspectAudioAt: -Infinity,
-      // derived)
-      radius: 110,
-    };
-  }
-
-  function totalAmount(w) {
-    return w.comp.red + w.comp.blue + w.comp.yellow;
-  }
-
-function netSwirl(w, now) {
-    const aR = w.comp.red, aB = w.comp.blue, aY = w.comp.yellow;
-    const den = aR + aB + aY;
-    let raw = 0;
-    if (den > 0) raw = (aR * w.swirl.red + aB * w.swirl.blue + aY * w.swirl.yellow) / den;
-
-    // Break: after a short telegraph window, temporarily boosts net swirl magnitude.
-    if (now >= w.breakStart && now < w.breakUntil) {
-      // Direction follows current raw swirl; if near still, use pre-chosen breakDir.
-      const dz = TUNING.stateLabels.deadzone ?? 0.20;
-      const dir = (Math.abs(raw) >= dz) ? Math.sign(raw) : (w.breakDir || 1);
-      raw -= w.breakBoost;
-    }
-
-    raw = clamp(raw, -1, 1);
-    return { raw, dir: sign0(raw), mag: Math.abs(raw) };
-  }
-
-  
-
-
-  // -----------------------------
-  // Prototype content
-  // -----------------------------
-  const PRESETS = {
-      mindformA() {
-        const w1 = makeWell('w1', 'Well A', 0, 0);
-        const w2 = makeWell('w2', 'Well B', 0, 0);
-
-        // Simple start: two primary wells (single-hue) with light swirl
-        // A: Blue primary
-        w1.comp.blue = 36;
-w1.swirl.blue = -0.25;
-
-        // B: Red primary
-        w2.comp.red = 34;
-w2.swirl.red = -0.22;
-
-        return [w1, w2];
-      }
-    };
-
-  function getWellById(id) {
-    const SIM = EC.SIM;
-    if (!SIM || !Array.isArray(SIM.wells)) return null;
-    return SIM.wells.find(w => w.id === id) || null;
-  }
-  // Export to the single global namespace
-  EC.Hue = Hue;
-  EC.Lane = Lane;
-  EC.LANE_ASPECTS = LANE_ASPECTS;
-
-  EC.blendLaneFromPair = blendLaneFromPair;
-  EC.computeDisplayBlendState = computeDisplayBlendState;
-  EC.computeLaneForDisplay = computeLaneForDisplay;
-
-  EC.aspectZoneFromSwirl = aspectZoneFromSwirl;
-  EC.aspectIcon = aspectIcon;
-
+  // Export shared math helpers
   EC.clamp = clamp;
   EC.lerp = lerp;
   EC.sign0 = sign0;
 
-  EC.makeWell = makeWell;
-  EC.totalAmount = totalAmount;
-EC.netSwirl = netSwirl;
 
-  EC.PRESETS = PRESETS;
-EC.getWellById = getWellById;
-// ---------------------------------------------------------------------------
+  // ---------------------------------------------------------------------------
   // Redesign MVP model (Chunk 1)
   // Adds new state + board definition without disturbing legacy prototype state.
   // Canonical hue list lives in core_const.js (EC.CONST.HUES). Keep EC.HUES as alias.
@@ -582,5 +395,5 @@ EC.getWellById = getWellById;
 
 
   // Hardening: module registry (no gameplay impact)
-  EC._registerModule && EC._registerModule('core_model', { provides: ["EC.Hue", "EC.Lane", "EC.LANE_ASPECTS", "EC.blendLaneFromPair", "EC.computeDisplayBlendState", "EC.computeLaneForDisplay", "EC.aspectZoneFromSwirl", "EC.aspectIcon", "EC.clamp", "EC.lerp", "EC.sign0", "EC.makeWell", "EC.totalAmount", "EC.netSwirl", "EC.PRESETS", "EC.getWellById", ] });
+  EC._registerModule && EC._registerModule('core_model', { provides: ["EC.clamp", "EC.lerp", "EC.sign0", "EC.getActiveLevelDef", "EC.resetRun"] });
 })();

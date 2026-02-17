@@ -25,3 +25,8 @@ Run root: open docs/index.html
 - Pass 30: Legacy tick removed (MVP-only runtime). Inlined MVP tick into core_mechanics and deleted app_loop.js. Removed dead legacy tick helpers and unused legacy render swirl step.
 - Pass 31: Inlined MVP pipeline into core_mechanics and removed the pipeline layer (no behavior changes).
 - Pass 32: Removed legacy Imprint/Trauma/Cleanse prototype system (no gameplay changes).
+
+- Pass 33: Removed legacy SIM.wells well-view renderer and deleted dependent core_model display/well helpers. render_wells is now MVP-only (layout + psyche + resize). (No gameplay changes.)
+- Pass 34: Removed stray render_wells.js.bak; moved gesture helpers + DOM pointer bridge to systems_input; removed final legacy SIM.wells fallback from input (no behavior changes).
+- Pass 35: Main.js hygiene: removed inline input debug ladder; moved input debug recorders + touchstart arming helper into systems_input; standardized inputDbg bucket (no gameplay changes).
+- Pass 36: Extracted patient roster to data_roster.js (EC.DATA.ROSTER). systems_patients consumes roster from EC.DATA (no behavior changes).
