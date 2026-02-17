@@ -70,3 +70,5 @@ Pass 26: Extracted canonical ACTION_MATH (preview/cost/unit rounding/pair cost) 
 Pass 27: Added app_loop.js (EC.APP.tickMvp). core_mechanics EC.tick delegates MVP branch to app loop. No behavior changes.
 
 Pass 28: Added core_pipeline_mvp.js (EC.PIPE.stepMvp). core_mechanics MECH.step delegates MVP systems ordering to pipeline. No behavior changes.
+
+Pass 29: Hotfix — Hue Break no longer references undefined msg (prevents crash). MVP tick delegation no longer falls through into legacy unless SIM.wells exists.

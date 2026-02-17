@@ -376,9 +376,8 @@
     const typeLine = `Mental Break: Hue Break — ${_wellName(h)} ${kind === 'LOW' ? 'below 0' : 'above cap'}`;
 
     // Build log lines first; first-occurrence popup must reuse this exact text.
-    const titleLine = (msg && typeof msg === 'string') ? msg : typeLine;
     const msgArr = [
-      titleLine,
+      typeLine,
       _formatPsycheDelta(before.psy, after.psy),
       _formatAmountDelta(before.a, after.a),
       _formatSpinDelta(before.s, after.s),

@@ -795,11 +795,11 @@ EC.tick = function tick(delta) {
 
 
   // MVP redesign mode: delegate branch to app loop.
-  try {
-    if (EC.APP && typeof EC.APP.tickMvp === 'function') {
-      if (EC.APP.tickMvp(delta)) return;
-    }
-  } catch (_) {}
+  if (EC.APP && typeof EC.APP.tickMvp === 'function') {
+    if (EC.APP.tickMvp(delta)) return;
+    // If MVP tick exists but did not handle, only run legacy tick if legacy state exists.
+    if (!(SIM && Array.isArray(SIM.wells))) return;
+  }
 
 
   if (SIM.failed || SIM.won) return;
