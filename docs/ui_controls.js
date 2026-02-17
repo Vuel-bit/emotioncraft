@@ -39,11 +39,19 @@ function _fluxCost(A, S, T) {
 // Canonical integer “energy units” helpers for Set-0 buttons.
 // These must match the Energy HUD rounding behavior (whole numbers).
 function costToUnits(costFloat) {
+  try {
+    const AM = EC.ACTION_MATH;
+    if (AM && typeof AM.costToUnits === 'function') return AM.costToUnits(costFloat);
+  } catch (_) {}
   const u = Math.round(costFloat || 0);
   return Math.max(0, u);
 }
 
 function energyToUnits(energyFloat) {
+  try {
+    const AM = EC.ACTION_MATH;
+    if (AM && typeof AM.energyToUnits === 'function') return AM.energyToUnits(energyFloat);
+  } catch (_) {}
   const u = Math.round(energyFloat || 0);
   return Math.max(0, u);
 }
@@ -51,6 +59,10 @@ function energyToUnits(energyFloat) {
 // Trait-driven energy cost multiplier (stubborn).
 function _getEnergyCostMult(simIn) {
   const SIM = simIn || EC.SIM || {};
+  try {
+    const AM = EC.ACTION_MATH;
+    if (AM && typeof AM.getEnergyCostMult === 'function') return AM.getEnergyCostMult(SIM);
+  } catch (_) {}
   try {
     return (EC.TRAITS && typeof EC.TRAITS.getEnergyCostMult === "function")
       ? (EC.TRAITS.getEnergyCostMult(SIM) || 1.0)
@@ -64,6 +76,10 @@ function _getEnergyCostMult(simIn) {
 // Preview for a single well apply (used by MOD.render on desktop).
 // Mirrors the init-scoped helper to avoid behavior changes.
 function computeApplyPreview(i, A1In, S1In) {
+  try {
+    const AM = EC.ACTION_MATH;
+    if (AM && typeof AM.computeApplyPreview === 'function') return AM.computeApplyPreview(i, A1In, S1In);
+  } catch (_) {}
   const SIM = EC.SIM;
   const UI = EC.UI || {};
   const T = EC.TUNE || {};
@@ -170,6 +186,10 @@ function computeZeroPairCost(i) {
 
 // Canonical zero-pair cost: averaged across both selection directions for symmetry.
 function computeZeroPairCostCanonical(i) {
+  try {
+    const AM = EC.ACTION_MATH;
+    if (AM && typeof AM.computeZeroPairCostCanonical === 'function') return AM.computeZeroPairCostCanonical(i);
+  } catch (_) {}
   const idx = (typeof i === 'number') ? i : (EC.SIM && typeof EC.SIM.selectedWellIndex === 'number' ? EC.SIM.selectedWellIndex : -1);
   const j = _oppIndex(idx);
   const c1 = computeZeroPairCost(idx);
@@ -233,33 +253,6 @@ function computeZeroPairCostCanonical(i) {
 
     const wellTitle = ctx.wellTitle || ((i) => String(i));
 
-    function fluxSim(A, S) { return A * S; }
-    function fluxCost(A, S) {
-      const spinCost = (S === 0 ? 1 : S); // zero-rule ONLY for cost
-      return A * spinCost;
-    }
-
-    function computeApplyPreview(i, A1_in, S1_in) {
-      if (i == null || i < 0) {
-        return { cost: 0, changed: false, impulseSim: 0, impulseCost: 0, push: 0, A0: 0, S0: 0, A1: 0, S1: 0 };
-      }
-      const A0 = (SIM.wellsA[i] || 0);
-      const S0 = (SIM.wellsS[i] || 0);
-      const A1 = clamp((A1_in == null ? A0 : A1_in), A_MIN, A_MAX);
-      const S1 = clamp((S1_in == null ? S0 : S1_in), S_MIN, S_MAX);
-
-      const impulseSim = fluxSim(A1, S1) - fluxSim(A0, S0);
-      const impulseCost = fluxCost(A1, S1) - fluxCost(A0, S0);
-      const raw = Math.abs(impulseCost) / Math.max(1e-6, COST_NORM);
-      const changed = (Math.abs(A1 - A0) > 1e-9) || (Math.abs(S1 - S0) > 1e-9);
-      const cost = changed ? raw : 0;
-
-      const kPush = T.OPPOSITE_PUSH_K;
-      const push = -kPush * impulseSim; // uses sim impulse (no zero hack)
-      return { cost, changed, impulseSim, impulseCost, push, A0, S0, A1, S1 };
-    }
-
-
     // computeZeroPairCost is canonical at module scope.
 
     function setTargetsFromSelection(i) {
@@ -279,87 +272,47 @@ function computeZeroPairCostCanonical(i) {
     // This keeps messaging consistent without introducing new UI systems.
     MOD.toast = toast;
 
-    // Apply a preview (same logic as the Apply button) without touching tuning.
-    function applyPreviewToSim(i, prev, opts) {
-      const costRaw = (prev && typeof prev._costRaw === 'number') ? prev._costRaw : ((prev && prev.cost) || 0);
-      const mult = _getEnergyCostMult(SIM);
-      const costFloatFinal = costRaw * mult;
-
-      if (!prev.changed) return { ok: false, reason: 'nochange', cost: costFloatFinal };
-
-      const chargeUnits = !!(opts && opts.chargeUnits);
-      const costUnits = chargeUnits ? costToUnits(costFloatFinal) : 0;
-      const costFinal = chargeUnits ? costUnits : costFloatFinal;
-
-      // Debug: record last evaluated spend attempt
-      SIM._dbgLastCostRaw = costRaw;
-      SIM._dbgLastCostMult = mult;
-      SIM._dbgLastCostFinal = costFinal;
-
-      if (chargeUnits) {
-        const eU = energyToUnits(SIM.energy || 0);
-        if (eU < costUnits) {
-          SIM._dbgLastCostNoEnergy = true;
-          return { ok: false, reason: 'noenergy', cost: costFinal };
-        }
-        SIM._dbgLastCostNoEnergy = false;
-        SIM.energy = Math.max(0, eU - costUnits);
-      } else {
-        if ((SIM.energy || 0) < costFloatFinal) {
-          SIM._dbgLastCostNoEnergy = true;
-          return { ok: false, reason: 'noenergy', cost: costFinal };
-        }
-        SIM._dbgLastCostNoEnergy = false;
-        SIM.energy = Math.max(0, (SIM.energy || 0) - costFloatFinal);
-      }
-
-      // Apply to selected well (absolute targets; clamped)
-      SIM.wellsA[i] = prev.A1;
-      SIM.wellsS[i] = prev.S1;
-
-      // One-time opposite push (spin only; amount unchanged)
-      const push = prev.push || 0;
-      const j = OPP[i];
-      if (j != null && j >= 0 && j < 6 && Math.abs(push) > 1e-9) {
-        const Aj = (SIM.wellsA[j] || 0);
-        if (Aj > 0.001) {
-          const Sj0 = (SIM.wellsS[j] || 0);
-          const fluxOppOld = Aj * Sj0;
-          const fluxOppNew = fluxOppOld + push;
-          let Sj1 = fluxOppNew / Aj;
-          // IMPORTANT: do not clamp to [-100,+100] here; allow temporary overflow so spillover can transfer it.
-          const S_SOFT = (typeof T.S_SOFT_MAX === 'number') ? T.S_SOFT_MAX : (Math.max(Math.abs(S_MIN), Math.abs(S_MAX)) * (T.COST && typeof T.COST.S_SOFT_MULT === 'number' ? T.COST.S_SOFT_MULT : 3));
-          Sj1 = Math.max(-S_SOFT, Math.min(S_SOFT, Sj1));
-          SIM.wellsS[j] = Sj1;
-        }
-      }
-
-      return { ok: true, reason: 'ok', cost: costFinal };
-    }
-
     // Public: perform a single discrete +/-5 flick step on a well and auto-apply.
-    // This uses the same preview+apply path as the Apply button to avoid mechanic drift.
+    // Mechanics live in EC.ACTIONS; this wrapper only keeps UI sliders aligned.
     MOD.flickStep = function flickStep(i, dA, dS) {
-      if (i == null || i < 0 || i >= 6) return { ok: false, reason: 'nosel', cost: 0 };
-      if ((dA === 0 || !dA) && (dS === 0 || !dS)) return { ok: false, reason: 'noop', cost: 0 };
-
-      // Compute new absolute targets based on current state.
-      const A0 = clamp((SIM.wellsA[i] || 0), A_MIN, A_MAX);
-      const S0 = clamp((SIM.wellsS[i] || 0), S_MIN, S_MAX);
-      const A1t = clamp(A0 + (dA || 0), A_MIN, A_MAX);
-      const S1t = clamp(S0 + (dS || 0), S_MIN, S_MAX);
-
-      const prev = computeApplyPreview(i, A1t, S1t);
-      const res = applyPreviewToSim(i, prev);
-      if (!res.ok) return res;
+      const act = (EC.ACTIONS && typeof EC.ACTIONS.flickStep === 'function') ? EC.ACTIONS.flickStep : null;
+      const res = act ? act(i, dA, dS) : { ok: false, reason: 'missing_actions', cost: 0 };
+      if (!res || !res.ok) return res;
 
       // Keep UI sliders aligned with the new values (presentation only).
-      UI.targetA = prev.A1;
-      UI.targetS = prev.S1;
-      if (deltaAEl) deltaAEl.value = String(UI.targetA);
-      if (deltaSEl) deltaSEl.value = String(UI.targetS);
-      syncDeltaLabels();
+      if (i != null && i >= 0 && i < 6) {
+        UI.targetA = clamp((SIM.wellsA[i] || 0), A_MIN, A_MAX);
+        UI.targetS = clamp((SIM.wellsS[i] || 0), S_MIN, S_MAX);
+        if (deltaAEl) deltaAEl.value = String(UI.targetA);
+        if (deltaSEl) deltaSEl.value = String(UI.targetS);
+        syncDeltaLabels();
+      }
 
+      return res;
+    };
+
+    // Public: set selected well spin to 0 using authoritative actions.
+    // Charges integer HUD units when opts.chargeUnits is true.
+    MOD.spinZero = function spinZero(i, opts) {
+      const act = (EC.ACTIONS && typeof EC.ACTIONS.spinZero === 'function') ? EC.ACTIONS.spinZero : null;
+      const res = act ? act(i, opts) : { ok: false, reason: 'missing_actions', cost: 0, well: i, A: 0, S: 0 };
+
+      // Keep UI tidy (presentation only).
+      if (res && res.ok) {
+        UI.targetA = (res && typeof res.A === 'number') ? res.A : UI.targetA;
+        UI.targetS = (res && typeof res.S === 'number') ? res.S : UI.targetS;
+        if (deltaAEl) deltaAEl.value = String(UI.targetA);
+        if (deltaSEl) deltaSEl.value = String(UI.targetS);
+        syncDeltaLabels();
+      }
+
+      return res;
+    };
+
+    // Public: atomically set selected well and opposite well spins to 0 (no slider retarget).
+    MOD.zeroPair = function zeroPair(sel, opts) {
+      const act = (EC.ACTIONS && typeof EC.ACTIONS.zeroPair === 'function') ? EC.ACTIONS.zeroPair : null;
+      const res = act ? act(sel, opts) : { ok: false, reason: 'missing_actions', cost: 0, well: sel, opp: _oppIndex(sel) };
       return res;
     };
 
@@ -484,11 +437,8 @@ function computeZeroPairCostCanonical(i) {
         const i = (typeof SIM.selectedWellIndex === 'number') ? SIM.selectedWellIndex : -1;
         if (i < 0) return;
 
-        // Immediate execute: set selected well spin to 0 using preview/apply mechanics
-        // (including opposite push), but charge integer HUD units.
-        const A0 = (SIM.wellsA[i] || 0);
-        const prev = computeApplyPreview(i, A0, 0);
-        const res = applyPreviewToSim(i, prev, { chargeUnits: true });
+        const act = (EC.ACTIONS && typeof EC.ACTIONS.spinZero === 'function') ? EC.ACTIONS.spinZero : null;
+        const res = act ? act(i, { chargeUnits: true }) : { ok: false, reason: 'missing_actions', cost: 0 };
 
         // Keep UI tidy (presentation only).
         if (res && res.ok) {
@@ -499,8 +449,8 @@ function computeZeroPairCostCanonical(i) {
             }
           } catch (_) {}
 
-          UI.targetA = prev.A1;
-          UI.targetS = prev.S1;
+          UI.targetA = (res && typeof res.A === 'number') ? res.A : UI.targetA;
+          UI.targetS = (res && typeof res.S === 'number') ? res.S : UI.targetS;
           if (deltaAEl) deltaAEl.value = String(UI.targetA);
           if (deltaSEl) deltaSEl.value = String(UI.targetS);
           syncDeltaLabels();
@@ -520,36 +470,16 @@ if (btnZeroPairEl) {
         const j = OPP[sel];
         if (j == null || j < 0 || j >= 6) return;
 
-        // Immediate execute: atomic dual-spin-to-zero update.
-        // Charges integer HUD units (display/gating/deduction unified).
-        const c = computeZeroPairCostCanonical(sel);
-        const pairCostRaw = c.cost || 0;
-        const mult = _getEnergyCostMult(SIM);
-        const pairCostFloatFinal = pairCostRaw * mult;
-        const pairUnits = costToUnits(pairCostFloatFinal);
-
-        // Debug: record last evaluated spend attempt
-        SIM._dbgLastCostRaw = pairCostRaw;
-        SIM._dbgLastCostMult = mult;
-        SIM._dbgLastCostFinal = pairUnits;
-
-        const changed = (Math.abs(SIM.wellsS[sel] || 0) > 1e-9) || (Math.abs(SIM.wellsS[j] || 0) > 1e-9);
-        if (!changed) return;
-        const eU = energyToUnits(SIM.energy || 0);
-        if (eU < pairUnits) {
-          SIM._dbgLastCostNoEnergy = true;
-          return;
-        }
-        SIM._dbgLastCostNoEnergy = false;
-
-        SIM.energy = Math.max(0, eU - pairUnits);
-        SIM.wellsS[sel] = 0;
-        SIM.wellsS[j] = 0;
+        const act = (EC.ACTIONS && typeof EC.ACTIONS.zeroPair === 'function') ? EC.ACTIONS.zeroPair : null;
+        const res = act ? act(sel) : { ok: false, reason: 'missing_actions', cost: 0, well: sel, opp: j };
+        if (!(res && res.ok)) return;
 
         // Tutorial instrumentation
         try {
           if (SIM && SIM.tutorialActive) {
-            SIM._tutLastAction = { kind: 'PAIR_ZERO', well: sel, oppIndex: j, cost: pairUnits };
+            const oppIndex = (res && typeof res.opp === 'number') ? res.opp : j;
+            const cost = (res && typeof res.cost === 'number') ? res.cost : 0;
+            SIM._tutLastAction = { kind: 'PAIR_ZERO', well: sel, oppIndex: oppIndex, cost: cost };
           }
         } catch (_) {}
       });
@@ -575,6 +505,26 @@ if (btnZeroPairEl) {
     if (stampNow !== UI_STATE.lastInitStamp) {
       UI_STATE.lastInitStamp = stampNow;
       const selResync = (typeof SIM.selectedWellIndex === 'number') ? SIM.selectedWellIndex : 0;
+      if (selResync >= 0 && typeof MOD._setTargetsFromSelection === 'function') {
+        MOD._setTargetsFromSelection(selResync);
+        // Force preview text refresh even if selection didn't change
+        UI_STATE.prevSel = -999;
+        if (typeof MOD._syncDeltaLabels === 'function') MOD._syncDeltaLabels();
+      }
+    }
+
+
+    // Resync sliders/targets after action-driven control changes (SIM._controlsSyncStamp)
+    const cStampNow = (typeof SIM._controlsSyncStamp === 'number') ? SIM._controlsSyncStamp : 0;
+    if (typeof UI_STATE.lastControlsSyncStamp !== 'number') {
+      UI_STATE.lastControlsSyncStamp = cStampNow;
+    } else if (cStampNow !== UI_STATE.lastControlsSyncStamp) {
+      UI_STATE.lastControlsSyncStamp = cStampNow;
+      let selResync = (typeof SIM.selectedWellIndex === 'number') ? SIM.selectedWellIndex : -1;
+      if (!(selResync >= 0 && selResync < 6)) {
+        const ss = (typeof SIM._controlsSyncSel === 'number') ? SIM._controlsSyncSel : -1;
+        if (ss >= 0 && ss < 6) selResync = ss;
+      }
       if (selResync >= 0 && typeof MOD._setTargetsFromSelection === 'function') {
         MOD._setTargetsFromSelection(selResync);
         // Force preview text refresh even if selection didn't change

@@ -519,9 +519,10 @@ try { if (EC.SIM) EC.SIM.selectedWellIndex = w; } catch (e) {}
           } catch (_) {}
 
           cost = 0;
-          if (EC.UI_CONTROLS && typeof EC.UI_CONTROLS.flickStep === 'function') {
+          const fn = (EC.ACTIONS && typeof EC.ACTIONS.flickStep === 'function') ? EC.ACTIONS.flickStep : null;
+          if (fn) {
             try {
-              const res = EC.UI_CONTROLS.flickStep(w, dA, dS);
+              const res = fn(w, dA, dS);
               const ok = !!(res && res.ok);
               cost = (res && typeof res.cost === 'number') ? res.cost : 0;
               if (!ok) {
@@ -655,7 +656,7 @@ try { if (EC.SIM) EC.SIM.selectedWellIndex = w; } catch (e) {}
     if (adx > ady) { dS = (dx > 0) ? +5 : -5; dirTxt = (dS > 0) ? 'RIGHT (S+5)' : 'LEFT (S-5)'; }
     else { dA = (dy < 0) ? +5 : -5; dirTxt = (dA > 0) ? 'UP (A+5)' : 'DOWN (A-5)'; }
 
-    const fn = EC.UI_CONTROLS && typeof EC.UI_CONTROLS.flickStep === 'function' ? EC.UI_CONTROLS.flickStep : null;
+    const fn = (EC.ACTIONS && typeof EC.ACTIONS.flickStep === 'function') ? EC.ACTIONS.flickStep : null;
     const toast = EC.UI_CONTROLS && typeof EC.UI_CONTROLS.toast === 'function' ? EC.UI_CONTROLS.toast : null;
     const SIM = EC.SIM;
 

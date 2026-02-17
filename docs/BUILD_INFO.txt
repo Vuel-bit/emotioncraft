@@ -14,5 +14,10 @@ Highlights (current build)
 - Lobby: Heroes button shows transcended patients (completed TRANSCENDENCE). Lobby details panel shows small badges when Zen and/or Tranquility are completed.
 - Lobby: Tutorial button launches a sessionless mechanics walkthrough (no patient slot; no save/progression). Tutorial ends via a completion modal button and disables spillover + mental breaks.
 - Lobby: “?” toggle shows detailed explanations for the selected patient’s Mood/Vibe/Traits/Quirks.
+- Pass 24: Added EC.ACTIONS facade (core_actions.js). Routed flick/swipe + Spin0/Pair0 through EC.ACTIONS (no behavior changes).
+- Pass 25: Implemented EC.ACTIONS as authoritative (no UI delegation). UI controls wrap actions; added controls sync stamp for slider resync.
 
 Run root: open docs/index.html
+- Pass 26: Extracted EC.ACTION_MATH (canonical preview/cost/unit rounding/pair cost). Routed ACTIONS + UI controls to it to prevent drift.
+- Pass 27: Added app_loop.js (EC.APP.tickMvp). core_mechanics EC.tick delegates MVP branch to app loop (no behavior changes).
+- Pass 28: Added core_pipeline_mvp.js (EC.PIPE.stepMvp). core_mechanics MECH.step delegates MVP systems ordering to pipeline (no behavior changes).

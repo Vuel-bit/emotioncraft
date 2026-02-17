@@ -62,3 +62,11 @@ Pass 21: Tutorial goalViz + Spin0/Pair0 gating flags; Grounded trait forces time
 Pass 22: Mental break first-occurrence popups now use log-text lines (title + deltas); Grounded timer authoritative in core_mechanics fallback/clamp; Taglines corrected for Nina/Dex/Sage/Juno.
 
 Pass 23: Spin jam first-occurrence popups now include Amount deltas (and use jam summary line as title).
+Pass 24: Added core_actions.js (EC.ACTIONS facade). Routed flick/swipe + Spin0/Pair0 through EC.ACTIONS. No behavior changes.
+Pass 25: Implemented EC.ACTIONS (no UI delegation). UI controls now wrap actions; added controls sync stamp for slider resync.
+
+Pass 26: Extracted canonical ACTION_MATH (preview/cost/unit rounding/pair cost) and routed ACTIONS + UI controls to it to prevent drift.
+
+Pass 27: Added app_loop.js (EC.APP.tickMvp). core_mechanics EC.tick delegates MVP branch to app loop. No behavior changes.
+
+Pass 28: Added core_pipeline_mvp.js (EC.PIPE.stepMvp). core_mechanics MECH.step delegates MVP systems ordering to pipeline. No behavior changes.

@@ -530,7 +530,7 @@ try {
 
       const SIM = EC.SIM;
       const i = _wellIndexById(st.well);
-      const fn = EC.UI_CONTROLS && typeof EC.UI_CONTROLS.flickStep === 'function' ? EC.UI_CONTROLS.flickStep : null;
+      const fn = (EC.ACTIONS && typeof EC.ACTIONS.flickStep === 'function') ? EC.ACTIONS.flickStep : null;
       const toast = EC.UI_CONTROLS && typeof EC.UI_CONTROLS.toast === 'function' ? EC.UI_CONTROLS.toast : null;
       if (!fn || i < 0) {
         if (toast) toast('Select a Well first.');
