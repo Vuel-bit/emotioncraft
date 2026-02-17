@@ -275,80 +275,125 @@ function planName(key) {
   return key;
 }
 
+
+function _deepClone(v) {
+  // Steps are plain data (numbers/arrays/objects); deep clone prevents runtime mutation drift.
+  return (v == null) ? v : JSON.parse(JSON.stringify(v));
+}
+
+function _tmpl(str, dict) {
+  const s = String(str || '');
+  return s.replace(/\{([A-Z0-9_]+)\}/g, (m, k) => (dict && (k in dict)) ? String(dict[k]) : '');
+}
+
+function _expandStepsFromTemplate(stepsTmpl, repl, tokens) {
+  const out = [];
+  const src = Array.isArray(stepsTmpl) ? stepsTmpl : [];
+  for (let i = 0; i < src.length; i++) {
+    const st = _deepClone(src[i]);
+    if (!st) continue;
+
+    // Replace marker fields
+    if (st.highs === '$HI_SET' && repl && repl.hiSet) st.highs = repl.hiSet.slice();
+    if (st.lows === '$LO_SET' && repl && repl.loSet) st.lows = repl.loSet.slice();
+    if (st.highs === '$LOW_SET' && repl && repl.lowSet) st.highs = repl.lowSet.slice();
+    if (st.lows === '$LOW_SET' && repl && repl.lowSet) st.lows = repl.lowSet.slice();
+    if (st.highs === '$HIGH_SET' && repl && repl.highSet) st.highs = repl.highSet.slice();
+    if (st.lows === '$HIGH_SET' && repl && repl.highSet) st.lows = repl.highSet.slice();
+
+    if (st.highs === '$PAIR' && repl && repl.pair) st.highs = repl.pair.slice();
+    if (st.lows === '$REMAINING' && repl && repl.remaining) st.lows = repl.remaining.slice();
+    if (st.highs === '$THIRD_ARR' && repl && repl.thirdArr) st.highs = repl.thirdArr.slice();
+    if (st.lows === '$NOT_THIRD' && repl && repl.notThird) st.lows = repl.notThird.slice();
+
+    if (st.bounds === '$B1' && repl && repl.b1) st.bounds = repl.b1;
+    if (st.bounds === '$B3' && repl && repl.b3) st.bounds = repl.b3;
+    if (st.bounds === '$STAIRS_BANDS' && repl && repl.stairsBands) st.bounds = repl.stairsBands;
+
+    if (st.primaryIndex === '$PRIMARY' && repl && typeof repl.primary === 'number') st.primaryIndex = repl.primary;
+
+    if (st.holdSec === '$HOLD_SEC' && repl && typeof repl.holdSec === 'number') st.holdSec = repl.holdSec;
+
+    // Expand text template tokens
+    if (st.textTmpl) {
+      st.text = _tmpl(st.textTmpl, tokens || {});
+      delete st.textTmpl;
+    }
+
+    out.push(st);
+  }
+  return out;
+}
+
+function _planData(key) {
+  const k = String(key || '').toUpperCase();
+  return (PLANS && PLANS[k]) ? PLANS[k] : null;
+}
+
 function buildPlanZen() {
-  // Timed 10:00 (timer handled by core_mechanics).
-  return {
-    planKey: 'ZEN',
-    steps: [
-      { kind: 'SET_BOUNDS', highs: [], lows: [0,1,2,3,4,5], hiMin: 0, loMax: 100, text: 'Step 1: All hues ≤ 100' },
-      { kind: 'ALL_BAND', low: 200, high: 250, text: 'Step 2: All hues 200–250' },
-      { kind: 'ALL_OVER', threshold: 400, text: 'Step 3: All hues ≥ 400' },
-      { kind: 'SPIN_ZERO', text: 'Step 4: All well spins = 0' },
-    ],
-    // Seed goal viz with step 1
-    goalVizPerHue: new Array(6).fill(null).map(() => ({ type: 'UNDER', target: 100 })),
-  };
+  const D = _planData('ZEN');
+  if (!D || !Array.isArray(D.steps)) {
+    SIM._plansMissing = true;
+    return { planKey: 'ZEN', steps: [], goalVizPerHue: new Array(6).fill(null) };
+  }
+  return { planKey: 'ZEN', steps: _deepClone(D.steps), goalVizPerHue: _deepClone(D.goalVizPerHue) };
 }
 
 function buildPlanTranquility() {
+  const D = _planData('TRANQUILITY');
+  if (!D) {
+    SIM._plansMissing = true;
+    return { planKey: 'TRANQUILITY', steps: [], goalVizPerHue: new Array(6).fill(null) };
+  }
+
   // New Tranquility (timed): 1) All over 300  2) Stairs (rolled primary)  3) All under 100  4) All spin stop
   const primary = randInt(0, 5);
   const bands = new Array(6);
   const idx = (d) => (primary + d) % 6;
 
-  bands[idx(0)] = { low: 100, high: 150 };
-  bands[idx(1)] = { low: 150, high: 200 };
-  bands[idx(2)] = { low: 200, high: 250 };
-  bands[idx(3)] = { low: 250, high: 300 };
-  bands[idx(4)] = { low: 300, high: 350 };
-  bands[idx(5)] = { low: 350, high: 400 };
+  const offsets = Array.isArray(D.stairsBandsByOffset) ? D.stairsBandsByOffset : [];
+  for (let d = 0; d < 6; d++) {
+    const b = offsets[d] || {};
+    bands[idx(d)] = { low: (typeof b.low === 'number') ? b.low : null, high: (typeof b.high === 'number') ? b.high : null };
+  }
 
-  const steps = [
-    { kind: 'ALL_OVER', threshold: 300, text: 'Step 1: All over 300' },
-    {
-      kind: 'PER_HUE_BOUNDS',
-      bounds: bands,
-      primaryIndex: primary,
-      text: `Step 2: Stairs; Primary: ${hueName(primary)}`
-    },
-    { kind: 'SET_BOUNDS', highs: [], lows: [0,1,2,3,4,5], hiMin: 0, loMax: 100, text: 'Step 3: All under 100' },
-    { kind: 'SPIN_ZERO', text: 'Step 4: All spin stop' },
-  ];
+  const tokens = { PRIMARY_NAME: hueName(primary) };
+  const steps = _expandStepsFromTemplate(D.stepsTmpl, { stairsBands: bands, primary }, tokens);
+  const goalVizPerHue = _deepClone(D.goalVizPerHue);
 
-  const goalVizPerHue = new Array(6).fill(null).map(() => ({ type: 'OVER', target: 300 }));
   return { planKey: 'TRANQUILITY', steps, goalVizPerHue, rolled: { primary } };
 }
 
 function buildPlanTranscendence() {
+  const D = _planData('TRANSCENDENCE');
+  if (!D) {
+    SIM._plansMissing = true;
+    return { planKey: 'TRANSCENDENCE', steps: [], goalVizPerHue: new Array(6).fill(null) };
+  }
+
   const even = [0,2,4];
   const odd = [1,3,5];
   const pickEvenLow = Math.random() < 0.5;
   const lowSet = pickEvenLow ? even : odd;
   const highSet = pickEvenLow ? odd : even;
 
-  // "below 50" => <= 50; "above 450" => >= 450 (psyche is integer-rounded in PLAN_CHAIN)
-  const loMax = 50;
-  const hiMin = 450;
-
   const lowLabel = pickEvenLow ? '{0,2,4}' : '{1,3,5}';
   const highLabel = pickEvenLow ? '{1,3,5}' : '{0,2,4}';
 
-  const steps = [
-    { kind: 'ALL_BAND', low: 240, high: 260, text: 'Step 1: All hues 240–260' },
-    {
-      kind: 'SET_BOUNDS', highs: highSet.slice(), lows: lowSet.slice(), hiMin, loMax, text: `Step 2: Alternating — ${lowLabel} ≤ ${loMax}; ${highLabel} ≥ ${hiMin} (hold 10s)`
-    },
-    {
-      kind: 'SET_BOUNDS', highs: lowSet.slice(), lows: highSet.slice(), hiMin, loMax, text: 'Step 3: Swap Step 2'
-    },
-    { kind: 'SPIN_ZERO', text: 'Step 4: All well spins = 0' },
-  ];
+  const tokens = { LOW_LABEL: lowLabel, HIGH_LABEL: highLabel };
+  const steps = _expandStepsFromTemplate(D.stepsTmpl, { lowSet, highSet }, tokens);
 
-  const goalVizPerHue = new Array(6).fill(null).map(() => ({ type: 'BAND', low: 240, high: 260 }));
+  const goalVizPerHue = _deepClone(D.goalVizPerHue);
   return { planKey: 'TRANSCENDENCE', steps, goalVizPerHue, rolled: { pickEvenLow } };
 }
 
 function buildPlanWeeklyA() {
+  const D = _planData('WEEKLY_A');
+  if (!D) {
+    SIM._plansMissing = true;
+    return { planKey: 'WEEKLY_A', steps: [], goalVizPerHue: new Array(6).fill(null) };
+  }
+
   // Weekly A: preserves the prior Weekly plan logic.
   const holdSec = (typeof T().PAT_BAND_HOLD_SECONDS === 'number') ? T().PAT_BAND_HOLD_SECONDS : 10;
   const even = [0,2,4];
@@ -357,33 +402,17 @@ function buildPlanWeeklyA() {
   const hiSet = pickEven ? even : odd;
   const loSet = pickEven ? odd : even;
 
-  const s1hi = 350, s1lo = 150;
-  const s2hi = 300, s2lo = 200;
-  const bandLow = 200, bandHigh = 300;
-
   const setLabel = pickEven ? '{0,2,4}' : '{1,3,5}';
 
-  const steps = [
-    {
-      kind: 'SET_BOUNDS', highs: hiSet.slice(), lows: loSet.slice(), hiMin: s1hi, loMax: s1lo,
-      text: `Step 1: Alternating ${setLabel} ≥ ${s1hi}; other 3 ≤ ${s1lo}`
-    },
-    {
-      kind: 'SET_BOUNDS', highs: loSet.slice(), lows: hiSet.slice(), hiMin: s2hi, loMax: s2lo,
-      text: `Step 2: Swap — previous highs ≤ ${s2lo}; other 3 ≥ ${s2hi}`
-    },
-    {
-      kind: 'ALL_BAND', low: bandLow, high: bandHigh, holdSec,
-      text: `Step 3: All hues 200–300 (hold ${holdSec}s)`
-    },
-  ];
+  const tokens = { SET_LABEL: setLabel, HOLD_SEC: holdSec };
+  const steps = _expandStepsFromTemplate(D.stepsTmpl, { hiSet, loSet, holdSec }, tokens);
 
   // Seed goal viz with step 1
   const isHigh = (i) => hiSet.indexOf(i) >= 0;
   const isLow = (i) => loSet.indexOf(i) >= 0;
   const goalVizPerHue = new Array(6).fill(null).map((_, i) => {
-    if (isHigh(i)) return { type: 'OVER', target: s1hi };
-    if (isLow(i)) return { type: 'UNDER', target: s1lo };
+    if (isHigh(i)) return { type: 'OVER', target: 350 };
+    if (isLow(i)) return { type: 'UNDER', target: 150 };
     return null;
   });
 
@@ -391,43 +420,49 @@ function buildPlanWeeklyA() {
 }
 
 function buildPlanWeeklyB() {
-  const steps = [
-    { kind: 'SET_BOUNDS', highs: [], lows: [0,1,2,3,4,5], hiMin: 0, loMax: 150, text: 'Step 1: All under 150' },
-    { kind: 'ALL_BAND', low: 200, high: 300, text: 'Step 2: All 200–300' },
-    { kind: 'ALL_OVER', threshold: 350, text: 'Step 3: All over 350' },
-    { kind: 'SPIN_ZERO', text: 'Step 4: Spin 0' },
-  ];
-  const goalVizPerHue = new Array(6).fill(null).map(() => ({ type: 'UNDER', target: 150 }));
-  return { planKey: 'WEEKLY_B', steps, goalVizPerHue };
+  const D = _planData('WEEKLY_B');
+  if (!D || !Array.isArray(D.steps)) {
+    SIM._plansMissing = true;
+    return { planKey: 'WEEKLY_B', steps: [], goalVizPerHue: new Array(6).fill(null) };
+  }
+  return { planKey: 'WEEKLY_B', steps: _deepClone(D.steps), goalVizPerHue: _deepClone(D.goalVizPerHue) };
 }
 
 function buildPlanWeeklyC() {
+  const D = _planData('WEEKLY_C');
+  if (!D) {
+    SIM._plansMissing = true;
+    return { planKey: 'WEEKLY_C', steps: [], goalVizPerHue: new Array(6).fill(null) };
+  }
+
   const primary = randInt(0, 5);
   const left = (primary + 5) % 6;
   const right = (primary + 1) % 6;
   const opp = (primary + 3) % 6;
 
-  const neutralLow = 100, neutralHigh = 400;
+  const c = (D.consts || {});
+  const neutralLow = (typeof c.neutralLow === 'number') ? c.neutralLow : 100;
+  const neutralHigh = (typeof c.neutralHigh === 'number') ? c.neutralHigh : 400;
   const makeNeutral = () => new Array(6).fill(null).map(() => ({ low: neutralLow, high: neutralHigh }));
 
+  const mods = (D.boundsMods || {});
+  const m1 = (mods.step1 || {});
+  const m3 = (mods.step3 || {});
+
   const b1 = makeNeutral();
-  b1[primary] = { low: null, high: 50 };      // Primary: under 50 (≤ 50)
-  b1[left] = { low: 450, high: null };       // Neighbors: over 450 (≥ 450)
-  b1[right] = { low: 450, high: null };
-  b1[opp] = { low: 300, high: null };        // Opposite: over 300 (≥ 300)
+  b1[primary] = _deepClone(m1.primary);
+  b1[left] = _deepClone(m1.left);
+  b1[right] = _deepClone(m1.right);
+  b1[opp] = _deepClone(m1.opp);
 
   const b3 = makeNeutral();
-  b3[primary] = { low: 50, high: null };     // Primary: over 50 (≥ 50)
-  b3[left] = { low: null, high: 150 };       // Neighbors: under 150 (≤ 150)
-  b3[right] = { low: null, high: 150 };
-  b3[opp] = { low: null, high: 200 };        // Opposite: under 200 (≤ 200)
+  b3[primary] = _deepClone(m3.primary);
+  b3[left] = _deepClone(m3.left);
+  b3[right] = _deepClone(m3.right);
+  b3[opp] = _deepClone(m3.opp);
 
-  const steps = [
-    { kind: 'PER_HUE_BOUNDS', bounds: b1, primaryIndex: primary, text: `Step 1: Primary ${hueName(primary)} ≤ 50; Neighbors ≥ 450` },
-    { kind: 'SPIN_ZERO', text: 'Step 2: All spin stop' },
-    { kind: 'PER_HUE_BOUNDS', bounds: b3, primaryIndex: primary, text: `Step 3: Primary ${hueName(primary)} ≥ 50; Neighbors ≤ 150` },
-    { kind: 'SPIN_ZERO', text: 'Step 4: All spin stop' },
-  ];
+  const tokens = { PRIMARY_NAME: hueName(primary) };
+  const steps = _expandStepsFromTemplate(D.stepsTmpl, { b1, b3, primary }, tokens);
 
   // Seed goal viz with step 1
   const goalVizPerHue = new Array(6).fill(null).map((_, i) => {
@@ -444,6 +479,12 @@ function buildPlanWeeklyC() {
 }
 
 function buildPlanIntake() {
+  const D = _planData('INTAKE');
+  if (!D) {
+    SIM._plansMissing = true;
+    return { planKey: 'INTAKE', steps: [], goalVizPerHue: new Array(6).fill(null) };
+  }
+
   // INTAKE (3 steps):
   // 1) Adjacent hues ≥ 350; others ≤ 150 (hold 10s)
   // 2) One non-adjacent hue ≥ 300; others ≤ 200 (hold 10s)
@@ -456,29 +497,28 @@ function buildPlanIntake() {
   const cand = [ (pairStart + 3) % 6, (pairStart + 4) % 6 ];
   const third = pick(cand);
 
-  // Integers match PLAN_CHAIN rounded psyche comparisons.
-  const s1hi = 350, s1lo = 150;
-  const s2hi = 300, s2lo = 200;
+  const tokens = {
+    H0: hueName(pair[0]),
+    H1: hueName(pair[1]),
+    THIRD_NAME: hueName(third)
+  };
 
-  const steps = [
+  const steps = _expandStepsFromTemplate(
+    D.stepsTmpl,
     {
-      kind: 'SET_BOUNDS', highs: pair.slice(), lows: remaining.slice(), hiMin: s1hi, loMax: s1lo, holdSec: 10,
-      text: `Step 1: Adjacent ${hueName(pair[0])} + ${hueName(pair[1])} ≥ ${s1hi}; other 4 ≤ ${s1lo} (hold 10s)`
+      pair,
+      remaining,
+      thirdArr: [third],
+      notThird: [0,1,2,3,4,5].filter((h) => h !== third)
     },
-    {
-      kind: 'SET_BOUNDS', highs: [third], lows: [0,1,2,3,4,5].filter((h) => h !== third), hiMin: s2hi, loMax: s2lo, holdSec: 10,
-      text: `Step 2: Shift — ${hueName(third)} ≥ ${s2hi}; all others ≤ ${s2lo} (hold 10s)`
-    },
-    {
-      kind: 'ALL_BAND', low: 200, high: 300, text: 'Step 3: All hues 200–300'
-    },
-  ];
+    tokens
+  );
 
   // Seed goal viz with step 1
   const isHigh = (i) => (i === pair[0] || i === pair[1]);
   const goalVizPerHue = new Array(6).fill(null).map((_, i) => {
-    if (isHigh(i)) return { type: 'OVER', target: s1hi };
-    return { type: 'UNDER', target: s1lo };
+    if (isHigh(i)) return { type: 'OVER', target: 350 };
+    return { type: 'UNDER', target: 150 };
   });
 
   return { planKey: 'INTAKE', steps, goalVizPerHue, rolled: { pair, third, pairStart } };
@@ -517,6 +557,13 @@ function buildTreatmentPlan(planKey) {
     // Missing roster should not crash the game; lobby will show no patients.
     SIM._rosterMissing = true;
   }
+
+  const PLANS = (EC.DATA && EC.DATA.PLANS) ? EC.DATA.PLANS : null;
+  if (!PLANS) {
+    // Missing plan specs should not crash the game; plan selection may be unavailable.
+    SIM._plansMissing = true;
+  }
+
 
 
   const STATE = {
@@ -1053,15 +1100,17 @@ function _uniq(arr) {
     try {
       const pid = (SIM && SIM._patientId) ? SIM._patientId : STATE.activePatientId;
       const p = pid ? getById(pid) : null;
-      if (p) {
-        const planKey = String((SIM && (SIM._patientPlanKey || SIM._activePlanKey)) || '').toUpperCase();
+      if (p) {        // Normalize plan key for comparisons only (keep raw label behavior for unknown plan keys).
+        const planKeyRaw = String((SIM && (SIM._patientPlanKey || SIM._activePlanKey)) || '').toUpperCase();
+        let pk = planKeyRaw.replace(/[\s-]+/g, '_');
+        const isWeekly = (pk === 'WEEKLY' || pk.indexOf('WEEKLY_') === 0);
         const isWin = !!((SIM && (SIM.levelState === 'win')) || (SIM && SIM.mvpWin));
         const isLose = !!((SIM && (SIM.levelState === 'lose')) || (SIM && SIM.mvpLose) || (SIM && SIM.gameOver));
         const reason = (SIM && typeof SIM.gameOverReason === 'string') ? SIM.gameOverReason : '';
 
 
 // INTAKE progression: on win, unlock plans.
-if (planKey === 'INTAKE') {
+if (pk === 'INTAKE') {
   if (isWin) {
     p.intakeDone = true;
     p.lastOutcome = 'Intake complete.';
@@ -1074,7 +1123,7 @@ if (planKey === 'INTAKE') {
     }
     try { requestSave('intake_complete'); } catch (_) {}
   }
-} else if (planKey === 'WEEKLY' || planKey === 'WEEKLY_A' || planKey === 'WEEKLY_B' || planKey === 'WEEKLY_C') {
+} else if (isWeekly) {
   if (isWin) {
     // Hold out of rotation until reward is chosen.
     STATE.pendingWeeklyRewardId = p.id;
@@ -1088,7 +1137,7 @@ if (planKey === 'INTAKE') {
     ensurePoolIntegrity();
     try { requestSave('weekly_loss'); } catch (_) {}
   }
-} else if (planKey === 'ZEN') {
+} else if (pk === 'ZEN') {
   if (isWin) {
     const wasZenDone = !!p.zenDone;
     p.zenDone = true;
@@ -1109,7 +1158,7 @@ if (planKey === 'INTAKE') {
     ensurePoolIntegrity();
     try { requestSave('zen_loss'); } catch (_) {}
   }
-} else if (planKey === 'TRANQUILITY') {
+} else if (pk === 'TRANQUILITY') {
   if (isWin) {
     p.tranquilityDone = true;
     p.lastOutcome = 'Tranquility complete.';
@@ -1127,7 +1176,7 @@ if (planKey === 'INTAKE') {
     ensurePoolIntegrity();
     try { requestSave('tranquility_loss'); } catch (_) {}
   }
-} else if (planKey === 'TRANSCENDENCE') {
+} else if (pk === 'TRANSCENDENCE') {
   if (isWin) {
     p.lastOutcome = 'Transcended.';
     // Permanently remove.
@@ -1148,7 +1197,7 @@ if (planKey === 'INTAKE') {
   }
         } else {
           // Fallback sessions.
-          const label = planKey || 'Session';
+          const label = planKeyRaw || 'Session';
           if (isWin) p.lastOutcome = `${label} success.`;
           else if (isLose) p.lastOutcome = `${label} failed.`;
           const inSlots = STATE.lobbySlots.indexOf(p.id) >= 0;

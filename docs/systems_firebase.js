@@ -223,6 +223,18 @@
   SAVE._onLoadedDoc = SAVE._onLoadedDoc || function _onLoadedDoc(data) {
     if (!data || typeof data !== 'object') return false;
     const v = (typeof data.schemaVersion === 'number') ? data.schemaVersion : 0;
+
+    // Apply persisted UI one-time popup flags immediately (independent of patients readiness).
+    if (v >= 2 && data.ui && typeof data.ui === 'object' && data.ui.seenFirstPopups && typeof data.ui.seenFirstPopups === 'object') {
+      const UI = EC.UI_STATE || (EC.UI_STATE = {});
+      UI._seenFirstPopups = UI._seenFirstPopups || {};
+      try {
+        Object.keys(data.ui.seenFirstPopups).forEach((k) => {
+          if (data.ui.seenFirstPopups[k]) UI._seenFirstPopups[String(k)] = true;
+        });
+      } catch (_) {}
+    }
+
     if (v >= 2 && data.pat && typeof data.pat === 'object') {
       SAVE._pendingDoc = data;
       // Try immediately; if patients system not ready yet, retry a few times.
@@ -247,12 +259,16 @@
         SAVE._patWriteAttempts = (SAVE._patWriteAttempts || 0) + 1;
         try { setTimeout(() => { try { SAVE._writeCurrentPat('retry'); } catch (_) {} }, 75); } catch (_) {}
       }
-      return SAVE.debouncedWrite({ schemaVersion: 2 }, { merge: true });
+      const UI = EC.UI_STATE || {};
+      const seenFirstPopups = Object.assign({}, (UI && UI._seenFirstPopups) || {});
+      return SAVE.debouncedWrite({ schemaVersion: 2, ui: { seenFirstPopups } }, { merge: true });
     }
 
     SAVE._patWriteAttempts = 0;
     const pat = EC.PAT.getSaveBlob();
-    return SAVE.debouncedWrite({ schemaVersion: 2, pat }, { merge: true });
+    const UI = EC.UI_STATE || {};
+    const seenFirstPopups = Object.assign({}, (UI && UI._seenFirstPopups) || {});
+    return SAVE.debouncedWrite({ schemaVersion: 2, pat, ui: { seenFirstPopups } }, { merge: true });
   };
 
   SAVE._touchOnSignIn = SAVE._touchOnSignIn || function _touchOnSignIn() {

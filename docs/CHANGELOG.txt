@@ -82,3 +82,11 @@ Pass 33 (Legacy Renderer Removal): Removed legacy SIM.wells well-view renderer a
 Pass 34: Removed stray render_wells.js.bak. Moved gesture helpers + DOM pointer bridge from render_wells into systems_input. Removed final SIM.wells legacy fallback plumbing from input. No behavior changes.
 Pass 35: Main.js hygiene: removed inline input debug ladder; moved input debug recorders + touchstart arming helper into systems_input; standardized inputDbg bucket. No gameplay changes.
 Pass 36: Extracted patient roster to data_roster.js (EC.DATA.ROSTER). systems_patients now consumes roster from EC.DATA. No behavior changes.
+Pass 37: Extracted treatment plan specs to data_plans.js (EC.DATA.PLANS). systems_patients now consumes plan data; randomness remains in logic. No behavior changes.
+Pass 38: Extracted tutorial def + step specs/copy to data_tutorial.js (EC.DATA.TUTORIAL). systems_tutorial consumes data and interprets enterOps. No behavior changes.
+
+Pass 39: Hotfixes — restored desktop long-press drag scaling (canonical release resolver shared by DOM pointer + touch); Weekly win now reliably triggers the remove-attribute reward overlay via planKey normalization; gesture coord/debug text hidden by default (only shown with ?inputdebug=1).
+
+Pass 40: Stage pointer-up fallback now routes through the canonical release resolver (removes duplicate flick-only logic). Weekly fallback label preserved (no underscore-normalized labels for unknown plan keys). No behavior changes.
+
+Pass 41: Updated Tranquility plan bands/thresholds in data_plans. Persisted spill/break info popups once per user via Firestore ui.seenFirstPopups (still session-only when signed out).

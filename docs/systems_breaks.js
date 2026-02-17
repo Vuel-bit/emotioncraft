@@ -34,6 +34,15 @@
     if (UI._seenFirstPopups[k]) return false;
     UI._seenFirstPopups[k] = true;
 
+    // Persist per-player seen flags when signed in (Firestore). Safe no-op when unavailable.
+    try {
+      if (EC.SAVE && typeof EC.SAVE.debouncedWrite === 'function') {
+        const seenFirstPopups = Object.assign({}, UI._seenFirstPopups);
+        EC.SAVE.debouncedWrite({ schemaVersion: 2, ui: { seenFirstPopups } }, { merge: true });
+      }
+    } catch (_) {}
+
+
     try {
       SIM._breakPaused = true;
       SIM._breakModal = {

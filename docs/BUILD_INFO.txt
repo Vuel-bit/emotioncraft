@@ -1,6 +1,6 @@
 Emotioncraft Psyche MVP
-Build: v0_2_103_passD (pass18)
-Date: 2026-02-16
+Build: v0_2_103_passD (pass41)
+Date: 2026-02-17
 
 Highlights (current build)
 - Lobby-driven patient loop. Intake is treated as complete for all patients (no Intake gating). Choose WEEKLY / ZEN / TRANQUILITY; TRANSCENDENCE unlocks only after Zen + Tranquility are completed for that patient.
@@ -30,3 +30,8 @@ Run root: open docs/index.html
 - Pass 34: Removed stray render_wells.js.bak; moved gesture helpers + DOM pointer bridge to systems_input; removed final legacy SIM.wells fallback from input (no behavior changes).
 - Pass 35: Main.js hygiene: removed inline input debug ladder; moved input debug recorders + touchstart arming helper into systems_input; standardized inputDbg bucket (no gameplay changes).
 - Pass 36: Extracted patient roster to data_roster.js (EC.DATA.ROSTER). systems_patients consumes roster from EC.DATA (no behavior changes).
+- Pass 37: Extracted plan specs to data_plans.js (EC.DATA.PLANS); systems_patients consumes EC.DATA.PLANS.
+- Pass 38: Extracted tutorial def + step specs/copy to data_tutorial.js (EC.DATA.TUTORIAL); systems_tutorial consumes EC.DATA.TUTORIAL (no behavior changes).
+- Pass 39: Hotfix — canonical input release resolver shared by DOM pointer + touch (restores desktop long-press drag scaling); weekly win reliably triggers reward overlay via planKey normalization; gesture coords/debug hidden by default (?inputdebug=1).
+- Pass 40: Stage pointer-up fallback now routes through canonical release resolver (removes duplicate flick-only logic). Weekly fallback label preserved. No behavior changes.
+- Pass 41: Tranquility thresholds/bands updated (data-only). Spill/break info popups now persist once-per-player via Firestore ui.seenFirstPopups (still session-only when signed out).

@@ -47,27 +47,26 @@
     try { SIM._tutLastAction = null; } catch(_) {}
   }
 
-  function _mkDef() {
-    // Stable, tutorial-friendly state: clear spins, moderate amounts, visible opposite amount.
-    const focus = 0;
-    const opp = OPP[focus] || 3;
-    const wellsA = [70, 60, 60, 75, 60, 60];
-    const wellsS = [0, 0, 0, 0, 0, 0];
-    const psyP   = [160, 160, 160, 160, 160, 160];
+  function _tutData(){
+    try { return (EC.DATA && EC.DATA.TUTORIAL) ? EC.DATA.TUTORIAL : null; } catch(_) { return null; }
+  }
 
-    // Ensure the opposite well is “alive” for the nudge demo.
-    wellsA[opp] = 80;
-
+  function _cloneDef(def0){
+    // Minimal defensive clone so step objective edits don't mutate the shared data template.
+    const ss0 = def0 && def0.startState ? def0.startState : null;
+    const wellsA = (ss0 && Array.isArray(ss0.wellsA)) ? ss0.wellsA.slice() : null;
+    const wellsS = (ss0 && Array.isArray(ss0.wellsS)) ? ss0.wellsS.slice() : null;
+    const psyP   = (ss0 && Array.isArray(ss0.psyP))   ? ss0.psyP.slice()   : null;
+    const dispositions = (def0 && Array.isArray(def0.dispositions)) ? def0.dispositions.slice() : [];
     return {
-      id: 9001,
-      label: 'Tutorial',
-      name: 'Tutorial',
-      objectiveShort: 'Tutorial',
-      objectiveText: 'Tutorial: Swipe up/down on the highlighted well to change Amount.',
-      dispositions: [],
+      id: def0 && def0.id,
+      label: def0 && def0.label,
+      name: def0 && def0.name,
+      objectiveShort: def0 && def0.objectiveShort,
+      objectiveText: def0 && def0.objectiveText,
+      dispositions,
       startState: { wellsA, wellsS, psyP },
-      // Inert win definition: no plan chain, no timers.
-      win: null,
+      win: (def0 && def0.win) || null,
     };
   }
 
@@ -76,7 +75,15 @@
   MOD.start = function start() {
     if (!SIM || typeof SIM.initMVP !== 'function') return;
 
-    _def = _mkDef();
+    const TD = _tutData();
+    const def0 = TD && TD.DEF ? TD.DEF : null;
+    const steps0 = TD && Array.isArray(TD.STEPS) ? TD.STEPS : null;
+    if (!def0 || !steps0) {
+      try { SIM._tutorialMissing = true; } catch(_) {}
+      return;
+    }
+
+    _def = _cloneDef(def0);
 
     // Ensure no patient context is attached.
     try { SIM._patientId = null; } catch(_) {}
@@ -96,7 +103,10 @@
     _forceSelect(SIM._tutFocusWell);
 
     // Give generous energy for button steps.
-    try { SIM.energy = Math.max(SIM.energy || 0, 160); } catch(_) {}
+    try {
+      const minE = (typeof def0.startMinEnergy === 'number') ? def0.startMinEnergy : 160;
+      SIM.energy = Math.max(SIM.energy || 0, minE);
+    } catch(_) {}
 
     _stepStarted = false;
     _didShowDone = false;
@@ -136,97 +146,84 @@
     _def.objectiveText = text;
   }
 
+  function _applyEnterOps(step, spec) {
+    if (!spec || !Array.isArray(spec.enterOps)) return;
+    const i = SIM._tutFocusWell|0;
+    for (let n = 0; n < spec.enterOps.length; n++) {
+      const op = spec.enterOps[n];
+      if (!op || !op.type) continue;
+      if (op.type === 'SNAPSHOT_PSY_FOCUS') {
+        _psySnap = (SIM.psyP && typeof SIM.psyP[i] === 'number') ? SIM.psyP[i] : 0;
+      } else if (op.type === 'SET_FOCUS_SPIN') {
+        try { if (SIM.wellsS) SIM.wellsS[i] = op.value; } catch(_) {}
+      } else if (op.type === 'FORCE_PAIR_SPINS') {
+        try {
+          const j = (OPP && typeof OPP[i] === 'number') ? (OPP[i]|0) : ((i + 3) % 6);
+          if (SIM.wellsS) {
+            SIM.wellsS[i] = op.a;
+            if (j >= 0 && j < 6) SIM.wellsS[j] = op.b;
+          }
+        } catch(_) {}
+      } else if (op.type === 'SET_GOALVIZ_FINAL') {
+        try {
+          SIM.goalViz = SIM.goalViz || { perHue: new Array(6).fill(null) };
+          const per = new Array(6).fill(null);
+          const over = op.over || null;
+          const under = op.under || null;
+          if (over && typeof over.hue === 'number') per[over.hue|0] = { type: 'OVER', target: over.target };
+          if (under && typeof under.hue === 'number') per[under.hue|0] = { type: 'UNDER', target: under.target };
+          SIM.goalViz.perHue = per;
+        } catch(_) {}
+      }
+    }
+  }
+
   function _onStepEnter(step) {
     _stepStarted = true;
     _clearLastAction();
 
-    // Default: focus-only swipes allowed.
-    SIM._tutAllowWell = SIM._tutFocusWell;
-    SIM._tutBlockSwipes = false;
-    _setBtnsEnabled(false, false);
-    _setBtnPulse(false, false);
+    const TD = _tutData();
+    const steps = TD && Array.isArray(TD.STEPS) ? TD.STEPS : null;
+    if (!steps) { try { SIM._tutorialMissing = true; } catch(_) {} return; }
+
+    let spec = steps[step] || null;
+    if (!spec) {
+      const last = steps.length ? steps[steps.length - 1] : null;
+      spec = {
+        objectiveText: (last && last.objectiveText) || '',
+        blockSwipes: false,
+        allowWellMode: 'ALL',
+        canSpin0: true,
+        canPair0: true,
+        pulseSpin0: false,
+        pulsePair0: false,
+        minEnergy: 0,
+        enterOps: [],
+      };
+    }
+
+    // Apply common fields from the step spec.
+    const focus = SIM._tutFocusWell|0;
+    SIM._tutAllowWell = (spec.allowWellMode === 'ALL') ? null : focus;
+    SIM._tutBlockSwipes = !!spec.blockSwipes;
 
     // Tutorial button gating source-of-truth (ui_controls reads these flags).
-    SIM._tutCanSpin0 = false;
-    SIM._tutCanPair0 = false;
+    SIM._tutCanSpin0 = !!spec.canSpin0;
+    SIM._tutCanPair0 = !!spec.canPair0;
+    _setBtnsEnabled(SIM._tutCanSpin0, SIM._tutCanPair0);
+    _setBtnPulse(!!spec.pulseSpin0, !!spec.pulsePair0);
 
-    if (step === 0) {
-      _setObjective('Swipe up/down on the highlighted well to change Amount.');
-    } else if (step === 1) {
-      _setObjective('Swipe left/right on the highlighted well to change Spin.');
-    } else if (step === 2) {
-      // Snapshot psyche for product demo.
-      const i = SIM._tutFocusWell|0;
-      _psySnap = (SIM.psyP && typeof SIM.psyP[i] === 'number') ? SIM.psyP[i] : 0;
-      _setObjective('The product (Amount × Spin) changes Psyche over time. Keep some Spin and watch Psyche move.');
-    } else if (step === 3) {
-      // Stage: set a moderate nonzero spin so the nudge effect reads clearly.
-      try {
-        const i = SIM._tutFocusWell|0;
-        if (SIM.wellsS) SIM.wellsS[i] = 55;
-      } catch (_) {}
-      _setObjective('Any action on a well nudges its opposite in the opposite direction. Swipe again and watch the opposite well react.');
-    } else if (step === 4) {
-      // Buttons only: Set Spin 0
-      SIM._tutBlockSwipes = true;
-      SIM._tutCanSpin0 = true;
-      SIM._tutCanPair0 = false;
-      _setBtnsEnabled(true, false);
-      _setBtnPulse(true, false);
-      // Ensure enough energy to learn the button.
-      try { SIM.energy = Math.max(SIM.energy || 0, 50); } catch (_) {}
-      _setObjective('Press Set Spin 0 to zero the selected well’s Spin (costs energy).');
-    } else if (step === 5) {
-      // Buttons only: Set Pair Spin 0 (but keep Spin 0 usable for reliability)
-      SIM._tutBlockSwipes = true;
-      SIM._tutCanSpin0 = true;
-      SIM._tutCanPair0 = true;
-      _setBtnsEnabled(true, true);
-      _setBtnPulse(false, true);
+    // Energy top-up (when applicable).
+    try {
+      const minE = (typeof spec.minEnergy === 'number') ? spec.minEnergy : 0;
+      if (minE > 0) SIM.energy = Math.max(SIM.energy || 0, minE);
+    } catch(_) {}
 
-      // Force both wells to a small non-zero spin so both buttons are usable and Pair actually changes state.
-      try {
-        const i = SIM._tutFocusWell|0;
-        const j = (OPP && typeof OPP[i] === 'number') ? (OPP[i]|0) : ((i + 3) % 6);
-        if (SIM.wellsS) {
-          SIM.wellsS[i] = 40;
-          if (j >= 0 && j < 6) SIM.wellsS[j] = -40;
-        }
-      } catch (_) {}
+    // Objective copy.
+    if (typeof spec.objectiveText === 'string') _setObjective(spec.objectiveText);
 
-      // Ensure enough energy to learn the button.
-      try { SIM.energy = Math.max(SIM.energy || 0, 50); } catch (_) {}
-      _setObjective('Press Set Pair Spin 0 to zero the selected well AND its opposite (costs energy).');
-    } else if (step === 6) {
-      // Final win-conditions step: allow full interaction.
-      SIM._tutAllowWell = null;
-      SIM._tutBlockSwipes = false;
-      SIM._tutCanSpin0 = true;
-      SIM._tutCanPair0 = true;
-      _setBtnsEnabled(true, true);
-      _setBtnPulse(false, false);
-
-      // Goal viz: only show goals for top (0) and opposite (3)
-      try {
-        SIM.goalViz = SIM.goalViz || { perHue: new Array(6).fill(null) };
-        const per = new Array(6).fill(null);
-        per[0] = { type: 'OVER', target: 300 };
-        per[3] = { type: 'UNDER', target: 200 };
-        SIM.goalViz.perHue = per;
-      } catch (_) {}
-
-      // Ensure enough energy to finish.
-      try { SIM.energy = Math.max(SIM.energy || 0, 50); } catch (_) {}
-
-      _setObjective('Win Conditions: Get Red (top) above 300 and Green (opposite) below 200, then stop all spin.');
-    } else {
-      // Safety fallback: treat as final step.
-      SIM._tutAllowWell = null;
-      SIM._tutBlockSwipes = false;
-      _setBtnsEnabled(true, true);
-      _setBtnPulse(false, false);
-      _setObjective('Win Conditions: Get Red (top) above 300 and Green (opposite) below 200, then stop all spin.');
-    }
+    // Enter ops (logic remains here; data is declarative).
+    _applyEnterOps(step, spec);
 
     // Keep selection locked to focus well during early steps.
     if (step <= 5) _forceSelect(SIM._tutFocusWell|0);
@@ -240,6 +237,10 @@
   MOD.update = function update(dt) {
     if (!SIM.tutorialActive) return;
     if (!_def) return;
+
+    const TD = _tutData();
+    const stepsLen = (TD && Array.isArray(TD.STEPS)) ? TD.STEPS.length : 7;
+    const finalStep = Math.max(0, (stepsLen|0) - 1);
 
     const step = (SIM._tutStep|0);
     if (!_stepStarted) _onStepEnter(step);
@@ -284,7 +285,7 @@
         const s1 = (SIM.wellsS && typeof SIM.wellsS[j] === 'number') ? SIM.wellsS[j] : 999;
         if (Math.abs(s0) <= 0.01 && Math.abs(s1) <= 0.01) _advance();
       }
-    } else if (step === 6) {
+    } else if (step === finalStep) {
       // Win conditions: Psyche[0] >= 300, Psyche[3] <= 200, and all spins are zero.
       const eps = (EC.TUNE && typeof EC.TUNE.PAT_SPIN_ZERO_EPS === 'number') ? EC.TUNE.PAT_SPIN_ZERO_EPS : 0.01;
       const p0 = (SIM.psyP && typeof SIM.psyP[0] === 'number') ? SIM.psyP[0] : 0;

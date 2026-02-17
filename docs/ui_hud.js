@@ -515,7 +515,9 @@
       const tele = hud.telegraphText || '';
       const act = hud.activeText || '';
       // Banner priority: WIN/LOSE > normal disposition/short message
-      const g = UI_STATE.gestureDebug || '';
+      // Gesture debug is default OFF; only show when ?inputdebug=1.
+      const inputDbgOn = (EC.INPUT && typeof EC.INPUT.isInputDebugEnabled === 'function') ? !!EC.INPUT.isInputDebugEnabled() : false;
+      const g = inputDbgOn ? (UI_STATE.gestureDebug || '') : '';
 
       const isWin = (SIM.levelState === 'win') || !!SIM.mvpWin;
       const isLose = (SIM.levelState === 'lose') || !!SIM.mvpLose || !!SIM.gameOver;
@@ -548,7 +550,8 @@
       }
 
       // Always-visible debug overlay (does not depend on the notify bar state)
-      setText(gestureDbgEl, 'gestureDbg', g || 'SWIPE: (waiting)');
+      // Default hidden unless inputdebug is enabled.
+      setText(gestureDbgEl, 'gestureDbg', inputDbgOn ? (g || 'SWIPE: (waiting)') : '');
     } catch (_) { /* ignore */ }
 
     // Patient + step (top-left)

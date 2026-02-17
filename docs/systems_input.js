@@ -181,10 +181,23 @@
   // ------------------------------------------------------------
   // Always-visible on-screen swipe debug line (gated by EC.DEBUG for console).
   EC.INPUT._setGestureDebug = EC.INPUT._setGestureDebug || function _setGestureDebug(s) {
-    EC.UI_STATE = EC.UI_STATE || {};
-    EC.UI_STATE.gestureDebug = s;
-    if (EC.DEBUG) {
-      try { console.log(s); } catch (_) {}
+    // Default OFF: only show gesture debug when ?inputdebug=1.
+    try {
+      const enabled = (EC.INPUT && typeof EC.INPUT.isInputDebugEnabled === 'function') ? !!EC.INPUT.isInputDebugEnabled() : false;
+      EC.UI_STATE = EC.UI_STATE || {};
+      if (!enabled) {
+        EC.UI_STATE.gestureDebug = '';
+        return;
+      }
+      EC.UI_STATE.gestureDebug = s;
+      if (EC.DEBUG) {
+        try { console.log(s); } catch (_) {}
+      }
+    } catch (_) {
+      try {
+        EC.UI_STATE = EC.UI_STATE || {};
+        EC.UI_STATE.gestureDebug = '';
+      } catch (_) {}
     }
   };
 
@@ -244,10 +257,42 @@
         if (typeof EC.INPUT.clearGesture === 'function') EC.INPUT.clearGesture('dom_cancel', { why: 'pointercancel' });
         return true;
       }
-      if (typeof EC.INPUT.resolveActiveGestureFromStagePointerUp !== 'function') return false;
-      const pid = (domEv && domEv.pointerId != null) ? domEv.pointerId : 0;
-      const wrapped = { pointerId: pid, data: { pointerId: pid, originalEvent: domEv } };
-      EC.INPUT.resolveActiveGestureFromStagePointerUp(wrapped, false);
+      // Canonical DOM release resolver (supports tap / flick / long-press drag).
+      const st = EC.INPUT.gestureState;
+      if (!st || !st.active) return false;
+      if (st.kind && st.kind !== 'pointer') return false;
+
+      const pid = (domEv && domEv.pointerId != null) ? domEv.pointerId : null;
+      const storedKey = st.key || '';
+      const endKey = (pid != null) ? ('p:' + pid) : 'p:?';
+
+      // Require matching pointer id/key.
+      if (endKey !== storedKey) {
+        try {
+          const gsId = (st && st._id) ? st._id : '?';
+          _ilog(`RESOLVE_EARLY: gsId=${gsId} reason=key_mismatch storedKey=${storedKey || '?'} endKey=${endKey}`);
+          _setResolveLine(`hasGesture=0 reason=key_mismatch storedKey=${storedKey || '?'} endKey=${endKey}`, 'resolved_key_mismatch');
+        } catch (_) {}
+        if (typeof EC.INPUT.clearGesture === 'function') EC.INPUT.clearGesture('resolved_key_mismatch', { why: 'dom_pointer_end', storedKey: storedKey || '?', endKey: endKey });
+        return true;
+      }
+
+      const getXY = EC.INPUT._getClientXY;
+      const xy = getXY ? getXY(domEv) : null;
+      const x = xy ? xy.x : null;
+      const y = xy ? xy.y : null;
+      if (x == null || y == null) {
+        try {
+          const gsId = (st && st._id) ? st._id : '?';
+          _ilog(`RESOLVE_EARLY: gsId=${gsId} reason=missing_coords`);
+          _setResolveLine(`hasGesture=0 reason=missing_coords key=${storedKey || '?'} cx=${x} cy=${y}`, 'resolved_missing_coords');
+        } catch (_) {}
+        if (typeof EC.INPUT.clearGesture === 'function') EC.INPUT.clearGesture('resolved_missing_coords', { why: 'dom_pointer_end', key: storedKey || '?' });
+        return true;
+      }
+
+      const nowMs = (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
+      resolveGestureOnRelease(st, x, y, nowMs, 'dom_pointer_end');
       return true;
     } catch (_) {
       return false;
@@ -518,6 +563,221 @@
     }
   }
 
+  // ------------------------------------------------------------
+  // Canonical release resolver (tap / flick / long-press drag)
+  // Shared by DOM pointer release and DOM touch end/cancel.
+  // ------------------------------------------------------------
+  function resolveGestureOnRelease(st, endClientX, endClientY, endMs, kindTag) {
+    const gsId = (st && st._id) ? st._id : '?';
+    const storedKey = (st && st.key) ? st.key : '?';
+    let status = 'resolved_exception';
+    let resolveLine = '';
+
+    try {
+      if (!st || !st.active) {
+        status = 'resolved_no_gesture';
+        resolveLine = `hasGesture=0 reason=no_gesture`;
+        _setResolveLine(resolveLine, status);
+        _ilog(`RESOLVE_EARLY: gsId=${gsId} reason=no_gesture`);
+        return { status: status, resolveLine: resolveLine, resolveLineSet: true, activeAfter: 0 };
+      }
+
+      const cx = endClientX;
+      const cy = endClientY;
+      if (cx == null || cy == null || st.x0 == null || st.y0 == null || st.t0 == null) {
+        status = 'resolved_missing_coords';
+        resolveLine = `hasGesture=0 reason=missing_coords key=${storedKey || '?'} cx=${cx} cy=${cy}`;
+        _setResolveLine(resolveLine, status);
+        _ilog(`RESOLVE_EARLY: gsId=${gsId} reason=missing_coords`);
+        try { EC.INPUT.clearGesture(status, { why: kindTag || '', key: storedKey || '?' }); } catch (_) {}
+        return { status: status, resolveLine: resolveLine, resolveLineSet: true, activeAfter: (st.active ? 1 : 0) };
+      }
+
+      const now = (endMs != null) ? endMs : ((typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now());
+      const dt = Math.max(0, now - st.t0);
+      const dx = (cx - st.x0);
+      const dy = (cy - st.y0);
+
+      const THRESH_MS = 400;
+      const THRESH_PX = 18;
+      const STEP_UNIT = 5;
+
+      // DRAG tuning (slow swipe / press-and-drag)
+      const DRAG_PX_PER_STEP = 28;   // px per 5-step (tunable)
+      const DRAG_MAX_STEPS   = 16;   // max multiplier (tunable) => max change = 80
+      const HOLD_MS          = 750;  // long-press threshold (tunable)
+      const HOLD_MULT        = 2.0;  // long-press acceleration (tunable)
+
+      const absDx = Math.abs(dx);
+      const absDy = Math.abs(dy);
+      const distAxis = Math.max(absDx, absDy);
+
+      const flick = (dt <= THRESH_MS) && (distAxis >= THRESH_PX);
+      const drag  = (!flick) && (distAxis >= THRESH_PX);
+
+      const _clampI = (v, lo, hi) => Math.max(lo, Math.min(hi, v|0));
+
+      let cls = flick ? 'FLICK' : (drag ? 'DRAG' : 'TAP');
+      let steps = flick ? 1 : (drag ? _clampI(Math.round(distAxis / DRAG_PX_PER_STEP), 1, DRAG_MAX_STEPS) : 0);
+      let held = 0;
+      if (drag && steps > 0 && dt >= HOLD_MS) {
+        held = 1;
+        steps = _clampI(Math.round(steps * HOLD_MULT), 1, DRAG_MAX_STEPS);
+      }
+
+      let dir = 'NONE';
+      let applied = 'ok';
+      let applyReason = 'ok';
+      let dA = 0, dS = 0;
+      let cost = 0;
+      const dist = distAxis;
+      const hold = held;
+
+      const w = (st.well != null) ? st.well : -1;
+      if (w < 0 || w > 5) {
+        applied = 'fail';
+        applyReason = 'invalid_idx';
+      } else {
+        // Tutorial gating: block non-focus interactions (and optionally block swipes entirely during button steps).
+        const tutOn = !!(EC.SIM && EC.SIM.tutorialActive);
+        const allow = tutOn && (typeof EC.SIM._tutAllowWell === 'number') ? (EC.SIM._tutAllowWell|0) : -1;
+        const blockSwipes = tutOn ? !!EC.SIM._tutBlockSwipes : false;
+
+        const tutGateTap = tutOn && (allow >= 0) && (w !== allow);
+        const tutGateSwipe = tutOn && ((blockSwipes && cls !== 'TAP') || ((allow >= 0) && (w !== allow)));
+
+        if (cls === 'TAP') {
+          // TAP selects the well only (no sim change). In tutorial mode, only the allowed well can be selected.
+          applied = '0';
+          applyReason = tutGateTap ? 'tut_gate' : 'tap';
+          if (!tutGateTap) {
+            try { if (EC.SIM) EC.SIM.selectedWellIndex = w; } catch (_) {}
+          }
+        } else if (tutGateSwipe) {
+          applied = '0';
+          applyReason = (blockSwipes && cls !== 'TAP') ? 'tut_block' : 'tut_gate';
+        } else {
+          // FLICK and DRAG both route through the same flickStep() path for consistent energy/cost.
+          dA = 0; dS = 0;
+          const stepAmt = STEP_UNIT * (steps || 1);
+
+          if (absDx >= absDy) {
+            dir = (dx >= 0) ? 'RIGHT' : 'LEFT';
+            dS = (dx >= 0) ? stepAmt : -stepAmt;
+          } else {
+            dir = (dy <= 0) ? 'UP' : 'DOWN';
+            dA = (dy <= 0) ? stepAmt : -stepAmt;
+          }
+
+          // Long-press + drag: snap to extreme (max out) on the affected stat.
+          if (hold && cls === 'DRAG') {
+            const A0c = (EC.SIM && EC.SIM.wellsA) ? (EC.SIM.wellsA[w] || 0) : 0;
+            const S0c = (EC.SIM && EC.SIM.wellsS) ? (EC.SIM.wellsS[w] || 0) : 0;
+
+            if (dir === 'RIGHT') {
+              const tgt = 100;
+              dS = (tgt - S0c);
+              dA = 0;
+            } else if (dir === 'LEFT') {
+              const tgt = -100;
+              dS = (tgt - S0c);
+              dA = 0;
+            } else if (dir === 'UP') {
+              const tgt = 100;
+              dA = (tgt - A0c);
+              dS = 0;
+            } else if (dir === 'DOWN') {
+              const tgt = 25;
+              dA = (tgt - A0c);
+              dS = 0;
+            }
+
+            // Update steps for debug readability (how many 5-units worth of change).
+            steps = _clampI(Math.max(1, Math.round(Math.abs((Math.abs(dA) > 0) ? dA : dS) / STEP_UNIT)), 1, DRAG_MAX_STEPS);
+          }
+
+          try { if (EC.SIM) EC.SIM.selectedWellIndex = w; } catch (_) {}
+
+          // Tutorial instrumentation: record opposite spin before/after for step checks.
+          let oppIndex = -1;
+          let oppSpinBefore = 0;
+          try {
+            if (EC.SIM && EC.SIM.tutorialActive && EC.CONST && Array.isArray(EC.CONST.OPP)) {
+              oppIndex = EC.CONST.OPP[w];
+              if (oppIndex != null && oppIndex >= 0 && oppIndex < 6) oppSpinBefore = (EC.SIM.wellsS && typeof EC.SIM.wellsS[oppIndex] === 'number') ? EC.SIM.wellsS[oppIndex] : 0;
+            }
+          } catch (_) {}
+
+          cost = 0;
+          const fn = (EC.ACTIONS && typeof EC.ACTIONS.flickStep === 'function') ? EC.ACTIONS.flickStep : null;
+          if (fn) {
+            try {
+              const res = fn(w, dA, dS);
+              const ok = !!(res && res.ok);
+              cost = (res && typeof res.cost === 'number') ? res.cost : 0;
+              if (!ok) {
+                applied = 'fail';
+                applyReason = (res && res.reason) ? res.reason : 'apply_failed';
+                // SFX: error beep ONLY for lack-of-energy swipe/drag attempts.
+                try {
+                  if (applyReason === 'noenergy' && EC.SFX && typeof EC.SFX.play === 'function') {
+                    EC.SFX.play('bong_001');
+                  }
+                } catch (_) {}
+              }
+
+              // Record the last successful tutorial action.
+              try {
+                if (EC.SIM && EC.SIM.tutorialActive && ok) {
+                  let oppSpinAfter = 0;
+                  if (oppIndex != null && oppIndex >= 0 && oppIndex < 6) {
+                    oppSpinAfter = (EC.SIM.wellsS && typeof EC.SIM.wellsS[oppIndex] === 'number') ? EC.SIM.wellsS[oppIndex] : 0;
+                  }
+                  EC.SIM._tutLastAction = {
+                    kind: 'SWIPE',
+                    well: w,
+                    dA: dA,
+                    dS: dS,
+                    cost: cost,
+                    oppIndex: oppIndex,
+                    oppSpinBefore: oppSpinBefore,
+                    oppSpinAfter: oppSpinAfter,
+                  };
+                }
+              } catch (_) {}
+            } catch (_) {
+              applied = 'fail';
+              applyReason = 'apply_throw';
+            }
+          } else {
+            applied = 'fail';
+            applyReason = 'missing_flickStep';
+          }
+        }
+      }
+
+      status = (cls === 'FLICK') ? 'resolved_ok_flick' : ((cls === 'DRAG') ? 'resolved_ok_drag' : 'resolved_ok_tap');
+      resolveLine = `hasGesture=1 key=${storedKey || '?'} dt=${dt.toFixed(0)} dx=${dx.toFixed(1)} dy=${dy.toFixed(1)} dist=${dist.toFixed(1)} class=${cls} dir=${dir} steps=${steps} dA=${dA} dS=${dS} ok=${(applied === 'ok') ? 1 : 0} cost=${(typeof cost === 'number') ? cost : 0} reason=${applyReason}`;
+      _setResolveLine(resolveLine, status);
+      _ilog(`RESOLVE_OK: gsId=${gsId} dt=${dt.toFixed(0)} dx=${dx.toFixed(1)} dy=${dy.toFixed(1)} dist=${dist.toFixed(1)} class=${cls} dir=${dir} steps=${steps} dA=${dA} dS=${dS} ok=${(applied === 'ok') ? 1 : 0} cost=${(typeof cost === 'number') ? cost : 0} reason=${applyReason}`);
+
+      // Always clear after an end/cancel resolve attempt.
+      try { EC.INPUT.clearGesture('resolved_ok', { status: status, why: kindTag || '' }); } catch (_) {}
+
+      _ilog(`RESOLVE_RETURN: cls=${cls} dir=${dir} steps=${steps} dA=${dA} dS=${dS} ok=${(applied === 'ok') ? 1 : 0} cost=${(typeof cost === 'number') ? cost : 0} reason=${applyReason} status=${status} activeAfter=${st.active ? 1 : 0} resolveLineSet=Y`);
+      return { status: status, resolveLine: resolveLine, resolveLineSet: true, activeAfter: (st.active ? 1 : 0) };
+    } catch (err) {
+      const msg = (err && err.message) ? err.message : String(err);
+      status = 'resolved_exception';
+      resolveLine = `hasGesture=0 reason=exception msg=${msg}`;
+      _setResolveLine(resolveLine, status);
+      _ilog(`RESOLVE_EARLY: gsId=${gsId} reason=exception msg=${msg}`);
+      try { EC.INPUT.clearGesture('resolved_exception', { msg: msg, why: kindTag || '' }); } catch (_) {}
+      _ilog(`RESOLVE_RETURN: gsId=${gsId} status=${status} activeAfter=${(st && st.active) ? 1 : 0} resolveLineSet=Y`);
+      return { status: status, resolveLine: resolveLine, resolveLineSet: true, activeAfter: (st && st.active) ? 1 : 0 };
+    }
+  }
+
   if (typeof EC.INPUT.clearGesture !== 'function') {
     EC.INPUT.clearGesture = function clearGesture(reason, meta) {
       const gs = EC.INPUT.gestureState;
@@ -649,180 +909,7 @@
         }
 
         const now = (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
-        const dt = Math.max(0, now - gs.t0);
-        const dx = (cx - gs.x0);
-        const dy = (cy - gs.y0);
-
-        const THRESH_MS = 400;
-        const THRESH_PX = 18;
-        const STEP_UNIT = 5;
-
-        // DRAG tuning (slow swipe / press-and-drag)
-        const DRAG_PX_PER_STEP = 28;   // px per 5-step (tunable)
-        const DRAG_MAX_STEPS   = 16;   // max multiplier (tunable) => max change = 80
-        const HOLD_MS          = 750;  // long-press threshold (tunable)
-        const HOLD_MULT        = 2.0;  // long-press acceleration (tunable)
-
-        const absDx = Math.abs(dx);
-        const absDy = Math.abs(dy);
-        const distAxis = Math.max(absDx, absDy);
-
-        const flick = (dt <= THRESH_MS) && (distAxis >= THRESH_PX);
-        const drag  = (!flick) && (distAxis >= THRESH_PX);
-
-        const _clampI = (v, lo, hi) => Math.max(lo, Math.min(hi, v|0));
-
-        let cls = flick ? 'FLICK' : (drag ? 'DRAG' : 'TAP');
-        let steps = flick ? 1 : (drag ? _clampI(Math.round(distAxis / DRAG_PX_PER_STEP), 1, DRAG_MAX_STEPS) : 0);
-        let held = 0;
-        if (drag && steps > 0 && dt >= HOLD_MS) {
-          held = 1;
-          steps = _clampI(Math.round(steps * HOLD_MULT), 1, DRAG_MAX_STEPS);
-        }
-
-        let dir = 'NONE';
-        let applied = 'ok';
-        let applyReason = 'ok';
-        let dA = 0, dS = 0;
-        let cost = 0;
-        const dist = distAxis;
-        const hold = held;
-
-        const w = (gs.well != null) ? gs.well : -1;
-        if (w < 0 || w > 5) {
-          applied = 'fail';
-          applyReason = 'invalid_idx';
-        } else {
-          // Tutorial gating: block non-focus interactions (and optionally block swipes entirely during button steps).
-          const tutOn = !!(EC.SIM && EC.SIM.tutorialActive);
-          const allow = tutOn && (typeof EC.SIM._tutAllowWell === 'number') ? (EC.SIM._tutAllowWell|0) : -1;
-          const blockSwipes = tutOn ? !!EC.SIM._tutBlockSwipes : false;
-
-          const tutGateTap = tutOn && (allow >= 0) && (w !== allow);
-          const tutGateSwipe = tutOn && ((blockSwipes && cls !== 'TAP') || ((allow >= 0) && (w !== allow)));
-
-          if (cls === 'TAP') {
-            // TAP selects the well only (no sim change). In tutorial mode, only the allowed well can be selected.
-            applied = '0';
-            applyReason = tutGateTap ? 'tut_gate' : 'tap';
-            if (!tutGateTap) {
-              try { if (EC.SIM) EC.SIM.selectedWellIndex = w; } catch (e) {}
-            }
-          } else if (tutGateSwipe) {
-            applied = '0';
-            applyReason = (blockSwipes && cls !== 'TAP') ? 'tut_block' : 'tut_gate';
-          } else {
-          // FLICK and DRAG both route through the same flickStep() path for consistent energy/cost.
-          dA = 0; dS = 0;
-          const stepAmt = STEP_UNIT * (steps || 1);
-
-          if (absDx >= absDy) {
-            dir = (dx >= 0) ? 'RIGHT' : 'LEFT';
-            dS = (dx >= 0) ? stepAmt : -stepAmt;
-          } else {
-            dir = (dy <= 0) ? 'UP' : 'DOWN';
-            dA = (dy <= 0) ? stepAmt : -stepAmt;
-          }
-
-          
-
-          // Long-press + drag: snap to extreme ("max out") on the affected stat.
-          // This is input interpretation only; apply still routes through the same flickStep() path.
-          if (hold && cls === 'DRAG') {
-            const A0c = (EC.SIM && EC.SIM.wellsA) ? (EC.SIM.wellsA[w] || 0) : 0;
-            const S0c = (EC.SIM && EC.SIM.wellsS) ? (EC.SIM.wellsS[w] || 0) : 0;
-
-            if (dir === 'RIGHT') {
-              const tgt = 100;
-              dS = (tgt - S0c);
-              dA = 0;
-            } else if (dir === 'LEFT') {
-              const tgt = -100;
-              dS = (tgt - S0c);
-              dA = 0;
-            } else if (dir === 'UP') {
-              const tgt = 100;
-              dA = (tgt - A0c);
-              dS = 0;
-            } else if (dir === 'DOWN') {
-              const tgt = 25;
-              dA = (tgt - A0c);
-              dS = 0;
-            }
-
-            // Update steps for debug readability (how many 5-units worth of change).
-            steps = _clampI(Math.max(1, Math.round(Math.abs((Math.abs(dA) > 0) ? dA : dS) / STEP_UNIT)), 1, DRAG_MAX_STEPS);
-          }
-try { if (EC.SIM) EC.SIM.selectedWellIndex = w; } catch (e) {}
-
-          // Tutorial instrumentation: record opposite spin before/after for step checks.
-          let oppIndex = -1;
-          let oppSpinBefore = 0;
-          try {
-            if (EC.SIM && EC.SIM.tutorialActive && EC.CONST && Array.isArray(EC.CONST.OPP)) {
-              oppIndex = EC.CONST.OPP[w];
-              if (oppIndex != null && oppIndex >= 0 && oppIndex < 6) oppSpinBefore = (EC.SIM.wellsS && typeof EC.SIM.wellsS[oppIndex] === 'number') ? EC.SIM.wellsS[oppIndex] : 0;
-            }
-          } catch (_) {}
-
-          cost = 0;
-          const fn = (EC.ACTIONS && typeof EC.ACTIONS.flickStep === 'function') ? EC.ACTIONS.flickStep : null;
-          if (fn) {
-            try {
-              const res = fn(w, dA, dS);
-              const ok = !!(res && res.ok);
-              cost = (res && typeof res.cost === 'number') ? res.cost : 0;
-              if (!ok) {
-                applied = 'fail';
-                applyReason = (res && res.reason) ? res.reason : 'apply_failed';
-                // SFX: error beep ONLY for lack-of-energy swipe/drag attempts.
-                try {
-                  if (applyReason === 'noenergy' && EC.SFX && typeof EC.SFX.play === 'function') {
-                    EC.SFX.play('bong_001');
-                  }
-                } catch (_) {}
-              }
-
-              // Record the last successful tutorial action.
-              try {
-                if (EC.SIM && EC.SIM.tutorialActive && ok) {
-                  let oppSpinAfter = 0;
-                  if (oppIndex != null && oppIndex >= 0 && oppIndex < 6) {
-                    oppSpinAfter = (EC.SIM.wellsS && typeof EC.SIM.wellsS[oppIndex] === 'number') ? EC.SIM.wellsS[oppIndex] : 0;
-                  }
-                  EC.SIM._tutLastAction = {
-                    kind: 'SWIPE',
-                    well: w,
-                    dA: dA,
-                    dS: dS,
-                    cost: cost,
-                    oppIndex: oppIndex,
-                    oppSpinBefore: oppSpinBefore,
-                    oppSpinAfter: oppSpinAfter,
-                  };
-                }
-              } catch (_) {}
-            } catch (e) {
-              applied = 'fail';
-              applyReason = 'apply_throw';
-            }
-          } else {
-            applied = 'fail';
-            applyReason = 'missing_flickStep';
-          }
-          }
-        }
-
-        status = (cls === 'FLICK') ? 'resolved_ok_flick' : ((cls === 'DRAG') ? 'resolved_ok_drag' : 'resolved_ok_tap');
-        resolveLine = `hasGesture=1 key=${storedKey || '?'} dt=${dt.toFixed(0)} dx=${dx.toFixed(1)} dy=${dy.toFixed(1)} dist=${dist.toFixed(1)} class=${cls} dir=${dir} steps=${steps} dA=${dA} dS=${dS} ok=${(applied === 'ok') ? 1 : 0} cost=${(typeof cost === 'number') ? cost : 0} reason=${applyReason}`;
-        _setResolveLine(resolveLine, status);
-        _ilog(`RESOLVE_OK: gsId=${gsId} dt=${dt.toFixed(0)} dx=${dx.toFixed(1)} dy=${dy.toFixed(1)} dist=${dist.toFixed(1)} class=${cls} dir=${dir} steps=${steps} dA=${dA} dS=${dS} ok=${(applied === 'ok') ? 1 : 0} cost=${(typeof cost === 'number') ? cost : 0} reason=${applyReason}`);
-
-        // Always clear after an end/cancel resolve attempt.
-        EC.INPUT.clearGesture('resolved_ok', { status: status, why: why || '' });
-
-        _ilog(`RESOLVE_RETURN: cls=${cls} dir=${dir} steps=${steps} dA=${dA} dS=${dS} ok=${(applied === 'ok') ? 1 : 0} cost=${(typeof cost === 'number') ? cost : 0} reason=${applyReason} status=${status} activeAfter=${gs.active ? 1 : 0} resolveLineSet=Y`);
-        return { status: status, resolveLine: resolveLine, resolveLineSet: true, activeAfter: (gs.active ? 1 : 0) };
+        return resolveGestureOnRelease(gs, cx, cy, now, why || '');
 
       } catch (err) {
         const msg = (err && err.message) ? err.message : String(err);
@@ -844,85 +931,48 @@ try { if (EC.SIM) EC.SIM.selectedWellIndex = w; } catch (e) {}
   }
 
   EC.INPUT.resolveActiveGestureFromStagePointerUp = EC.INPUT.resolveActiveGestureFromStagePointerUp || function resolveActiveGestureFromStagePointerUp(ev, isOutside) {
-    // NOTE: Stage fallback should only resolve pointer-based gestures.
-    // Touch gestures are resolved via DOM touchend/touchcancel.
-    const st = EC.INPUT.gestureState;
-    if (!st || !st.active) return;
-    if (st.kind && st.kind !== 'pointer') return;
+  // NOTE: Stage fallback should only resolve pointer-based gestures.
+  // Touch gestures are resolved via DOM touchend/touchcancel.
+  const st = EC.INPUT.gestureState;
+  if (!st || !st.active) return;
+  if (st.kind && st.kind !== 'pointer') return;
 
-    const pid = _pidFromEvStage(ev);
-    if (st.pid != null && st.pid >= 0 && pid != null && pid >= 0 && pid !== st.pid) return;
+  // Match pointerId when available.
+  let pid = _pidFromEvStage(ev);
+  try {
+    const oePid = (ev && ev.data && ev.data.originalEvent && ev.data.originalEvent.pointerId != null) ? ev.data.originalEvent.pointerId : null;
+    if ((pid == null || pid < 0) && (oePid != null)) pid = oePid;
+  } catch (_) {}
+  if (st.pid != null && st.pid >= 0 && pid != null && pid >= 0 && pid !== st.pid) return;
 
-    const getXY = EC.INPUT._getClientXY;
-    const setDbg = EC.INPUT._setGestureDebug;
-    const xy = (getXY ? getXY(ev) : null);
-    if (!xy) return;
-    const x = xy.x, y = xy.y, oe = xy.oe;
-    try { if (oe && typeof oe.preventDefault === 'function') oe.preventDefault(); } catch (_) {}
+  const getXY = EC.INPUT._getClientXY;
+  const xy = (getXY ? getXY(ev) : null);
 
-    const t1 = (performance && performance.now) ? performance.now() : Date.now();
-    const dt = t1 - (st.t0 || t1);
-    const dx = x - (st.x0 || x);
-    const dy = y - (st.y0 || y);
+  // Require real DOM client coords (avoid Pixi global fallback, which is not in client space).
+  const oe = xy ? xy.oe : null;
+  const hasDomClient = !!(
+    (oe && typeof oe.clientX === 'number' && typeof oe.clientY === 'number') ||
+    (oe && oe.changedTouches && oe.changedTouches[0] && typeof oe.changedTouches[0].clientX === 'number' && typeof oe.changedTouches[0].clientY === 'number') ||
+    (oe && oe.touches && oe.touches[0] && typeof oe.touches[0].clientX === 'number' && typeof oe.touches[0].clientY === 'number') ||
+    (ev && typeof ev.clientX === 'number' && typeof ev.clientY === 'number')
+  );
 
-    const THRESH_MS = 400;
-    const THRESH_PX = 18;
-    const adx = Math.abs(dx);
-    const ady = Math.abs(dy);
-    const dist = Math.max(adx, ady);
-    const isFlick = (dt <= THRESH_MS) && (dist >= THRESH_PX);
+  const x = xy ? xy.x : null;
+  const y = xy ? xy.y : null;
 
-    // Determine target well index
-    let iWell = -1;
-    if (typeof st.well === 'number') iWell = st.well;
+  try { if (oe && typeof oe.preventDefault === 'function') oe.preventDefault(); } catch (_) {}
 
-    // Clear gesture deterministically (canonical state)
+  if (!hasDomClient || x == null || y == null) {
+    // If we can't resolve client coords, clear to avoid a stuck gesture.
     try {
-      if (EC.INPUT && typeof EC.INPUT.clearGesture === 'function') EC.INPUT.clearGesture('stage_resolve', { outside: !!isOutside, dt: Math.round(dt) });
+      if (EC.INPUT && typeof EC.INPUT.clearGesture === 'function') EC.INPUT.clearGesture('resolved_missing_coords', { why: 'stage_pointerup' });
       else { st.active = 0; st.key = ''; }
     } catch (_) {}
+    return;
+  }
 
-    if (!isFlick) {
-      try { if (iWell >= 0 && EC.SIM) EC.SIM.selectedWellIndex = iWell; } catch (_) {}
-      if (setDbg) setDbg(`SWIPE: up(stage) dt=${dt.toFixed(0)} dx=${dx.toFixed(0)} dy=${dy.toFixed(0)} => TAP`);
-      return;
-    }
-
-    let dA = 0, dS = 0;
-    let dirTxt = '';
-    if (adx > ady) { dS = (dx > 0) ? +5 : -5; dirTxt = (dS > 0) ? 'RIGHT (S+5)' : 'LEFT (S-5)'; }
-    else { dA = (dy < 0) ? +5 : -5; dirTxt = (dA > 0) ? 'UP (A+5)' : 'DOWN (A-5)'; }
-
-    const fn = (EC.ACTIONS && typeof EC.ACTIONS.flickStep === 'function') ? EC.ACTIONS.flickStep : null;
-    const toast = EC.UI_CONTROLS && typeof EC.UI_CONTROLS.toast === 'function' ? EC.UI_CONTROLS.toast : null;
-    const SIM = EC.SIM;
-
-    if (!fn || iWell < 0) {
-      if (toast) toast('Select a Well first.');
-      if (setDbg) setDbg(`SWIPE: up(stage) dt=${dt.toFixed(0)} dx=${dx.toFixed(0)} dy=${dy.toFixed(0)} => FLICK (no index)`);
-      return;
-    }
-
-    try { SIM.selectedWellIndex = iWell; } catch (_) {}
-
-    let res = null;
-    try { res = fn(iWell, dA, dS) || { ok: false, reason: 'unknown' }; } catch (e) { res = { ok: false, reason: 'exception' }; }
-
-    if (!res.ok) {
-      if (res.reason === 'noenergy') {
-        if (toast) toast('Not enough Energy.');
-        try {
-          if (EC.SFX && typeof EC.SFX.error === 'function') EC.SFX.error();
-          else if (EC.SFX && typeof EC.SFX.play === 'function') EC.SFX.play('bong_001');
-        } catch (_) {}
-      }
-      // keep silent for other failure reasons
-      if (setDbg) setDbg(`SWIPE: up(stage) dt=${dt.toFixed(0)} dx=${dx.toFixed(0)} dy=${dy.toFixed(0)} => ${dirTxt} ❌`);
-      return;
-    }
-
-    if (EC.SFX && typeof EC.SFX.tick === 'function') EC.SFX.tick();
-    if (setDbg) setDbg(`SWIPE: up(stage) dt=${dt.toFixed(0)} dx=${dx.toFixed(0)} dy=${dy.toFixed(0)} => ${dirTxt} APPLIED ✅${isOutside ? ' (upoutside)' : ''}`);
-  };
+  const nowMs = (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
+  resolveGestureOnRelease(st, x, y, nowMs, isOutside ? 'stage_upoutside' : 'stage_up');
+};
 
 })();
