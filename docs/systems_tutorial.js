@@ -115,6 +115,14 @@
     SIM._tutBlockSwipes = false;
     SIM._tutNoHazards = false;
     try { delete SIM._tutNoHazards; } catch (_) {}
+    try { delete SIM._tutCanSpin0; } catch (_) {}
+    try { delete SIM._tutCanPair0; } catch (_) {}
+    // Clear any goal viz from tutorial so it never leaks into normal play.
+    try {
+      if (SIM.goalViz && Array.isArray(SIM.goalViz.perHue)) {
+        SIM.goalViz.perHue = new Array(6).fill(null);
+      }
+    } catch (_) {}
     _setBtnPulse(false, false);
     _setBtnsEnabled(false, false);
     _clearLastAction();
@@ -138,6 +146,10 @@
     _setBtnsEnabled(false, false);
     _setBtnPulse(false, false);
 
+    // Tutorial button gating source-of-truth (ui_controls reads these flags).
+    SIM._tutCanSpin0 = false;
+    SIM._tutCanPair0 = false;
+
     if (step === 0) {
       _setObjective('Swipe up/down on the highlighted well to change Amount.');
     } else if (step === 1) {
@@ -157,21 +169,55 @@
     } else if (step === 4) {
       // Buttons only: Set Spin 0
       SIM._tutBlockSwipes = true;
+      SIM._tutCanSpin0 = true;
+      SIM._tutCanPair0 = false;
       _setBtnsEnabled(true, false);
       _setBtnPulse(true, false);
+      // Ensure enough energy to learn the button.
+      try { SIM.energy = Math.max(SIM.energy || 0, 50); } catch (_) {}
       _setObjective('Press Set Spin 0 to zero the selected well’s Spin (costs energy).');
     } else if (step === 5) {
-      // Buttons only: Set Pair Spin 0
+      // Buttons only: Set Pair Spin 0 (but keep Spin 0 usable for reliability)
       SIM._tutBlockSwipes = true;
-      _setBtnsEnabled(false, true);
+      SIM._tutCanSpin0 = true;
+      SIM._tutCanPair0 = true;
+      _setBtnsEnabled(true, true);
       _setBtnPulse(false, true);
+
+      // Force both wells to a small non-zero spin so both buttons are usable and Pair actually changes state.
+      try {
+        const i = SIM._tutFocusWell|0;
+        const j = (OPP && typeof OPP[i] === 'number') ? (OPP[i]|0) : ((i + 3) % 6);
+        if (SIM.wellsS) {
+          SIM.wellsS[i] = 40;
+          if (j >= 0 && j < 6) SIM.wellsS[j] = -40;
+        }
+      } catch (_) {}
+
+      // Ensure enough energy to learn the button.
+      try { SIM.energy = Math.max(SIM.energy || 0, 50); } catch (_) {}
       _setObjective('Press Set Pair Spin 0 to zero the selected well AND its opposite (costs energy).');
     } else if (step === 6) {
       // Final win-conditions step: allow full interaction.
       SIM._tutAllowWell = null;
       SIM._tutBlockSwipes = false;
+      SIM._tutCanSpin0 = true;
+      SIM._tutCanPair0 = true;
       _setBtnsEnabled(true, true);
       _setBtnPulse(false, false);
+
+      // Goal viz: only show goals for top (0) and opposite (3)
+      try {
+        SIM.goalViz = SIM.goalViz || { perHue: new Array(6).fill(null) };
+        const per = new Array(6).fill(null);
+        per[0] = { type: 'OVER', target: 300 };
+        per[3] = { type: 'UNDER', target: 200 };
+        SIM.goalViz.perHue = per;
+      } catch (_) {}
+
+      // Ensure enough energy to finish.
+      try { SIM.energy = Math.max(SIM.energy || 0, 50); } catch (_) {}
+
       _setObjective('Win Conditions: Get Red (top) above 300 and Green (opposite) below 200, then stop all spin.');
     } else {
       // Safety fallback: treat as final step.
@@ -239,7 +285,7 @@
         if (Math.abs(s0) <= 0.01 && Math.abs(s1) <= 0.01) _advance();
       }
     } else if (step === 6) {
-      // Win conditions: Psyche[0] > 300, Psyche[3] < 200, and all spins are zero.
+      // Win conditions: Psyche[0] >= 300, Psyche[3] <= 200, and all spins are zero.
       const eps = (EC.TUNE && typeof EC.TUNE.PAT_SPIN_ZERO_EPS === 'number') ? EC.TUNE.PAT_SPIN_ZERO_EPS : 0.01;
       const p0 = (SIM.psyP && typeof SIM.psyP[0] === 'number') ? SIM.psyP[0] : 0;
       const p3 = (SIM.psyP && typeof SIM.psyP[3] === 'number') ? SIM.psyP[3] : 0;
@@ -250,7 +296,7 @@
           if (Math.abs(s) > eps) { allZero = false; break; }
         }
       }
-      if (!_didShowDone && p0 > 300 && p3 < 200 && allZero) {
+      if (!_didShowDone && p0 >= 300 && p3 <= 200 && allZero) {
         _didShowDone = true;
         // Pause + show completion modal with button.
         try {

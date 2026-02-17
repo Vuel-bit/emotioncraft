@@ -100,8 +100,20 @@ const SIM = (EC.SIM = EC.SIM || {
     const _pk = String(SIM._activePlanKey || '').toUpperCase();
     const _isTimed = (_pk === 'ZEN' || _pk === 'TRANQUILITY' || _pk === 'TRANSCENDENCE');
     if (_isTimed) {
-      const LIMIT = (typeof T.ZEN_TIME_LIMIT_SEC === 'number') ? T.ZEN_TIME_LIMIT_SEC : (12 * 60);
+      const LIMIT_BASE = (typeof T.ZEN_TIME_LIMIT_SEC === 'number') ? T.ZEN_TIME_LIMIT_SEC : (12 * 60);
+      let LIMIT = LIMIT_BASE;
+      try {
+        if (EC.TRAITS && typeof EC.TRAITS.getTimedPlanLimitSec === 'function') {
+          LIMIT = EC.TRAITS.getTimedPlanLimitSec(SIM, LIMIT_BASE);
+        }
+      } catch (_) {}
+
       if (typeof SIM.zenTimeRemainingSec !== 'number' || !isFinite(SIM.zenTimeRemainingSec)) {
+        SIM.zenTimeRemainingSec = LIMIT;
+      }
+
+      // Safety clamp: grounded must never show > 10:00 due to stale values.
+      if (typeof SIM.zenTimeRemainingSec === 'number' && isFinite(SIM.zenTimeRemainingSec) && SIM.zenTimeRemainingSec > LIMIT) {
         SIM.zenTimeRemainingSec = LIMIT;
       }
       SIM.zenTimeRemainingSec = Math.max(0, SIM.zenTimeRemainingSec - dt);
@@ -183,8 +195,27 @@ const SIM = (EC.SIM = EC.SIM || {
     const clampV = EC.clamp || ((v, a, b) => Math.max(a, Math.min(b, v)));
 
     // 2) Overflow/Underflow Equalization (Spillover) — PURE OVERFLOW (authoritative)
-    // Tutorial safety: when SIM._tutNoHazards is set, spillover is skipped entirely.
-    if (!SIM._tutNoHazards) (function stageSpillover(_dt) {
+    // Tutorial safety: when SIM._tutNoHazards is set, spillover is disabled (no redistribution).
+    if (SIM._tutNoHazards) {
+      // Clamp only (no neighbor transfers, no spill/jam detection).
+      try {
+        if (SIM.wellsA) {
+          for (let i = 0; i < 6; i++) SIM.wellsA[i] = clampV(Number(SIM.wellsA[i] || 0), A_MIN, A_MAX);
+        }
+        if (SIM.wellsS) {
+          for (let i = 0; i < 6; i++) SIM.wellsS[i] = clampV(Number(SIM.wellsS[i] || 0), S_MIN, S_MAX);
+        }
+      } catch (_) {}
+      spillActive = false;
+      spillATotal = 0;
+      spillSTotal = 0;
+      spillMsgs = [];
+      // Spillover debug flags (kept consistent)
+      SIM._spillActive = false;
+      SIM._spillA = 0;
+      SIM._spillS = 0;
+      SIM._spillMsg = '';
+    } else (function stageSpillover(_dt) {
       // For minimal debug visibility
       spillActive = false;
       spillATotal = 0;
@@ -327,26 +358,40 @@ const SIM = (EC.SIM = EC.SIM || {
       // First-time informational popups for spill events (normal gameplay only).
       try {
         if (!SIM._tutNoHazards && EC.BREAK && typeof EC.BREAK.showInfoOnce === 'function') {
-          if (aRes && aRes.didPos) EC.BREAK.showInfoOnce('spill_amount_up', 'Spill: Amount overflow', [
-            'A well exceeded its Amount cap.',
-            'The excess spills into neighboring wells until things stabilize.'
-          ]);
-          if (!SIM._breakPaused && aRes && aRes.didNeg) EC.BREAK.showInfoOnce('spill_amount_down', 'Spill: Amount underflow', [
-            'A well dropped below its minimum Amount.',
-            'The deficit pulls from neighboring wells until things stabilize.'
-          ]);
-          if (!SIM._breakPaused && sRes && sRes.didPos) EC.BREAK.showInfoOnce('spill_spin_up', 'Spill: Spin overflow', [
-            'A well exceeded its Spin limit.',
-            'The excess spin spills to neighboring wells.'
-          ]);
-          if (!SIM._breakPaused && sRes && sRes.didNeg) EC.BREAK.showInfoOnce('spill_spin_down', 'Spill: Spin underflow', [
-            'A well dropped below its Spin limit.',
-            'The deficit pulls spin from neighboring wells.'
-          ]);
-        }
-      } catch (_) {}
+          const wellName = (idx) => {
+            try {
+              if (typeof EC.wellLabel === 'function') return EC.wellLabel(idx);
+              if (typeof EC.hueLabel === 'function') return EC.hueLabel(idx);
+            } catch (_) {}
+            return 'Hue ' + idx;
+          };
 
-      // Pause immediately if a first-time spill popup fired.
+          if (aRes && aRes.didPos) {
+            const wi = (typeof aRes.posIdx === 'number') ? aRes.posIdx : 0;
+            EC.BREAK.showInfoOnce('spill_amount_up', 'Spill: Amount Overflow', [
+              `The ${wellName(wi)} well is being pushed over ${A_MAX}. The excess is spilling into neighboring wells.`
+            ]);
+          }
+          if (!SIM._breakPaused && aRes && aRes.didNeg) {
+            const wi = (typeof aRes.negIdx === 'number') ? aRes.negIdx : 0;
+            EC.BREAK.showInfoOnce('spill_amount_down', 'Spill: Amount Underflow', [
+              `The ${wellName(wi)} well is being pulled below ${A_MIN}. The deficit is pulling from neighboring wells.`
+            ]);
+          }
+          if (!SIM._breakPaused && sRes && sRes.didPos) {
+            const wi = (typeof sRes.posIdx === 'number') ? sRes.posIdx : 0;
+            EC.BREAK.showInfoOnce('spill_spin_up', 'Spill: Spin Overflow', [
+              `The ${wellName(wi)} well is being pushed over +${S_MAX}. The excess spin is spilling into neighboring wells.`
+            ]);
+          }
+          if (!SIM._breakPaused && sRes && sRes.didNeg) {
+            const wi = (typeof sRes.negIdx === 'number') ? sRes.negIdx : 0;
+            EC.BREAK.showInfoOnce('spill_spin_down', 'Spill: Spin Underflow', [
+              `The ${wellName(wi)} well is being pulled under ${S_MIN}. The deficit is pulling spin from neighboring wells.`
+            ]);
+          }
+        }
+      } catch (_) {}  // Pause immediately if a first-time spill popup fired.
       if (SIM._breakPaused) return;
 
       // Debug-only spill summary (helps tune jam thresholds)
@@ -425,13 +470,6 @@ const SIM = (EC.SIM = EC.SIM || {
       SIM._spillS = spillSTotal;
       SIM._spillMsg = (spillMsgs && spillMsgs.length) ? spillMsgs.slice(0, 3).join(' | ') : '';
     })(dt);
-    else {
-      // Spillover skipped (tutorial hazards disabled)
-      SIM._spillActive = false;
-      SIM._spillA = 0;
-      SIM._spillS = 0;
-      SIM._spillMsg = '';
-    }
 
     // If a spill popup paused the sim, stop the tick immediately.
     if (SIM._breakPaused) return;

@@ -54,3 +54,11 @@
 - Tutorial: added final win-conditions step and completion modal button; tutorial disables spillover + mental breaks.
 - Normal gameplay: first-time spill + mental break popups pause and explain what happened.
 - Lobby: added “?” toggle with detailed explanations for the selected patient’s Mood/Vibe/Traits/Quirks.
+
+- Pass 20: Tutorial step 6 goal-viz + button fixes; Weekly quirk reward update; Lobby “?” info toggle fixes; Spill/break popup copy + tutorial spill disable.
+
+Pass 21: Tutorial goalViz + Spin0/Pair0 gating flags; Grounded trait forces timed boards to 10:00; Roster reordered to 15 with Nina/Dex/Sage added and June rethemed to Juno; Lobby '?' quirks render fix + centering polish.
+
+Pass 22: Mental break first-occurrence popups now use log-text lines (title + deltas); Grounded timer authoritative in core_mechanics fallback/clamp; Taglines corrected for Nina/Dex/Sage/Juno.
+
+Pass 23: Spin jam first-occurrence popups now include Amount deltas (and use jam summary line as title).

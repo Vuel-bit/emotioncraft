@@ -514,6 +514,45 @@ function buildTreatmentPlan(planKey) {
 
   const ROSTER = [
     {
+      id: 'nina_notation',
+      levelId: 213,
+      name: 'Nina Notation',
+      tagline: 'I notice patterns. Constantly.',
+      portrait: 'assets/patients/nina_notation.png',
+      mood: { label: 'Steady', template: 'Flat' },
+      vibe: { label: 'Mid' },
+      traits: [],
+      quirks: [
+        { type: 'AMPED', intensityTier: 0 },
+      ],
+    },
+    {
+      id: 'dex_diminish',
+      levelId: 214,
+      name: 'Dex Diminish',
+      tagline: 'The spark fades fast.',
+      portrait: 'assets/patients/dex_diminish.png',
+      mood: { label: 'Steady', template: 'Flat' },
+      vibe: { label: 'Mid' },
+      traits: [],
+      quirks: [
+        { type: 'CRASHES', intensityTier: 1 },
+      ],
+    },
+    {
+      id: 'sage_spinwell',
+      levelId: 215,
+      name: 'Sage Spinwell',
+      tagline: 'I drift, but I don’t break.',
+      portrait: 'assets/patients/sage_spinwell.png',
+      mood: { label: 'Steady', template: 'Flat' },
+      vibe: { label: 'Mid' },
+      traits: [],
+      quirks: [
+        { type: 'SPIRALS', intensityTier: 0 },
+      ],
+    },
+{
       id: 'steady_eddie',
       levelId: 201,
       name: 'Steady Eddie',
@@ -526,10 +565,10 @@ function buildTreatmentPlan(planKey) {
         { type: 'LOCKS_IN', intensityTier: 1 },
       ],
     },
-    {
+{
       id: 'buzzy_barry',
       levelId: 202,
-      name: 'Buzzy Barry',
+      name: 'Barry Batteryback',
       tagline: 'I came, I saw, I overcommitted.',
       portrait: 'assets/patients/buzzy_barry.png',
       mood: { label: 'Steady', template: 'Tilted' },
@@ -540,10 +579,10 @@ function buildTreatmentPlan(planKey) {
         { type: 'AMPED', intensityTier: 0 },
       ],
     },
-    {
+{
       id: 'waverly_wade',
       levelId: 203,
-      name: 'Waverly Wade',
+      name: 'Wade Wayward',
       tagline: 'Ask again later. Or earlier. Or never.',
       portrait: 'assets/patients/waverly_wade.png',
       mood: { label: 'Drained', template: 'Split' },
@@ -554,10 +593,10 @@ function buildTreatmentPlan(planKey) {
         { type: 'CRASHES', intensityTier: 1 },
       ],
     },
-    {
+{
       id: 'tightwire_tina',
       levelId: 204,
-      name: 'Tightwire Tina',
+      name: 'Tina Timeout',
       tagline: 'If it’s quiet, I’ll fix that.',
       portrait: 'assets/patients/tightwire_tina.png',
       mood: { label: 'Steady', template: 'Split' },
@@ -568,10 +607,10 @@ function buildTreatmentPlan(planKey) {
         { type: 'LOCKS_IN', intensityTier: 1 },
       ],
     },
-    {
+{
       id: 'porcelain_paige',
       levelId: 205,
-      name: 'Porcelain Paige',
+      name: 'Paige Plastercast',
       tagline: 'Please don’t tap the glass.',
       portrait: 'assets/patients/porcelain_paige.png',
       mood: { label: 'Steady', template: 'Spike' },
@@ -582,10 +621,10 @@ function buildTreatmentPlan(planKey) {
         { type: 'LOCKS_IN', intensityTier: 1 },
       ],
     },
-    {
+{
       id: 'restless_rex',
       levelId: 206,
-      name: 'Restless Rex',
+      name: 'Rex Reroute',
       tagline: 'Tired is a rumor.',
       portrait: 'assets/patients/restless_rex.png',
       mood: { label: 'Drained', template: 'Tilted' },
@@ -596,7 +635,21 @@ function buildTreatmentPlan(planKey) {
         { type: 'SPIRALS', intensityTier: 1 },
       ],
     },
-    {
+{
+      id: 'clenchjaw_june',
+      levelId: 211,
+      name: 'Juno Jawlock',
+      tagline: 'If I let go, it all goes.',
+      portrait: 'assets/patients/clenchjaw_june.png',
+      mood: { label: 'Antsy', template: 'Tilted' },
+      vibe: { label: 'Blah' },
+      traits: ['grounded'],
+      quirks: [
+        { type: 'LOCKS_IN', intensityTier: 2 },
+        { type: 'CRASHES', intensityTier: 2 },
+      ],
+    },
+{
       id: 'brickwall_ben',
       levelId: 207,
       name: 'Brickwall Ben',
@@ -611,10 +664,10 @@ function buildTreatmentPlan(planKey) {
         { type: 'LOCKS_IN', intensityTier: 1 },
       ],
     },
-    {
+{
       id: 'fogbound_fiona',
       levelId: 208,
-      name: 'Fogbound Fiona',
+      name: 'Fiona Fray',
       tagline: 'I brought my personality—some assembly required.',
       portrait: 'assets/patients/fogbound_fiona.png',
       mood: { label: 'Overwhelmed', template: 'Flat' },
@@ -626,10 +679,10 @@ function buildTreatmentPlan(planKey) {
         { type: 'AMPED', intensityTier: 0 },
       ],
     },
-    {
+{
       id: 'cornered_carl',
       levelId: 209,
-      name: 'Cornered Carl',
+      name: 'Carl Clockout',
       tagline: 'I’m fine. I’m just… aggressively fine.',
       portrait: 'assets/patients/cornered_carl.png',
       mood: { label: 'Spent', template: 'Split' },
@@ -641,7 +694,7 @@ function buildTreatmentPlan(planKey) {
         { type: 'LOCKS_IN', intensityTier: 0 },
       ],
     },
-    {
+{
       id: 'sally_sadeyes',
       levelId: 210,
       name: 'Sally Sadeyes',
@@ -656,25 +709,10 @@ function buildTreatmentPlan(planKey) {
         { type: 'LOCKS_IN', intensityTier: 0 },
       ],
     },
-    {
-      id: 'clenchjaw_june',
-      levelId: 211,
-      name: 'Clenchjaw June',
-      tagline: 'Deep breaths are for other people.',
-      portrait: 'assets/patients/clenchjaw_june.png',
-      mood: { label: 'Antsy', template: 'Tilted' },
-      vibe: { label: 'Anxious' },
-      traits: ['stubborn'],
-      quirks: [
-        { type: 'AMPED', intensityTier: 1 },
-        { type: 'LOCKS_IN', intensityTier: 2 },
-        { type: 'CRASHES', intensityTier: 0 },
-      ],
-    },
-    {
+{
       id: 'hurricane_hank',
       levelId: 212,
-      name: 'Hurricane Hank',
+      name: 'Hank Half-Smile',
       tagline: 'Fast isn’t frantic. It’s efficient.',
       portrait: 'assets/patients/hurricane_hank.png',
       mood: { label: 'Steady', template: 'Spike' },
@@ -986,11 +1024,27 @@ function _uniq(arr) {
     if (kind === 'QUIRK') {
       const idx = (typeof a.index === 'number') ? Math.floor(a.index) : -1;
       if (Array.isArray(p.quirks) && idx >= 0 && idx < p.quirks.length) {
-        const q = p.quirks[idx];
-        const old = (typeof q.intensityTier === 'number') ? q.intensityTier : 0;
-        q.intensityTier = Math.max(0, old - 1);
-        p.lastOutcome = _weeklyRewardLabel('QUIRK', q.type);
-        did = true;
+        const qs = p.quirks;
+        // New rule:
+        // - If patient has >2 quirks: selecting one removes it entirely.
+        // - If patient has <=2 quirks: selecting one sets it to LOW immediately (tier 0).
+        if (qs.length > 2) {
+          const q = qs[idx];
+          qs.splice(idx, 1);
+          p.lastOutcome = _weeklyRewardLabel('QUIRK', q && q.type);
+          did = true;
+        } else {
+          const q = qs[idx];
+          const old = (q && typeof q.intensityTier === 'number') ? q.intensityTier : 0;
+          if (old <= 0) {
+            // Don't spend weekly reward if this would do nothing.
+            did = false;
+          } else {
+            q.intensityTier = 0;
+            p.lastOutcome = _weeklyRewardLabel('QUIRK', q.type);
+            did = true;
+          }
+        }
       }
     } else if (kind === 'MOOD') {
       const cur = String((p.mood && p.mood.label) ? p.mood.label : 'Steady');
@@ -1604,7 +1658,13 @@ function openLobbyPause() {
     if (!p) return false;
 
     // Any improvable/removable attributes?
-    if (p.quirks && p.quirks.some((q) => q && typeof q.intensityTier === 'number' && q.intensityTier > 0)) return true;
+    // Quirks:
+    // - If >2 quirks, removing any quirk is always a valid weekly improvement.
+    // - If <=2 quirks, only those above LOW (tier 0) are improvable.
+    if (Array.isArray(p.quirks)) {
+      if (p.quirks.length > 2) return true;
+      if (p.quirks.some((q) => q && typeof q.intensityTier === 'number' && q.intensityTier > 0)) return true;
+    }
     if (p.mood && typeof p.mood.label === 'string' && p.mood.label !== 'Steady') return true;
     if (p.vibe && typeof p.vibe.label === 'string' && p.vibe.label !== 'Mid') return true;
     if (Array.isArray(p.traits) && p.traits.length > 0) return true;

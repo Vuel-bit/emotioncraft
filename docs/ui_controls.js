@@ -712,19 +712,17 @@ if (btnZeroPairEl) {
         const changedSpin = (c1 && c1.changed);
         const spinUnits = changedSpin ? cost1Units : 0;
         let canSpin = hasSel && changedSpin && (eU >= spinUnits);
-        // Tutorial gating: Spin 0 only enabled on step 5 (index 4)
-        if (SIM && SIM.tutorialActive) {
-          const st = (typeof SIM._tutStep === 'number') ? (SIM._tutStep|0) : 0;
-          canSpin = canSpin && (st === 4);
+        // Tutorial gating: use SIM._tutCanSpin0 if present (source of truth = tutorial step machine)
+        if (SIM && SIM.tutorialActive && (typeof SIM._tutCanSpin0 === 'boolean')) {
+          canSpin = canSpin && !!SIM._tutCanSpin0;
         }
         btnSpinZeroEl2.disabled = !canSpin;
         btnSpinZeroEl2.style.opacity = canSpin ? '1' : '0.55';
 
         // Tutorial pulse highlight
         try {
-          if (SIM && SIM.tutorialActive) {
-            const st = (typeof SIM._tutStep === 'number') ? (SIM._tutStep|0) : 0;
-            if (st === 4) btnSpinZeroEl2.classList.add('tutPulse');
+          if (SIM && SIM.tutorialActive && (typeof SIM._tutCanSpin0 === 'boolean')) {
+            if (SIM._tutCanSpin0) btnSpinZeroEl2.classList.add('tutPulse');
             else btnSpinZeroEl2.classList.remove('tutPulse');
           } else {
             btnSpinZeroEl2.classList.remove('tutPulse');
@@ -744,19 +742,17 @@ if (btnZeroPairEl) {
       // Gating must match displayed cost exactly.
       if (btnZeroPairEl2) {
         let canPair = hasSel && changedPair && (eU >= pairUnits);
-        // Tutorial gating: Pair 0 only enabled on step 6 (index 5)
-        if (SIM && SIM.tutorialActive) {
-          const st = (typeof SIM._tutStep === 'number') ? (SIM._tutStep|0) : 0;
-          canPair = canPair && (st === 5);
+        // Tutorial gating: use SIM._tutCanPair0 if present (source of truth = tutorial step machine)
+        if (SIM && SIM.tutorialActive && (typeof SIM._tutCanPair0 === 'boolean')) {
+          canPair = canPair && !!SIM._tutCanPair0;
         }
         btnZeroPairEl2.disabled = !canPair;
         btnZeroPairEl2.style.opacity = canPair ? '1' : '0.55';
 
         // Tutorial pulse highlight
         try {
-          if (SIM && SIM.tutorialActive) {
-            const st = (typeof SIM._tutStep === 'number') ? (SIM._tutStep|0) : 0;
-            if (st === 5) btnZeroPairEl2.classList.add('tutPulse');
+          if (SIM && SIM.tutorialActive && (typeof SIM._tutCanPair0 === 'boolean')) {
+            if (SIM._tutCanPair0) btnZeroPairEl2.classList.add('tutPulse');
             else btnZeroPairEl2.classList.remove('tutPulse');
           } else {
             btnZeroPairEl2.classList.remove('tutPulse');

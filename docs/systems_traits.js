@@ -17,6 +17,7 @@
     sensitive: true,
     stubborn: true,
     fragile: true,
+    grounded: true,
   };
 
   function normKey(k) {
@@ -62,4 +63,12 @@
   MOD.getPsyTotalCap = function getPsyTotalCap(_simIn) {
     return null;
   };
+
+  // Timed-plan limit override (used by grounded trait).
+  // If the active patient has 'grounded', timed boards start at 10:00.
+  MOD.getTimedPlanLimitSec = function getTimedPlanLimitSec(simIn, baseSec) {
+    const b = (typeof baseSec === 'number' && isFinite(baseSec)) ? baseSec : (12 * 60);
+    return MOD.has(simIn, 'grounded') ? (10 * 60) : b;
+  };
+
 })();

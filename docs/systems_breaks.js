@@ -265,6 +265,29 @@
     return parts.length ? ('Spin: ' + parts.join(', ')) : 'Spin: (no change)';
   }
 
+  function _formatAmountDelta(before, after) {
+    const deltas = new Array(6);
+    for (let i = 0; i < 6; i++) deltas[i] = (after[i] || 0) - (before[i] || 0);
+
+    // If all deltas are identical (and non-zero), summarize.
+    let same = true;
+    for (let i = 1; i < 6; i++) {
+      if (Math.abs(deltas[i] - deltas[0]) > 1e-6) { same = false; break; }
+    }
+    if (same && Math.abs(deltas[0]) > 1e-6) {
+      const d = Math.round(deltas[0]);
+      return `Amount: ALL ${d >= 0 ? '+' : ''}${d}`;
+    }
+
+    const parts = [];
+    for (let i = 0; i < 6; i++) {
+      const d = Math.round(deltas[i]);
+      if (!d) continue;
+      parts.push(`${_wellName(i)} ${d > 0 ? '+' : ''}${d}`);
+    }
+    return parts.length ? ('Amount: ' + parts.join(', ')) : 'Amount: (no change)';
+  }
+
   function _cancelDispositions() {
     if (EC.DISP && typeof EC.DISP.cancelAll === 'function') {
       EC.DISP.cancelAll();
@@ -352,27 +375,28 @@
     const after = _snap(sim);
     const typeLine = `Mental Break: Hue Break — ${_wellName(h)} ${kind === 'LOW' ? 'below 0' : 'above cap'}`;
 
+    // Build log lines first; first-occurrence popup must reuse this exact text.
+    const titleLine = (msg && typeof msg === 'string') ? msg : typeLine;
+    const msgArr = [
+      titleLine,
+      _formatPsycheDelta(before.psy, after.psy),
+      _formatAmountDelta(before.a, after.a),
+      _formatSpinDelta(before.s, after.s),
+    ];
+
     // First-time informational popup (additive; does not change mechanics).
+    // Spec: title = first line, body = remaining lines.
     try {
       if (EC.BREAK && typeof EC.BREAK.showInfoOnce === 'function') {
         if (kind === 'LOW') {
-          EC.BREAK.showInfoOnce('break_hue_under_floor', 'Mental Break: Hue under 0', [
-            'A hue’s Psyche dropped below 0.',
-            'A Mental Break fires: the game applies relief + redirects, and adjusts nearby wells.'
-          ]);
+          EC.BREAK.showInfoOnce('break_hue_under_floor', msgArr[0], msgArr.slice(1));
         } else {
-          EC.BREAK.showInfoOnce('break_hue_over_cap', 'Mental Break: Hue over cap', [
-            'A hue’s Psyche exceeded the cap.',
-            'A Mental Break fires: the game applies relief + redirects, and adjusts nearby wells.'
-          ]);
+          EC.BREAK.showInfoOnce('break_hue_over_cap', msgArr[0], msgArr.slice(1));
         }
       }
     } catch (_) {}
-    const msgLines = [
-      typeLine,
-      _formatPsycheDelta(before.psy, after.psy),
-      _formatSpinDelta(before.s, after.s),
-    ].join('\n');
+
+    const msgLines = msgArr.join('\n');
     _pushBreakMsg(msgLines);
     _triggerBreakUI(sim, typeLine, before, after);
     _record(sim.mvpTime || 0, kind === 'LOW' ? 'PSY_HUE_LOW' : 'PSY_HUE_HIGH', { hue: h, value: val }, msgLines);
@@ -509,27 +533,26 @@
     const after = _snap(sim);
     const typeLine = `Mental Break: Jam Break — ${String(cause || '').replace(/_/g, ' ')}`;
 
-    // First-time informational popup (spin jam min/max required).
-    try {
-      if (EC.BREAK && typeof EC.BREAK.showInfoOnce === 'function') {
-        if (cause === 'SPIN_MAX_JAM') {
-          EC.BREAK.showInfoOnce('break_jam_spin_max', 'Mental Break: Spin jam (max)', [
-            'The entire ring saturated at the maximum Spin limit.',
-            'A Jam Break fires: spins and amounts are forcefully redirected.'
-          ]);
-        } else if (cause === 'SPIN_MIN_JAM') {
-          EC.BREAK.showInfoOnce('break_jam_spin_min', 'Mental Break: Spin jam (min)', [
-            'The entire ring saturated at the minimum Spin limit.',
-            'A Jam Break fires: spins and amounts are forcefully redirected.'
-          ]);
-        }
-      }
-    } catch (_) {}
-    const msgLines = [
+    // Build log lines first; first-occurrence popup must reuse this exact text.
+    const msgArr = [
       typeLine,
       _formatPsycheDelta(before.psy, after.psy),
       _formatSpinDelta(before.s, after.s),
-    ].join('\n');
+    ];
+
+    // First-time informational popup (spin jam min/max required).
+    // Spec: title = first line, body = remaining lines.
+    try {
+      if (EC.BREAK && typeof EC.BREAK.showInfoOnce === 'function') {
+        if (cause === 'SPIN_MAX_JAM') {
+          EC.BREAK.showInfoOnce('break_jam_spin_max', msgArr[0], msgArr.slice(1));
+        } else if (cause === 'SPIN_MIN_JAM') {
+          EC.BREAK.showInfoOnce('break_jam_spin_min', msgArr[0], msgArr.slice(1));
+        }
+      }
+    } catch (_) {}
+
+    const msgLines = msgArr.join('\n');
     _pushBreakMsg(msgLines);
     _triggerBreakUI(sim, typeLine, before, after);
     const recDetails = details ? Object.assign({}, details) : {};

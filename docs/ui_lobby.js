@@ -350,9 +350,10 @@
     const qh = document.createElement('div');
     qh.style.fontSize = '12px';
     qh.style.fontWeight = '800';
-    qh.textContent = 'Reduce a Quirk intensity';
+    // Quirk weekly reward behavior depends on quirk count.
+    const isRemove = qs.length > 2;
+    qh.textContent = isRemove ? 'Remove a Quirk' : 'Reduce a Quirk intensity';
     secQ.appendChild(qh);
-    const qs = Array.isArray(p.quirks) ? p.quirks : [];
     if (!qs.length) {
       const none = document.createElement('div');
       none.style.fontSize = '12px';
@@ -364,7 +365,7 @@
         const btn = document.createElement('button');
         btn.className = 'lobbyBtn';
         const tier = (typeof q.intensityTier === 'number') ? q.intensityTier : 0;
-        const disabled = tier <= 0;
+        const disabled = (!isRemove) && (tier <= 0);
         btn.disabled = disabled;
         btn.textContent = `${_quirkLabel(q.type)} (${tier})`;
         btn.addEventListener('click', () => {
@@ -700,19 +701,32 @@
             const flipC = (typeof Tn.PAT_VIBE_FLIP_CHANCE === 'number') ? Tn.PAT_VIBE_FLIP_CHANCE : null;
             const maxF = (typeof Tn.PAT_VIBE_MAX_FLIPS === 'number') ? Tn.PAT_VIBE_MAX_FLIPS : null;
 
+            // Traits: list only what the patient actually has.
             const traitLines = [];
-            traitLines.push('stubborn: energy costs ×1.2');
-            traitLines.push('sensitive: quirk strength ×1.5');
-            traitLines.push('fragile: deprecated (no meaningful effect)');
+            try {
+              const ts = Array.isArray(p.traits) ? p.traits.map((t) => String(t || '').toUpperCase()) : [];
+              const has = (k) => ts.indexOf(String(k || '').toUpperCase()) >= 0;
+              if (has('STUBBORN')) traitLines.push('stubborn: energy costs ×1.2');
+              if (has('SENSITIVE')) traitLines.push('sensitive: quirk strength ×1.5');
+              if (has('FRAGILE')) traitLines.push('fragile: deprecated (no meaningful effect)');
+              if (has('GROUNDED')) traitLines.push('grounded: timed boards start at 10:00');
+              if (!traitLines.length) traitLines.push('• none');
+            } catch (_) { traitLines.push('• none'); }
 
+            // Quirks: list only what the patient actually has.
             const qLines = [];
-            qLines.push('Fixates: Amount ↑');
-            qLines.push('Crashes: Amount ↓');
-            qLines.push('Obsesses: Spin pushed toward +100');
-            qLines.push('Spirals: Spin pushed toward -100');
-            qLines.push('Note: Spin-quirk push scales with Amount (low Amount reduces effect).');
-
-            const parts = [];
+            let hasSpinQuirk = false;
+            try {
+              const qs2 = Array.isArray(p.quirks) ? p.quirks : [];
+              const types = {};
+              qs2.forEach((q) => { const t = String(q && q.type || '').toUpperCase(); if (t) types[t] = true; });
+              if (types['LOCKS_IN']) qLines.push('Fixates: Amount ↑');
+              if (types['CRASHES']) qLines.push('Crashes: Amount ↓');
+              if (types['AMPED']) { qLines.push('Obsesses: Spin pushed toward +100'); hasSpinQuirk = true; }
+              if (types['SPIRALS']) { qLines.push('Spirals: Spin pushed toward -100'); hasSpinQuirk = true; }
+              if (!qLines.length) qLines.push('• none');
+              if (hasSpinQuirk) qLines.push('Note: Spin-quirk push scales with Amount (low Amount reduces effect).');
+            } catch (_) { qLines.push('• none'); }            const parts = [];
             parts.push('Mood');
             parts.push('• Total starting Psyche: ' + (totalR ? (totalR[0] + '–' + totalR[1]) : '—'));
             parts.push('• Template: ' + String(tmpl));
@@ -871,7 +885,7 @@
           // Re-render details for current selection
           try {
             const pid = EC.UI_STATE.selectedPatientId;
-            const p = (EC.PAT && typeof EC.PAT.getById === 'function') ? EC.PAT.getById(pid) : null;
+            const p = (EC.PAT && typeof EC.PAT.get === 'function') ? EC.PAT.get(pid) : null;
             renderDetails(els, p);
           } catch (_) {}
         });
