@@ -19,6 +19,9 @@ Highlights (current build)
 
 Run root: open docs/index.html
 - Pass 26: Extracted EC.ACTION_MATH (canonical preview/cost/unit rounding/pair cost). Routed ACTIONS + UI controls to it to prevent drift.
-- Pass 27: Added app_loop.js (EC.APP.tickMvp). core_mechanics EC.tick delegates MVP branch to app loop (no behavior changes).
-- Pass 28: Added core_pipeline_mvp.js (EC.PIPE.stepMvp). core_mechanics MECH.step delegates MVP systems ordering to pipeline (no behavior changes).
+- Pass 27: Added app_loop.js (EC.APP.tickMvp). core_mechanics EC.tick delegates MVP branch to app loop (no behavior changes; later inlined).
+- Pass 28: Added MVP pipeline module (stepMvp). core_mechanics MECH.step delegates MVP systems ordering to pipeline (no behavior changes).
 - Pass 29: Hotfix — Hue Break no longer references undefined msg; MVP tick will not fall through into legacy unless SIM.wells exists.
+- Pass 30: Legacy tick removed (MVP-only runtime). Inlined MVP tick into core_mechanics and deleted app_loop.js. Removed dead legacy tick helpers and unused legacy render swirl step.
+- Pass 31: Inlined MVP pipeline into core_mechanics and removed the pipeline layer (no behavior changes).
+- Pass 32: Removed legacy Imprint/Trauma/Cleanse prototype system (no gameplay changes).

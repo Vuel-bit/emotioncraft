@@ -591,7 +591,7 @@ app.stage.on('pointermove', (ev) => { _stageDbg(ev,'pointermove'); });
   // -----------------------------
   // Hardening: verify required surface exists (no-op when healthy)
   if (EC.assertReady) {
-    EC.assertReady('boot', ["EC.TUNING", "EC.makeWell", "EC.ensureWellView", "EC.applyImprintToWell", "EC.initUI", "EC.SIM"]);
+    EC.assertReady('boot', ["EC.TUNING", "EC.makeWell", "EC.ensureWellView", "EC.initUI", "EC.SIM"]);
   }
 
   if (typeof EC.init === 'function') EC.init();

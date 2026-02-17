@@ -7,8 +7,7 @@
     RED: 'red',
     BLUE: 'blue',
     YELLOW: 'yellow',
-    TRAUMA: 'trauma'
-  };
+};
 
 
   const Lane = {
@@ -38,7 +37,7 @@
   }
 
   function computeDisplayBlendState(w) {
-    // Determine dominant/secondary amounts (ignore trauma)
+    // Determine dominant/secondary amounts
     const comps = [
       { h: 'red', v: w.comp.red },
       { h: 'blue', v: w.comp.blue },
@@ -124,8 +123,7 @@
       comp: { red: 0, blue: 0, yellow: 0 },
       // Per-component swirl value in [-1, +1] (CCW negative, Still 0, CW positive)
       swirl: { red: 0, blue: 0, yellow: 0 },
-      trauma: 0,
-      // temporary event modifiers
+// temporary event modifiers
       breakTelegraphAt: 0,
       breakStart: 0,
       breakUntil: 0,
@@ -144,13 +142,6 @@
 
   function totalAmount(w) {
     return w.comp.red + w.comp.blue + w.comp.yellow;
-  }
-
-  
-
-function traumaDensity(w) {
-    // visual-only helper (used for particle opacity)
-    return w.trauma / (totalAmount(w) + 1);
   }
 
 function netSwirl(w, now) {
@@ -182,70 +173,23 @@ function netSwirl(w, now) {
         const w1 = makeWell('w1', 'Well A', 0, 0);
         const w2 = makeWell('w2', 'Well B', 0, 0);
 
-        // Simple start: two primary wells (single-hue) with light swirl and low trauma
+        // Simple start: two primary wells (single-hue) with light swirl
         // A: Blue primary
         w1.comp.blue = 36;
-        w1.trauma = 2;
-        w1.swirl.blue = -0.25;
+w1.swirl.blue = -0.25;
 
         // B: Red primary
         w2.comp.red = 34;
-        w2.trauma = 2;
-        w2.swirl.red = -0.22;
+w2.swirl.red = -0.22;
 
         return [w1, w2];
       }
     };
 
-  // Imprints (prototype set)
-  // attune is continuous signed [-1..+1] (CCW negative, Still 0, CW positive)
-  const IMPRINTS = [
-      {
-        id: 'imp_blue_still',
-        title: 'Blue • Still • +18',
-        hue: Hue.BLUE,
-        amount: 18,
-        attune: 0,
-        catharsis: false,
-        desc: 'On-hue. Adds Blue amount. (No attunement)'
-      },
-      {
-        id: 'imp_red_cw',
-        title: 'Red • CW • +10 (attune)',
-        hue: Hue.RED,
-        amount: 10,
-        attune: +0.65,
-        catharsis: false,
-        desc: 'On-hue. Adds Red amount and nudges Red toward CW (positive).'
-      },
-      {
-        id: 'imp_trauma',
-        title: 'Trauma Imprint',
-        hue: Hue.TRAUMA,
-        amount: 0,
-        attune: 0,
-        catharsis: false,
-        desc: 'Adds Trauma to a random Well.'
-      },
-      {
-        id: 'imp_yellow',
-        title: 'Yellow • Still • +22',
-        hue: Hue.YELLOW,
-        amount: 22,
-        attune: 0,
-        catharsis: false,
-        desc: 'Adds Yellow amount. (Use on a primary well to create a two-hue blend.)'
-      },
-    ];
-
   function getWellById(id) {
     const SIM = EC.SIM;
     if (!SIM || !Array.isArray(SIM.wells)) return null;
     return SIM.wells.find(w => w.id === id) || null;
-  }
-
-  function getImprintById(id) {
-    return IMPRINTS.find(i => i.id === id) || null;
   }
   // Export to the single global namespace
   EC.Hue = Hue;
@@ -265,16 +209,11 @@ function netSwirl(w, now) {
 
   EC.makeWell = makeWell;
   EC.totalAmount = totalAmount;
-  EC.traumaDensity = traumaDensity;
-  EC.netSwirl = netSwirl;
+EC.netSwirl = netSwirl;
 
   EC.PRESETS = PRESETS;
-  EC.IMPRINTS = IMPRINTS;
-  EC.getWellById = getWellById;
-  EC.getImprintById = getImprintById;
-
-
-  // ---------------------------------------------------------------------------
+EC.getWellById = getWellById;
+// ---------------------------------------------------------------------------
   // Redesign MVP model (Chunk 1)
   // Adds new state + board definition without disturbing legacy prototype state.
   // Canonical hue list lives in core_const.js (EC.CONST.HUES). Keep EC.HUES as alias.
@@ -643,5 +582,5 @@ function netSwirl(w, now) {
 
 
   // Hardening: module registry (no gameplay impact)
-  EC._registerModule && EC._registerModule('core_model', { provides: ["EC.Hue", "EC.Lane", "EC.LANE_ASPECTS", "EC.blendLaneFromPair", "EC.computeDisplayBlendState", "EC.computeLaneForDisplay", "EC.aspectZoneFromSwirl", "EC.aspectIcon", "EC.clamp", "EC.lerp", "EC.sign0", "EC.makeWell", "EC.totalAmount", "EC.traumaDensity", "EC.netSwirl", "EC.PRESETS", "EC.IMPRINTS", "EC.getWellById", "EC.getImprintById"] });
+  EC._registerModule && EC._registerModule('core_model', { provides: ["EC.Hue", "EC.Lane", "EC.LANE_ASPECTS", "EC.blendLaneFromPair", "EC.computeDisplayBlendState", "EC.computeLaneForDisplay", "EC.aspectZoneFromSwirl", "EC.aspectIcon", "EC.clamp", "EC.lerp", "EC.sign0", "EC.makeWell", "EC.totalAmount", "EC.netSwirl", "EC.PRESETS", "EC.getWellById", ] });
 })();

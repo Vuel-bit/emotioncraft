@@ -9,8 +9,7 @@
   const clamp = EC.clamp;
   const lerp = EC.lerp;
   const totalAmount = EC.totalAmount;
-  const traumaDensity = EC.traumaDensity;
-  const netSwirl = EC.netSwirl;
+const netSwirl = EC.netSwirl;
   const computeLaneForDisplay = EC.computeLaneForDisplay;
   const aspectZoneFromSwirl = EC.aspectZoneFromSwirl;
   const aspectIcon = EC.aspectIcon;
@@ -173,7 +172,7 @@ const wellViews = (EC.RENDER.wellViews = EC.RENDER.wellViews || new Map());
     return (r << 16) + (g << 8) + b;
   }
   function computeWellRadius(w) {
-    // Amount excludes trauma (totalAmount already does); max useful hue total is 2 components.
+    // Amount excludes non-hue components (totalAmount already does); max useful hue total is 2 components.
     const amt = totalAmount(w);
     const maxTotal = 2 * TUNING.maxComponent;
     const t = clamp(amt / maxTotal, 0, 1);
@@ -238,11 +237,6 @@ const wellViews = (EC.RENDER.wellViews = EC.RENDER.wellViews || new Map());
     swirlText.anchor.set(0.5);
     swirlText.position.set(0, 0);
     swirlContainer.addChild(swirlText);
-
-    const traumaLayer = new Container();
-    c.addChild(traumaLayer);
-
-
     const tagContainer = new Container();
     c.addChild(tagContainer);
 
@@ -847,11 +841,9 @@ EC.RENDER._resolveGestureFromDom = function(domEv, kind) {
       breakText,
       aspectFlashG,
       swirlContainer, swirlG, swirlText,
-      traumaLayer,
-      tagContainer, tagBg, tagText,
+tagContainer, tagBg, tagText,
       label,
-      particles: [],
-      ripples: [],
+ripples: [],
       aspectFlashUntil: 0,
       tagPopUntil: 0,
       tagPopAmp: 0,
@@ -863,7 +855,7 @@ EC.RENDER._resolveGestureFromDom = function(domEv, kind) {
 
   function updateWellView(w) {
     const v = ensureWellView(w);
-    const { c, fill, ring, swirlContainer, swirlG, swirlText, traumaLayer, label } = v;
+    const { c, fill, ring, swirlContainer, swirlG, swirlText, label } = v;
 
     w.radius = computeWellRadius(w);
 
@@ -1019,29 +1011,6 @@ EC.RENDER._resolveGestureFromDom = function(domEv, kind) {
 
     swirlContainer.alpha = ns.dir === 0 ? 0.6 : 1.0;
 
-    // Trauma particles
-    const targetCount = Math.min(TUNING.traumaParticles.max, Math.floor(w.trauma * TUNING.traumaParticles.perTrauma));
-
-    while (v.particles.length < targetCount) {
-      const g = new Graphics();
-      g.beginFill(0x000000, 0.55);
-      const pr = 1.6 + Math.random() * 3.0;
-      g.drawCircle(0, 0, pr);
-      g.endFill();
-      traumaLayer.addChild(g);
-      const p = { g, x: 0, y: 0 };
-      const pt = randomPointInCircle(w.radius * 0.92);
-      p.x = pt.x; p.y = pt.y;
-      g.position.set(p.x, p.y);
-      v.particles.push(p);
-    }
-
-    while (v.particles.length > targetCount) {
-      const p = v.particles.pop();
-      traumaLayer.removeChild(p.g);
-      p.g.destroy();
-    }
-
     label.alpha = isSelected ? 1.0 : 0.78;
   }
 
@@ -1074,98 +1043,6 @@ EC.RENDER._resolveGestureFromDom = function(domEv, kind) {
     const rr = (u > 1 ? 2 - u : u) * r;
     return { x: Math.cos(t) * rr, y: Math.sin(t) * rr };
   }
-
-  function animateParticlesAndSwirl(dt) {
-    const now = EC.SIM.runSeconds;
-
-    for (const w of EC.SIM.wells) {
-      const v = ensureWellView(w);
-      const ns = netSwirl(w, now);
-
-      // Rotate swirl cue so direction is obvious
-      const radPerSec = TUNING.swirlAnim.maxRadPerSec * ns.mag;
-      v.swirlPhase += ns.dir * radPerSec * dt;
-      v.swirlContainer.rotation = v.swirlPhase;
-
-      // Rotate trauma particles in same field (purely visual)
-      const spinSpeed = ns.dir * ns.mag * 0.9;
-      for (const p of v.particles) {
-        const g = p.g;
-
-        const ang = spinSpeed * dt;
-        const cos = Math.cos(ang), sin = Math.sin(ang);
-        const x = p.x * cos - p.y * sin;
-        const y = p.x * sin + p.y * cos;
-        p.x = x; p.y = y;
-
-        const jit = TUNING.traumaParticles.jitter;
-        p.x += (Math.random() - 0.5) * jit;
-        p.y += (Math.random() - 0.5) * jit;
-
-        const d = Math.sqrt(p.x * p.x + p.y * p.y);
-        if (d > w.radius * 0.93) {
-          const s = (w.radius * 0.90) / (d + 0.001);
-          p.x *= s; p.y *= s;
-        }
-
-        g.position.set(p.x, p.y);
-        g.alpha = 0.30 + clamp(traumaDensity(w) * 0.9, 0, 0.60);
-      }
-
-      // State-shift visuals: blend ripple + tag pulse
-      // Ripple animation lives here so it stays synced to dt.
-      if (v.ripples && v.ripples.length) {
-        const dur = TUNING.stateLabels.rippleMs / 1000;
-        for (let i = v.ripples.length - 1; i >= 0; i--) {
-          const r = v.ripples[i];
-          const t = (now - r.start) / dur;
-          if (t >= 1) {
-            v.fxLayer.removeChild(r.g);
-            r.g.destroy();
-            v.ripples.splice(i, 1);
-            continue;
-          }
-          const ease = 1 - Math.pow(1 - t, 2);
-          const alpha = (1 - ease) * 0.70;
-          const rr = w.radius * (0.35 + 0.80 * ease);
-          r.g.clear();
-          r.g.lineStyle(4, 0xffffff, alpha * 0.75);
-          r.g.drawCircle(0, 0, rr);
-          r.g.lineStyle(3, 0x7aa2ff, alpha * 0.55);
-          r.g.drawCircle(0, 0, rr + 3);
-        }
-      }
-
-      
-      // Aspect-shift flash: quick ring glow so zone changes are noticeable
-      if (v.aspectFlashG) {
-        if (v.aspectFlashUntil && now < v.aspectFlashUntil) {
-          const t = 1 - clamp((v.aspectFlashUntil - now) / 0.16, 0, 1);
-          const alphaF = (1 - t) * 0.75;
-          v.aspectFlashG.clear();
-          v.aspectFlashG.lineStyle(6, 0xffffff, alphaF * 0.35);
-          v.aspectFlashG.drawCircle(0, 0, w.radius + 6);
-          v.aspectFlashG.lineStyle(4, 0x7aa2ff, alphaF * 0.25);
-          v.aspectFlashG.drawCircle(0, 0, w.radius + 6);
-        } else {
-          v.aspectFlashG.clear();
-        }
-      }
-
-
-      if (v.tagPopUntil && now < v.tagPopUntil) {
-        const t = clamp((v.tagPopUntil - now) / 0.20, 0, 1);
-        const amp = v.tagPopAmp || 0.10;
-        const k = 1 + (1 - t) * amp;
-        v.tagContainer.scale.set(k);
-      } else {
-        v.tagContainer.scale.set(1);
-        v.tagPopAmp = 0;
-      }
-    }
-  }
-
-
 
 // -----------------------------
 // Psyche donut wedges (UI pass) — replaces bullseye/bars
@@ -1816,7 +1693,6 @@ function scheduleRelayout() {
   EC.spawnBlendRipple = spawnBlendRipple;
   EC.spawnAspectNudge = spawnAspectNudge;
   EC.snapshotAspectZone = snapshotAspectZone;
-  EC.animateParticlesAndSwirl = animateParticlesAndSwirl;
 
   EC.layout = layout;
   EC.scheduleRelayout = scheduleRelayout;

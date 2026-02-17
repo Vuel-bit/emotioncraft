@@ -427,108 +427,6 @@
     .drawer h3 { margin: 0; font-size: 14px; }
     .drawer .sub { font-size: 12px; color: var(--muted); margin-top: 2px; }
 
-    /* Inventory strip: 1 row (up to 10 imprints)
-       Keeps the drawer short so it won’t cover vertically stacked Wells. */
-    .imprints {
-      margin-top: 10px;
-      display: flex;
-      flex-wrap: nowrap;
-      gap: 6px;
-      overflow-x: auto;
-      overflow-y: hidden;
-      padding-bottom: 2px;
-      max-height: 56px;
-      -webkit-overflow-scrolling: touch;
-    }
-    .imprints::-webkit-scrollbar { height: 6px; }
-    .imprints::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.12); border-radius: 999px; }
-    .invItem {
-      position: relative;
-      width: 46px;
-      height: 46px;
-      border-radius: 14px;
-      border: 1px solid rgba(255,255,255,0.12);
-      background: rgba(255,255,255,0.06);
-      overflow: hidden;
-      cursor: pointer;
-      user-select: none;
-      flex: 0 0 auto;
-    }
-    .invItem::before {
-      content: "";
-      position: absolute;
-      inset: 0;
-      background: linear-gradient(to bottom, rgba(255,255,255,0.10), rgba(0,0,0,0));
-      pointer-events: none;
-    }
-    .invItem:active { transform: translateY(1px); }
-    .invItem.selected {
-      border-color: rgba(122, 162, 255, 0.95);
-      box-shadow: 0 0 0 1px rgba(122, 162, 255, 0.35) inset;
-    }
-    .invItem .fill {
-      position: absolute;
-      left: 0; right: 0; bottom: 0;
-      height: 0%;
-      background: rgba(0,0,0,0.14);
-    }
-    .invItem .arrow {
-      position: absolute;
-      inset: 0;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 18px;
-      color: rgba(255,255,255,0.92);
-      text-shadow: 0 1px 2px rgba(0,0,0,0.45);
-      pointer-events: none;
-    }
-
-    .invItem .traumaMark {
-      position: absolute;
-      left: 6px;
-      bottom: 6px;
-      width: 7px;
-      height: 0%;
-      border-radius: 6px;
-      background: rgba(0,0,0,0.72);
-      box-shadow: 0 0 0 1px rgba(255,255,255,0.10) inset;
-      pointer-events: none;
-    }
-    .invItem .badge {
-      position: absolute;
-      top: 5px;
-      padding: 2px 6px;
-      border-radius: 999px;
-      font-size: 10px;
-      line-height: 1;
-      border: 1px solid rgba(255,255,255,0.14);
-      background: rgba(0,0,0,0.28);
-      color: rgba(255,255,255,0.92);
-      font-variant-numeric: tabular-nums;
-      pointer-events: none;
-    }
-    .invItem .badge.trauma { left: 6px; }
-    .invItem .badge.cath { right: 6px; }
-    .invItem .badge.amount { right: 6px; top: auto; bottom: 5px; }
-    .invItem .badge.attune { left: 6px; top: auto; bottom: 5px; }
-
-    /* Hue swatches: match the “pure” well colors from mixWellColor() */
-    .invItem.hue-red { background: rgba(255, 80, 80, 0.58); }
-    .invItem.hue-blue { background: rgba(100, 150, 255, 0.58); }
-    .invItem.hue-yellow { background: rgba(255, 220, 90, 0.56); }
-    .invItem.hue-trauma { background: rgba(0, 0, 0, 0.52); }
-
-    .pill {
-      font-size: 11px;
-      padding: 3px 8px;
-      border-radius: 999px;
-      border: 1px solid rgba(255,255,255,0.12);
-      background: rgba(0,0,0,0.22);
-      color: var(--muted);
-    }
-    /* (Legacy .card styles retained for reference; inventory uses .invItem) */
-
     .debug {
       position: absolute;
       left: 12px;
@@ -1001,8 +899,6 @@
 <script src="./render_wells_update.js"></script>
 <script src="./render_wells.js"></script>
 <script src="./core_mechanics.js"></script>
-<script src="./app_loop.js"></script>
-<script src="./core_pipeline_mvp.js"></script>
 <script src="./ui_hud.js"></script>
 <script src="./ui_lobby.js"></script>
 <script src="./ui_controls.js"></script>

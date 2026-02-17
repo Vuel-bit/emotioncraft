@@ -23,14 +23,8 @@
       rate: 0.040,            // instability per sec per (hueAmount * normalizedCCW)
       deadzone: 0.20,         // CCW smaller than this does not add instability
     },
-    traumaFromOffHue: {
-      base: 8,
-      perAbsAmount: 0.22,
-      perAttuneMag: 10,
-    },
-    traumaImprint: { add: 18 },
-    breaks: {
-      k: 0.22,                 // chance/sec multiplier on (trauma / hueAmount)
+breaks: {
+      k: 0.22,                 // chance/sec multiplier on (ratio / hueAmount)
       maxChancePerSec: 0.30,  // cap chance/sec
       minSpendFrac: 0.15,
       maxSpendFrac: 0.45,
@@ -49,12 +43,7 @@
       minR: 72,
       maxR: 132,
     },
-    traumaParticles: {
-      max: 180,
-      perTrauma: 4.2,
-      jitter: 0.9,
-    },
-    swirlAnim: {
+swirlAnim: {
       // Scaled up so differences are obvious (e.g., 0.6 looks ~3x faster than 0.2).
       maxRadPerSec: 6.0, // at |netSwirl| = 1
     },
