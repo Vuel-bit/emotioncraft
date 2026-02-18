@@ -1,6 +1,6 @@
 Emotioncraft Psyche MVP
-Build: emotioncraft_v0_2_103_passD_passA19_simBootEnsure
-Date: 2026-02-17
+Build: emotioncraft_v0_2_103_passD_passA23_wellsWaterFX
+Date: 2026-02-18
 
 Highlights (current build)
 - Pass A19: Added EC.SIM_BOOT.ensure() and replaced duplicate SIM array init in core_mechanics (structural only; no gameplay changes).
@@ -59,3 +59,4 @@ Run root: open docs/index.html
 - Pass A20: Added EC.require deferred init hooks + improved assertReady missing-path reporting (structural only).
 Pass A21: Extracted treatment plan runtime into patients_plans.js; systems_patients.js now delegates (no behavior change).
 Pass A22: Render-only wells upgrade — nebula/energy interior FX (displacement warp + wisps + subtle glow). No gameplay changes.
+Pass A23: Render-only wells update — water/fluid interior FX (refraction + caustics + spec + fresnel rim). No gameplay changes.

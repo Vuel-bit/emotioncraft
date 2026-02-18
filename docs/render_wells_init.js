@@ -929,7 +929,7 @@
           _ripT: 0,
         };
 
-        // Render-only upgrade: apply nebula/energy FX to the interior stack.
+        // Render-only upgrade: apply water/fluid FX to the interior stack.
         // Safe no-op if the module is missing.
         try {
           if (EC.RENDER_WELLS_FX && EC.RENDER_WELLS_FX.applyNebulaFX) {

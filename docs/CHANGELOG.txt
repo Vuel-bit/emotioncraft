@@ -130,3 +130,4 @@ Pass A19: Added EC.SIM_BOOT.ensure() and replaced duplicate SIM array init in co
 Pass A20: Added EC.require deferred init hooks + improved assertReady missing-path reporting (structural only).
 Pass A21: Extracted treatment plan runtime into patients_plans.js; systems_patients.js now delegates (no behavior change).
 Pass A22: Render-only wells upgrade — added nebula/energy interior FX (displacement warp + wisps + subtle glow) + higher-res/LINEAR-filtered procedural textures. No gameplay changes.
+Pass A23: Render-only wells update — converted interior FX to a water/fluid look (refraction via RG normal-map displacement + subtle caustics shimmer + spec highlight + fresnel rim). No gameplay changes.

@@ -1,5 +1,6 @@
-// Emotioncraft render_wells_fx_nebula.js — render-only nebula/energy FX for well interiors
-// Purpose: upgrade the liquid look (wispy turbulence + gentle glow) without changing any mechanics.
+// Emotioncraft render_wells_fx_nebula.js — render-only WELL FX (A23: water / fluid look)
+// NOTE: Public API names remain applyNebulaFX/updateNebulaFX for wiring stability.
+// This module is strictly visual: no mechanics, tuning, or input behavior changes.
 (() => {
   const EC = (window.EC = window.EC || {});
   const PIXI = window.PIXI;
@@ -7,6 +8,7 @@
 
   EC.RENDER_WELLS_FX = EC.RENDER_WELLS_FX || {};
 
+  // Keep the NEBULA bucket name to avoid rewiring call sites.
   const FX = (EC.RENDER_WELLS_FX.NEBULA = EC.RENDER_WELLS_FX.NEBULA || {});
   const _TEX = (FX._TEX = FX._TEX || {});
 
@@ -23,17 +25,23 @@
 
   function _quality() {
     const mob = _isMobileLike();
-    // Desktop target can be 512, but 384 keeps init-time and GPU memory safer.
+    // Matches A22 heuristic (safe on mobile; higher on desktop).
     const main = mob ? 256 : 384;
     return {
       mobile: mob,
       texMain: main,
-      dispScaleBase: mob ? 10 : 14,
-      dispScaleGain: mob ? 18 : 26,
-      wispAlphaBase: mob ? 0.06 : 0.07,
-      wispAlphaGain: mob ? 0.10 : 0.14,
-      glowAlphaBase: mob ? 0.05 : 0.06,
-      glowAlphaGain: mob ? 0.12 : 0.16,
+      // Water surface distortion should be present at rest but subtle.
+      dispScaleBase: mob ? 5 : 7,
+      dispScaleGain: mob ? 11 : 16,
+      // Caustics + spec are subtle; visibility increases with |spin|.
+      caustAlphaBase: mob ? 0.018 : 0.020,
+      caustAlphaGain: mob ? 0.040 : 0.048,
+      specAlphaBase: mob ? 0.020 : 0.022,
+      specAlphaGain: mob ? 0.050 : 0.060,
+      rimAlphaBase: mob ? 0.040 : 0.045,
+      rimAlphaGain: mob ? 0.050 : 0.060,
+      // Normal-map gradient scale
+      gradK: mob ? 18 : 22,
     };
   }
 
@@ -77,86 +85,163 @@
     } catch (_) {}
   }
 
-  function _makeCloudTex(size, seed) {
+  function _makeWaterNormalMap(size, seed, Q) {
     const c = _canvas(size);
     const ctx = c.getContext('2d');
-    ctx.clearRect(0, 0, size, size);
-    const n = Math.max(220, (size * size) / 700);
-    const s1 = (seed || 0) * 9973 + 17;
-    function rnd(k) {
-      // tiny deterministic-ish PRNG
-      const x = Math.sin((k + 1) * 999 + s1) * 10000;
-      return x - Math.floor(x);
-    }
-    function blob(x, y, r, a) {
-      const g = ctx.createRadialGradient(x, y, 0, x, y, r);
-      g.addColorStop(0, `rgba(255,255,255,${a})`);
-      g.addColorStop(1, 'rgba(255,255,255,0)');
-      ctx.fillStyle = g;
-      ctx.beginPath();
-      ctx.arc(x, y, r, 0, Math.PI * 2);
-      ctx.fill();
-    }
-    for (let i = 0; i < n; i++) {
-      const x = rnd(i * 3.1) * size;
-      const y = rnd(i * 4.7 + 2.0) * size;
-      const rr = (0.04 + 0.12 * rnd(i * 1.9 + 7.0)) * size;
-      const aa = 0.020 + 0.060 * rnd(i * 2.3 + 11.0);
-      blob(x, y, rr, aa);
-    }
-    // Add a few wispy streaks (soft curves)
-    ctx.globalCompositeOperation = 'source-over';
-    ctx.strokeStyle = 'rgba(255,255,255,0.08)';
-    ctx.lineWidth = Math.max(2, size * 0.010);
-    for (let i = 0; i < 22; i++) {
-      ctx.beginPath();
-      const x0 = rnd(i * 9.1 + 3.0) * size;
-      const y0 = rnd(i * 7.7 + 5.0) * size;
-      ctx.moveTo(x0, y0);
-      for (let k = 0; k < 3; k++) {
-        ctx.quadraticCurveTo(
-          rnd(i * 5.1 + k * 2.0) * size,
-          rnd(i * 6.3 + k * 3.0) * size,
-          rnd(i * 8.2 + k * 4.0) * size,
-          rnd(i * 4.4 + k * 5.0) * size
-        );
+    const img = ctx.createImageData(size, size);
+
+    // 1) Build a smooth height field (cheap pseudo-fBm: layered sines + tiny hash).
+    const h = new Float32Array(size * size);
+    const s1 = (seed || 0) * 19391 + 7;
+    const TAU = Math.PI * 2;
+    for (let y = 0; y < size; y++) {
+      const ny = y / size;
+      for (let x = 0; x < size; x++) {
+        const nx = x / size;
+        const v1 = Math.sin((nx * 3.1 + ny * 1.7 + s1 * 0.0003) * TAU);
+        const v2 = Math.sin((nx * 7.2 - ny * 5.4 + s1 * 0.0007) * TAU);
+        const v3 = Math.sin((nx * 13.1 + ny * 11.3 + s1 * 0.0011) * TAU);
+        const hh = Math.sin((x * 12.9898 + y * 78.233 + s1) * 43758.5453);
+        const r = hh - Math.floor(hh);
+        const vv = 0.55 + 0.19 * v1 + 0.14 * v2 + 0.08 * v3 + 0.06 * (r - 0.5);
+        h[y * size + x] = vv;
       }
-      ctx.stroke();
     }
-    _softenViaDownscale(ctx, c, size, Math.max(72, (size / 4) | 0));
-    _clipCircle(ctx, size, 0.48);
+
+    // 2) Approximate gradients and encode into RG (x/y offsets differ).
+    // Convert pixel-step diffs into normalized-coordinate gradients for stable scaling.
+    const gk = (Q && Q.gradK) ? Q.gradK : 20;
+    const pxScale = size * 0.5;
+    for (let y = 0; y < size; y++) {
+      const ym = (y - 1 + size) % size;
+      const yp = (y + 1) % size;
+      for (let x = 0; x < size; x++) {
+        const xm = (x - 1 + size) % size;
+        const xp = (x + 1) % size;
+        const hx1 = h[y * size + xp];
+        const hx0 = h[y * size + xm];
+        const hy1 = h[yp * size + x];
+        const hy0 = h[ym * size + x];
+
+        let dx = (hx1 - hx0) * pxScale;
+        let dy = (hy1 - hy0) * pxScale;
+
+        let rr = 128 + (dx * gk);
+        let gg = 128 + (dy * gk);
+        // Clamp
+        rr = rr < 0 ? 0 : (rr > 255 ? 255 : rr);
+        gg = gg < 0 ? 0 : (gg > 255 ? 255 : gg);
+
+        const i = (y * size + x) * 4;
+        img.data[i + 0] = rr | 0;
+        img.data[i + 1] = gg | 0;
+        img.data[i + 2] = 128;
+        img.data[i + 3] = 255;
+      }
+    }
+
+    ctx.putImageData(img, 0, 0);
+    // Soften to avoid harsh pixel gradients.
+    _softenViaDownscale(ctx, c, size, Math.max(96, (size / 3) | 0));
+
     const tex = PIXI.Texture.from(c);
     _setLinear(tex);
     return tex;
   }
 
-  function _makeDispTex(size, seed) {
+  function _makeCausticsTex(size, seed) {
     const c = _canvas(size);
     const ctx = c.getContext('2d');
     const img = ctx.createImageData(size, size);
-    const s1 = (seed || 0) * 19391 + 7;
+    const TAU = Math.PI * 2;
+
+    const s = (seed || 0) * 1013 + 17;
+    const f1 = 5.7 + (s % 7) * 0.11;
+    const f2 = 4.1 + (s % 5) * 0.13;
+    const f3 = 8.3 + (s % 9) * 0.09;
+    const f4 = 6.9 + (s % 11) * 0.07;
+    const f5 = 12.2 + (s % 13) * 0.05;
+    const f6 = 9.1 + (s % 17) * 0.04;
+    const ff = 20.0 + (s % 19) * 0.08;
+
     for (let y = 0; y < size; y++) {
+      const v = y / size;
       for (let x = 0; x < size; x++) {
-        const nx = x / size;
-        const ny = y / size;
-        // Lightweight pseudo-fBm: layered sines + a little hash.
-        const v1 = Math.sin((nx * 3.1 + ny * 1.7 + s1 * 0.0003) * Math.PI * 2);
-        const v2 = Math.sin((nx * 7.2 - ny * 5.4 + s1 * 0.0007) * Math.PI * 2);
-        const v3 = Math.sin((nx * 13.1 + ny * 11.3 + s1 * 0.0011) * Math.PI * 2);
-        const h = Math.sin((x * 12.9898 + y * 78.233 + s1) * 43758.5453);
-        const r = h - Math.floor(h);
-        const v = 0.55 + 0.18 * v1 + 0.14 * v2 + 0.08 * v3 + 0.10 * (r - 0.5);
-        const vv = Math.max(0, Math.min(1, v));
-        const c8 = (vv * 255) | 0;
+        const u = x / size;
+
+        // Interference-like field -> net-like bright ridges.
+        const a = Math.sin((u * f1 + v * f2 + s * 0.0007) * TAU);
+        const b = Math.sin((u * f3 - v * f4 + s * 0.0009) * TAU);
+        const d = Math.sin((u * f5 + v * f6 + s * 0.0011) * TAU);
+        let m = Math.abs(a * b + 0.55 * b * d + 0.35 * a * d);
+        if (m > 1) m = 1;
+        let lines = 1 - m * 1.65;
+        if (lines < 0) lines = 0;
+        lines = lines * lines * lines * lines;
+
+        let fine = Math.abs(Math.sin((u * ff + v * (ff * 0.82) + s * 0.0005) * TAU));
+        // Make fine contribution sparse.
+        fine = Math.pow(fine, 14);
+
+        let val = 0.78 * lines + 0.22 * fine;
+        if (val < 0) val = 0;
+        if (val > 1) val = 1;
+
+        const c8 = (val * 255) | 0;
         const i = (y * size + x) * 4;
         img.data[i + 0] = c8;
         img.data[i + 1] = c8;
         img.data[i + 2] = c8;
-        img.data[i + 3] = 255;
+        img.data[i + 3] = c8; // alpha matches brightness
       }
     }
+
     ctx.putImageData(img, 0, 0);
-    _softenViaDownscale(ctx, c, size, Math.max(96, (size / 3) | 0));
+    // Soften + reduce harsh repeat feel.
+    _softenViaDownscale(ctx, c, size, Math.max(88, (size / 2.6) | 0));
+    _clipCircle(ctx, size, 0.48);
+
+    const tex = PIXI.Texture.from(c);
+    _setLinear(tex);
+    return tex;
+  }
+
+  function _makeSpecTex(size, seed) {
+    const c = _canvas(size);
+    const ctx = c.getContext('2d');
+    const cx = size / 2,
+      cy = size / 2;
+    const r = size * 0.48;
+
+    ctx.clearRect(0, 0, size, size);
+
+    // Primary elongated glint band.
+    ctx.save();
+    ctx.translate(cx, cy);
+    ctx.rotate(-0.55 + (seed || 0) * 0.07);
+    const g1 = ctx.createLinearGradient(-r, 0, r, 0);
+    g1.addColorStop(0.00, 'rgba(255,255,255,0)');
+    g1.addColorStop(0.38, 'rgba(255,255,255,0)');
+    g1.addColorStop(0.52, 'rgba(255,255,255,0.30)');
+    g1.addColorStop(0.62, 'rgba(255,255,255,0.06)');
+    g1.addColorStop(1.00, 'rgba(255,255,255,0)');
+    ctx.fillStyle = g1;
+    ctx.fillRect(-r, -r * 0.18, r * 2, r * 0.36);
+
+    // Secondary smaller glint.
+    ctx.rotate(0.85);
+    const g2 = ctx.createLinearGradient(-r * 0.6, 0, r * 0.6, 0);
+    g2.addColorStop(0.00, 'rgba(255,255,255,0)');
+    g2.addColorStop(0.45, 'rgba(255,255,255,0.16)');
+    g2.addColorStop(0.55, 'rgba(255,255,255,0.00)');
+    ctx.fillStyle = g2;
+    ctx.fillRect(-r * 0.6, -r * 0.08, r * 1.2, r * 0.16);
+
+    ctx.restore();
+
+    _softenViaDownscale(ctx, c, size, Math.max(96, (size / 3.2) | 0));
+    _clipCircle(ctx, size, 0.48);
+
     const tex = PIXI.Texture.from(c);
     _setLinear(tex);
     return tex;
@@ -166,12 +251,19 @@
     if (_TEX._ready) return;
     const Q = _quality();
     _TEX._q = Q;
-    _TEX.dispA = _makeDispTex(Q.texMain, 1);
-    _TEX.dispB = _makeDispTex(Q.texMain, 2);
-    _TEX.wispA = _makeCloudTex(Q.texMain, 3);
-    _TEX.wispB = _makeCloudTex(Q.texMain, 4);
 
-    // Cheap radial rim highlight (edge falloff / depth cue)
+    // Two normal maps so adjacent wells aren't identical.
+    _TEX.dispA = _makeWaterNormalMap(Q.texMain, 1, Q);
+    _TEX.dispB = _makeWaterNormalMap(Q.texMain, 2, Q);
+
+    // Two caustics maps.
+    _TEX.caustA = _makeCausticsTex(Q.texMain, 3);
+    _TEX.caustB = _makeCausticsTex(Q.texMain, 4);
+
+    // Spec highlight texture.
+    _TEX.spec = _makeSpecTex(Q.texMain, 5);
+
+    // Fresnel-ish rim highlight (thin bright edge).
     try {
       const size = Q.texMain;
       const c = _canvas(size);
@@ -179,10 +271,11 @@
       const cx = size / 2,
         cy = size / 2;
       const r = size * 0.48;
-      const g = ctx.createRadialGradient(cx, cy, r * 0.55, cx, cy, r);
+      const g = ctx.createRadialGradient(cx, cy, r * 0.72, cx, cy, r);
       g.addColorStop(0, 'rgba(255,255,255,0)');
-      g.addColorStop(0.75, 'rgba(255,255,255,0.04)');
-      g.addColorStop(1, 'rgba(255,255,255,0.12)');
+      g.addColorStop(0.82, 'rgba(255,255,255,0)');
+      g.addColorStop(0.92, 'rgba(255,255,255,0.07)');
+      g.addColorStop(1, 'rgba(255,255,255,0.18)');
       ctx.fillStyle = g;
       ctx.beginPath();
       ctx.arc(cx, cy, r, 0, Math.PI * 2);
@@ -191,16 +284,6 @@
       _TEX.rim = PIXI.Texture.from(c);
       _setLinear(_TEX.rim);
     } catch (_) {}
-
-    // Shared blur filter for glow impression (kept very cheap).
-    try {
-      const bf = new PIXI.filters.BlurFilter();
-      bf.blur = Q.mobile ? 2 : 3;
-      bf.quality = 1;
-      FX._sharedBlur = bf;
-    } catch (_) {
-      FX._sharedBlur = null;
-    }
 
     _TEX._ready = true;
   }
@@ -234,9 +317,10 @@
 
     const useAlt = !!(opts && opts.alt);
     const dispTex = useAlt ? (_TEX.dispB || _TEX.dispA) : (_TEX.dispA || _TEX.dispB);
+
+    // Displacement map sprite: attached to stage (non-renderable) so filter can sample it.
     const dispSpr = new PIXI.Sprite(dispTex);
     dispSpr.anchor && dispSpr.anchor.set(0.5);
-    // Keep visible so transforms update; mark non-renderable so it never draws.
     dispSpr.visible = true;
     dispSpr.renderable = false;
     dispSpr.alpha = 0;
@@ -246,7 +330,6 @@
     let dispFilter = null;
     try {
       dispFilter = new PIXI.filters.DisplacementFilter(dispSpr);
-      // Padding prevents clipped warps on edges.
       dispFilter.padding = 12;
       dispFilter.scale.x = Q.dispScaleBase;
       dispFilter.scale.y = Q.dispScaleBase;
@@ -254,35 +337,66 @@
       dispFilter = null;
     }
 
-    // Glow impression: blurred pigment copy behind the interior stack.
-    let glowSpr = null;
+    // Create a warpGroup so refraction distorts the pigment underneath, while surface sheen stays crisp.
+    const warpGroup = new PIXI.Container();
+    warpGroup.name = 'waterWarpGroup';
+    warpGroup.eventMode = 'none';
+
+    // Move underlying pigment/motion layers into the warp group (one-time; no per-frame allocations).
+    // Keep ripple/highlight/edgeShade as surface layers (unwarped) for a water-in-bowl read.
     try {
-      glowSpr = new PIXI.Sprite((view.pigment && view.pigment.texture) ? view.pigment.texture : PIXI.Texture.WHITE);
-      glowSpr.anchor && glowSpr.anchor.set(0.5);
-      glowSpr.eventMode = 'none';
-      glowSpr.alpha = 0;
-      try {
-        glowSpr.blendMode = PIXI.BLEND_MODES.ADD;
-      } catch (_) {}
-      if (FX._sharedBlur) glowSpr.filters = [FX._sharedBlur];
-      interior.addChildAt(glowSpr, 0);
+      const toWarp = [view.pigment, view.swirlA, view.swirlB, view.inkDark, view.inkLight, view.waveHand, view.marbleA, view.marbleB];
+      for (let k = 0; k < toWarp.length; k++) {
+        const ch = toWarp[k];
+        if (ch && ch.parent === interior) {
+          interior.removeChild(ch);
+          warpGroup.addChild(ch);
+        }
+      }
+      // Insert warpGroup behind surface layers.
+      interior.addChildAt(warpGroup, 0);
     } catch (_) {
-      glowSpr = null;
-    }
-
-    // Wisps: two soft cloud layers (additive/screen) with independent drift.
-    const wispA = new PIXI.Sprite(_TEX.wispA || PIXI.Texture.WHITE);
-    const wispB = new PIXI.Sprite(_TEX.wispB || PIXI.Texture.WHITE);
-    for (const w of [wispA, wispB]) {
-      w.anchor && w.anchor.set(0.5);
-      w.eventMode = 'none';
-      w.alpha = 0;
+      // Fallback: if something goes wrong, keep no grouping (safe).
       try {
-        w.blendMode = PIXI.BLEND_MODES.ADD;
+        if (warpGroup.parent) warpGroup.parent.removeChild(warpGroup);
       } catch (_) {}
     }
 
-    // Depth cue (edge falloff / rim hint)
+    // Apply refraction filter to warpGroup (preferred) or interior (fallback).
+    if (dispFilter) {
+      try {
+        if (warpGroup && warpGroup.parent) warpGroup.filters = [dispFilter];
+        else interior.filters = [dispFilter];
+      } catch (_) {}
+    }
+
+    // Caustics (below ripples, above warped pigment): two layers.
+    const caustA = new PIXI.Sprite(_TEX.caustA || PIXI.Texture.WHITE);
+    const caustB = new PIXI.Sprite(_TEX.caustB || PIXI.Texture.WHITE);
+    for (const cst of [caustA, caustB]) {
+      cst.anchor && cst.anchor.set(0.5);
+      cst.eventMode = 'none';
+      cst.alpha = 0;
+      try {
+        cst.blendMode = PIXI.BLEND_MODES.SCREEN;
+      } catch (_) {}
+    }
+
+    // Specular highlight (surface gloss): single sprite.
+    let specSpr = null;
+    try {
+      specSpr = new PIXI.Sprite(_TEX.spec || PIXI.Texture.WHITE);
+      specSpr.anchor && specSpr.anchor.set(0.5);
+      specSpr.eventMode = 'none';
+      specSpr.alpha = 0;
+      try {
+        specSpr.blendMode = PIXI.BLEND_MODES.SCREEN;
+      } catch (_) {}
+    } catch (_) {
+      specSpr = null;
+    }
+
+    // Fresnel rim (thin bright edge).
     let rimSpr = null;
     try {
       rimSpr = new PIXI.Sprite(_TEX.rim || PIXI.Texture.WHITE);
@@ -296,43 +410,47 @@
       rimSpr = null;
     }
 
-    // Insert wisps under highlight/coreGlow so readability stays high.
+    // Insert caustics right above warpGroup (below ripples).
     try {
-      const hi = view.highlight;
-      let idx = interior.children.length;
-      if (hi && hi.parent === interior) idx = interior.getChildIndex(hi);
-      if (rimSpr) interior.addChildAt(rimSpr, Math.max(0, idx));
-      interior.addChildAt(wispA, idx + (rimSpr ? 1 : 0));
-      interior.addChildAt(wispB, idx + (rimSpr ? 2 : 1));
+      const ripA = view.rippleA;
+      let idx = 1;
+      if (ripA && ripA.parent === interior) idx = interior.getChildIndex(ripA);
+      interior.addChildAt(caustA, idx);
+      interior.addChildAt(caustB, idx + 1);
     } catch (_) {
-      if (rimSpr) interior.addChild(rimSpr);
-      interior.addChild(wispA);
-      interior.addChild(wispB);
+      interior.addChild(caustA);
+      interior.addChild(caustB);
     }
 
-    // Apply filter stack (domain warp). Keep it minimal and mobile-safe.
-    if (dispFilter) {
-      try {
-        interior.filters = [dispFilter];
-      } catch (_) {}
+    // Insert rim + spec just under the existing highlight sprite (keeps UI sheen crisp).
+    try {
+      const hi = view.highlight;
+      let idx2 = interior.children.length;
+      if (hi && hi.parent === interior) idx2 = interior.getChildIndex(hi);
+      if (rimSpr) interior.addChildAt(rimSpr, Math.max(0, idx2));
+      if (specSpr) interior.addChildAt(specSpr, Math.max(0, idx2 + (rimSpr ? 1 : 0)));
+    } catch (_) {
+      if (rimSpr) interior.addChild(rimSpr);
+      if (specSpr) interior.addChild(specSpr);
     }
 
     view._nebulaFx = {
       q: Q,
       dispSpr,
       dispFilter,
-      wispA,
-      wispB,
-      glowSpr,
+      warpGroup: (warpGroup && warpGroup.parent) ? warpGroup : null,
+      caustA,
+      caustB,
+      specSpr,
       rimSpr,
-      // per-well seeds (no per-frame randomness)
+      // Stable per-well seeds (no per-frame randomness)
       s1: (Math.random() * 10) + 0.5,
       s2: (Math.random() * 10) + 0.5,
     };
   }
 
   function mixTowardWhite(rgb, k) {
-    k = Math.max(0, Math.min(1, k));
+    k = k < 0 ? 0 : (k > 1 ? 1 : k);
     const rr = (rgb >> 16) & 255;
     const gg = (rgb >> 8) & 255;
     const bb = rgb & 255;
@@ -354,65 +472,76 @@
       n.dispSpr.position.y = g.position.y;
     }
 
-    // Domain warp scale: increases with |spin| (but stays subtle).
+    // Refraction strength (displacement). Present at rest; increases with |spin|.
     if (n.dispFilter) {
-      const sc = Q.dispScaleBase + Q.dispScaleGain * magEff;
+      const sc = Q.dispScaleBase + Q.dispScaleGain * (0.20 + 0.80 * magEff);
       n.dispFilter.scale.x = sc;
       n.dispFilter.scale.y = sc * 0.92;
     }
 
-    // Displacement map animation: coherent drift + slow rotation (direction follows spin sign).
+    // Displacement map animation: coherent drift + slow rotation.
+    // If spin=0, drift still runs but does not imply directionality.
     if (n.dispSpr) {
       const t = (tNow || 0) * 0.001;
-      const drift = 10 + 28 * magEff;
-      n.dispSpr.rotation += dt * (0.10 + 0.55 * magEff) * dir;
-      // Drift the map in a consistent direction with a small orbital wobble.
-      n.dispSpr.position.x += Math.sin(t * 0.9 + n.s1 + i) * drift * 0.12;
-      n.dispSpr.position.y += Math.cos(t * 0.8 + n.s2 + i * 0.7) * drift * 0.12;
-      // Ensure the map covers the filter area (oversized so edges are never visible).
-      const cover = Math.max(1.8, 2.2 + 1.1 * magEff);
+      const dir2 = (dir === 0) ? 1 : dir;
+      const drift = 7 + 18 * magEff;
+      n.dispSpr.rotation += dt * (0.05 + 0.22 * magEff) * dir2;
+      n.dispSpr.position.x += Math.sin(t * 0.85 + n.s1 + i) * drift * 0.10;
+      n.dispSpr.position.y += Math.cos(t * 0.78 + n.s2 + i * 0.7) * drift * 0.10;
+
+      const cover = Math.max(1.9, 2.2 + 1.0 * magEff);
       const base = (_TEX._q && _TEX._q.texMain) ? _TEX._q.texMain : Q.texMain;
       const s = (r * 2 * cover) / Math.max(64, base);
       n.dispSpr.scale.x = s;
       n.dispSpr.scale.y = s;
     }
 
-    // Wisps: keep subtle at rest; become more present as |spin| rises.
-    const wA = n.wispA;
-    const wB = n.wispB;
-    if (wA && wB) {
+    // Caustics shimmer (very subtle). Tint near-white with a slight hue bias.
+    if (n.caustA && n.caustB) {
       const t = (ripT || 0);
-      const tintA = mixTowardWhite(bodyCol, 0.35);
-      const tintB = mixTowardWhite(bodyCol, 0.55);
-      wA.tint = tintA;
-      wB.tint = tintB;
+      const tintA = mixTowardWhite(bodyCol, 0.88);
+      const tintB = mixTowardWhite(bodyCol, 0.94);
 
-      wA.width = wA.height = r * 2.28;
-      wB.width = wB.height = r * 2.40;
-      wA.alpha = Q.wispAlphaBase + Q.wispAlphaGain * Math.pow(spinNorm, 0.85);
-      wB.alpha = (Q.wispAlphaBase * 0.8) + (Q.wispAlphaGain * 0.85) * Math.pow(spinNorm, 0.95);
+      n.caustA.tint = tintA;
+      n.caustB.tint = tintB;
 
-      // Coherent flow: scroll/rotate gently. Direction follows spin sign.
-      wA.rotation += dt * (0.06 + 0.20 * magEff) * dir;
-      wB.rotation -= dt * (0.04 + 0.16 * magEff) * dir;
-      wA.position.x = Math.sin(t * 0.33 + i + n.s1) * (1.2 + 5.0 * magEff);
-      wA.position.y = Math.cos(t * 0.29 + i * 0.7 + n.s2) * (1.0 + 4.2 * magEff);
-      wB.position.x = Math.cos(t * 0.27 + i * 0.9 + n.s2) * (1.0 + 4.6 * magEff);
-      wB.position.y = Math.sin(t * 0.31 + i * 0.6 + n.s1) * (0.9 + 3.8 * magEff);
+      n.caustA.width = n.caustA.height = r * 2.18;
+      n.caustB.width = n.caustB.height = r * 2.26;
+
+      const vis = Q.caustAlphaBase + Q.caustAlphaGain * Math.pow(spinNorm, 0.85);
+      n.caustA.alpha = vis;
+      n.caustB.alpha = vis * 0.75;
+
+      // Slow coherent scroll + slight rotation.
+      const dir2 = (dir === 0) ? 1 : dir;
+      n.caustA.rotation += dt * (0.02 + 0.10 * magEff) * dir2;
+      n.caustB.rotation -= dt * (0.015 + 0.08 * magEff) * dir2;
+
+      n.caustA.position.x = Math.sin(t * 0.20 + i + n.s1) * (0.8 + 2.8 * magEff);
+      n.caustA.position.y = Math.cos(t * 0.18 + i * 0.7 + n.s2) * (0.7 + 2.2 * magEff);
+      n.caustB.position.x = Math.cos(t * 0.17 + i * 0.9 + n.s2) * (0.7 + 2.5 * magEff);
+      n.caustB.position.y = Math.sin(t * 0.19 + i * 0.6 + n.s1) * (0.6 + 2.1 * magEff);
     }
 
-    // Glow: subtle halo impression (scaled by |spin|).
-    if (n.glowSpr) {
-      n.glowSpr.tint = bodyCol;
-      n.glowSpr.width = n.glowSpr.height = r * (2.20 + 0.20 * magEff);
-      n.glowSpr.alpha = Q.glowAlphaBase + Q.glowAlphaGain * Math.pow(spinNorm, 0.90);
+    // Specular highlight (surface gloss). Present at rest; stronger with |spin|.
+    if (n.specSpr) {
+      const t = (ripT || 0);
+      n.specSpr.tint = 0xffffff;
+      n.specSpr.width = n.specSpr.height = r * 2.12;
+      const a = Q.specAlphaBase + Q.specAlphaGain * Math.pow(spinNorm, 0.78);
+      n.specSpr.alpha = a;
+      // Gentle drift and slow rotation (do not read as a spinning stamp).
+      const dir2 = (dir === 0) ? 1 : dir;
+      n.specSpr.rotation = 0.25 * Math.sin(t * 0.22 + n.s1) + dt * (0.02 + 0.08 * magEff) * dir2 + 0.08 * Math.sin(t * 0.41 + i);
+      n.specSpr.position.x = Math.sin(t * 0.26 + n.s2 + i * 0.9) * (0.8 + 2.2 * magEff);
+      n.specSpr.position.y = Math.cos(t * 0.21 + n.s1 + i * 0.6) * (0.7 + 1.8 * magEff);
     }
 
-    // Edge falloff / depth cue.
+    // Fresnel rim highlight (thin edge). Do not over-brighten.
     if (n.rimSpr) {
-      n.rimSpr.tint = mixTowardWhite(bodyCol, 0.55);
+      n.rimSpr.tint = mixTowardWhite(bodyCol, 0.92);
       n.rimSpr.width = n.rimSpr.height = r * 2.06;
-      n.rimSpr.alpha = 0.05 + 0.06 * Math.pow(spinNorm, 0.70);
+      n.rimSpr.alpha = Q.rimAlphaBase + Q.rimAlphaGain * Math.pow(spinNorm, 0.70);
     }
   }
 

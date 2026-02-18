@@ -131,3 +131,12 @@ Source: `docs/systems_patients.js`, `docs/ui_lobby.js`
 - Well rendering visual upgrade only: `docs/render_wells_fx_nebula.js` adds nebula/energy interior FX (displacement warp + wisps + subtle glow).
 - Wired in `docs/index.html` (loaded before `render_wells_init.js`).
 - `render_wells_init.js` applies the FX per well; `render_wells_update.js` drives it each frame using existing spin visuals.
+
+### Pass A23
+- Well rendering visual update only: reused the same wiring/API, but changed the interior FX aesthetic from “nebula/energy” to “water/fluid”.
+- `docs/render_wells_fx_nebula.js` now implements:
+  - Refraction/distortion using an RG normal-map style displacement texture (x/y gradients encoded separately).
+  - Two faint caustics shimmer layers (SCREEN blend) with slow coherent drift/rotation.
+  - A subtle specular gloss highlight (SCREEN blend) with gentle motion (no hard wheel rotation).
+  - A thin fresnel rim highlight (SCREEN blend) kept restrained for readability.
+- `docs/render_wells_update.js` slightly increased ripple visibility and further dampened the base “hard rotation” feel when FX is active (visual-only).

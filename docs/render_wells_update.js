@@ -413,10 +413,11 @@
         rippleB.position.x = Math.cos(ripT * 0.23 + i * 0.9) * (2.2 + 4.0 * magEff);
         rippleB.position.y = Math.sin(ripT * 0.31 + i * 0.6) * (2.0 + 3.8 * magEff);
 
-        // Alpha: keep subtle. When nebula FX is enabled, allow a faint living surface.
+        // Alpha: keep subtle. When water FX is enabled, allow a faint living surface.
         const _nebOn = !!view._nebulaFx;
-        rippleA.alpha = _nebOn ? (0.010 + 0.040 * magEff) : 0;
-        rippleB.alpha = _nebOn ? (0.008 + 0.030 * magEff) : 0;
+        // Water read: a touch more present than A22, still restrained for readability.
+        rippleA.alpha = _nebOn ? (0.020 + 0.060 * magEff) : 0;
+        rippleB.alpha = _nebOn ? (0.016 + 0.045 * magEff) : 0;
 
         // Wobble rotation (organic, non-repeating)
         const wob = 0.08 * Math.sin(ripT * 0.55 + i) + 0.05 * Math.sin(ripT * 0.91 + i * 1.7);
@@ -427,7 +428,7 @@
         rippleB.rotation = -wob * 0.6 + dir * ripT * (0.08 + 0.26 * magEff);
       }
 
-      // Nebula / energy FX (render-only): domain warp + wisps + subtle halo.
+      // Water / fluid FX (render-only): refraction warp + caustics/spec + subtle rim.
       try {
         if (EC.RENDER_WELLS_FX && EC.RENDER_WELLS_FX.updateNebulaFX) {
           EC.RENDER_WELLS_FX.updateNebulaFX(view, dt, r, bodyCol, dir, magEff, spinNorm, omega, (tNow || 0), ripT, i);
@@ -436,9 +437,9 @@
 
       // Store per-well angles (no allocations)
       // Monotonic directional angle accumulator. If spin=0, this remains steady.
-      // Reduce the "hard rotation" feel when nebula FX is active by slightly dampening the
+      // Reduce the "hard rotation" feel when water FX is active by slightly dampening the
       // base angle accumulator (direction still follows spin sign).
-      const _nebMul = view._nebulaFx ? (0.65 + 0.35 * magEff) : 1.0;
+      const _nebMul = view._nebulaFx ? (0.50 + 0.25 * magEff) : 1.0;
       view._swirlAng = (view._swirlAng || 0) + omega * dt * _nebMul;
       view._sheenAng = (view._sheenAng || 0) + 0.4 * dt;
 
@@ -572,8 +573,8 @@
       if (edgeShade) {
         edgeShade.tint = mixToward(bodyCol, 0xffffff, 0.15);
         edgeShade.width = edgeShade.height = r * 2.06;
-        // Keep rim/selection crisp; allow a very subtle depth cue when nebula FX is active.
-        edgeShade.alpha = view._nebulaFx ? (0.02 + 0.05 * magEff) : 0;
+        // Keep rim/selection crisp; water-in-bowl depth cue (subtle, not black).
+        edgeShade.alpha = view._nebulaFx ? (0.05 + 0.06 * magEff) : 0;
       }
 
       // Mask and rim keep the well a perfect circle at all times.
