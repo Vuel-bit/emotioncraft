@@ -1,8 +1,23 @@
+PASS: A13 (runnability smoke pass)
+- Goal: restore confirmed runnability after A12 architecture migration
+- Changes: no functional code changes in this pass; metadata only
+
 Emotioncraft Psyche MVP
-Build: v0_2_103_passD (pass41)
+Build: emotioncraft_v0_2_103_passD_passA12_engineFacade
 Date: 2026-02-17
 
 Highlights (current build)
+- Pass A12: Added EC.ACTIONS.setUiPaused and routed Log overlay pause toggling through ENGINE.dispatch/ACTIONS (ui_hud no longer writes SIM._uiPaused). ui_hud init handlers use snapshot locals; ui_app seeds ctx from snapshot. No behavior changes.
+- Pass A10: Begin read-surface migration. ENGINE.getSnapshot now guarantees {SIM, UI_STATE, RENDER_STATE}; HUD/Controls/Render-Wells read via snapshot locals.
+- Pass A11: Continue read-surface migration. render_wells/render_wells_init/systems_input/ui_lobby now read via EC.ENGINE.getSnapshot() locals (fallback _snap per file).
+- Pass A9: SIM write-guard improvements — tag chaining uses '>' for nested contexts; action wrapper avoids redundant nested bracketing; debug overlay shows sim-guard suspicious-write totals (and top keys in verbose inputdebug).
+- Pass A8: Tick split into EC.tickEngine (sim) + EC.tickUI (presentation). EC.ENGINE.tick brackets only tickEngine; UI runs outside bracket for SIM write-guard fidelity.
+- Pass A7: Optional debug SIM root write-guard (?simguard=1 or UI_STATE.debugStrict). Warns on SIM root writes outside ENGINE dispatch/tickEngine; ticker prefers EC.ENGINE.tick; direct actions are bracketed.
+- Pass A6: Control-sync stamps moved from SIM to EC.UI_STATE; engine systems route inLobby via EC.ACTIONS.setInLobby (single write point).
+- Pass A5: Selection is UI-only (EC.UI_STATE.selectedWellIndex); SIM selectedWellIndex removed.
+- Pass A2: UI/presentation no longer writes to EC.SIM directly for common toggles and break modal ack (uses EC.ENGINE/EC.ACTIONS).
+- Pass A3: Canonical selected well moved to EC.UI_STATE.selectedWellIndex; presentation reads prefer UI_STATE.
+- Pass A4: Lobby no longer mutates SIM.inLobby directly; ui_lobby routes via EC.ENGINE.dispatch('setInLobby') / EC.ACTIONS.setInLobby.
 - Lobby-driven patient loop. Intake is treated as complete for all patients (no Intake gating). Choose WEEKLY / ZEN / TRANQUILITY; TRANSCENDENCE unlocks only after Zen + Tranquility are completed for that patient.
 - Patient WIN auto-returns to Lobby to show post-win popups (no SUCCESS banner). LOSE does not auto-return.
 - Psyche is per-hue only (0..500 each). Center core is the Treatment hold timer ring + countdown; it flashes red on mental breaks.
@@ -35,3 +50,5 @@ Run root: open docs/index.html
 - Pass 39: Hotfix — canonical input release resolver shared by DOM pointer + touch (restores desktop long-press drag scaling); weekly win reliably triggers reward overlay via planKey normalization; gesture coords/debug hidden by default (?inputdebug=1).
 - Pass 40: Stage pointer-up fallback now routes through canonical release resolver (removes duplicate flick-only logic). Weekly fallback label preserved. No behavior changes.
 - Pass 41: Tranquility thresholds/bands updated (data-only). Spill/break info popups now persist once-per-player via Firestore ui.seenFirstPopups (still session-only when signed out).
+
+- Pass A1: Added core_engine.js (EC.ENGINE facade) and wired into index.html. Began enforcing boundary: presentation modules route SIM writes via EC.ENGINE.dispatch / EC.ACTIONS (selectWell migrated). Render-only layout state (mvpGeom, psycheRadius) moved to EC.RENDER_STATE.layout.

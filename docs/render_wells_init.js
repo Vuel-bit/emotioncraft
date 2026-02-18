@@ -5,6 +5,19 @@
 
   EC.RENDER_WELLS_INIT = EC.RENDER_WELLS_INIT || {};
 
+  function _snap(){
+    try {
+      if (EC.ENGINE && typeof EC.ENGINE.getSnapshot === 'function') {
+        const s = EC.ENGINE.getSnapshot();
+        return { SIM: (s && s.SIM) ? s.SIM : (EC.SIM || {}), UI: (s && s.UI) ? s.UI : (EC.UI_STATE || {}), RSTATE: (s && s.RENDER) ? s.RENDER : (EC.RENDER_STATE || { flags:{}, layout:{} }) };
+      }
+    } catch (_) {}
+    try { EC.UI_STATE = EC.UI_STATE || {}; } catch (_) {}
+    try { EC.RENDER_STATE = EC.RENDER_STATE || { flags:{}, layout:{} }; EC.RENDER_STATE.flags = EC.RENDER_STATE.flags || {}; EC.RENDER_STATE.layout = EC.RENDER_STATE.layout || {}; } catch (_) {}
+    return { SIM: EC.SIM || {}, UI: EC.UI_STATE || {}, RSTATE: EC.RENDER_STATE || { flags:{}, layout:{} } };
+  }
+
+
   // MVP 6-well ring (Chunk 4)
   // -----------------------------
   // Presentation-only mapping; source-of-truth lives in EC.TUNE.RENDER.
@@ -611,8 +624,11 @@
         g.eventMode = 'static';
         g.cursor = 'pointer';
         g.on('pointertap', () => {
-          if (!EC.SIM) return;
-          EC.SIM.selectedWellIndex = i;
+          try {
+            const eng = EC.ENGINE;
+            if (eng && typeof eng.dispatch === 'function') eng.dispatch('selectWell', i);
+            else if (EC.ACTIONS && typeof EC.ACTIONS.selectWell === 'function') EC.ACTIONS.selectWell(i);
+          } catch (_) {}
           // Debug: confirm taps fire on mobile.
           if (EC.DEBUG) {
             try { console.log('[EC][tap] selectedWellIndex=', i); } catch (e) {}

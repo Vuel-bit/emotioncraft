@@ -889,21 +889,42 @@ instability: 0,
 
   
 // -----------------------------
+// -----------------------------
 // Main sim tick (moved from main.js in Step 6)
 // -----------------------------
-EC.tick = function tick(delta) {
+// -----------------------------
+// Sim-only tick (MECH step). Returns safeDt when active; null when inactive.
+// -----------------------------
+EC.tickEngine = function tickEngine(delta) {
   const SIM = EC.SIM;
   const dt = (delta || 0) / 60;
 
   // MVP-only runtime: if not in MVP sim mode, tick is a no-op.
-  if (!(SIM && SIM.wellsA && Array.isArray(SIM.wellsA) && SIM.wellsA.length === 6)) return;
+  if (!(SIM && SIM.wellsA && Array.isArray(SIM.wellsA) && SIM.wellsA.length === 6)) return null;
 
   const safeDt = Math.min(dt, 0.05);
   if (EC.MECH && EC.MECH.step) EC.MECH.step(safeDt);
+  return safeDt;
+};
+
+// -----------------------------
+// Presentation tick (views/UI). Consumes safeDt computed by tickEngine.
+// -----------------------------
+EC.tickUI = function tickUI(safeDt) {
+  if (!(typeof safeDt === 'number' && isFinite(safeDt) && safeDt > 0)) return;
   if (EC.updatePsycheView) EC.updatePsycheView();
   if (EC.updateMvpBoardView) EC.updateMvpBoardView();
   if (EC.updateUI) EC.updateUI(safeDt);
 };
+
+// -----------------------------
+// Compatibility wrapper: EC.tick(delta) -> tickEngine + tickUI
+// -----------------------------
+EC.tick = function tick(delta) {
+  const safeDt = (typeof EC.tickEngine === 'function') ? EC.tickEngine(delta) : null;
+  if (safeDt != null && typeof EC.tickUI === 'function') EC.tickUI(safeDt);
+};
+
 
 // -----------------------------
 // Init hook (moved from main.js in Step 6)
@@ -962,5 +983,5 @@ EC.init = function init() {
   };
 
   // Hardening: module registry (no gameplay impact)
-  EC._registerModule && EC._registerModule('core_mechanics', { provides: ["EC.failRun", "EC.resetRun", "EC.init", "EC.tick", "EC.SIM"] });
+  EC._registerModule && EC._registerModule('core_mechanics', { provides: ["EC.failRun", "EC.resetRun", "EC.init", "EC.tickEngine", "EC.tickUI", "EC.tick", "EC.SIM"] });
 })();

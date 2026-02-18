@@ -7,7 +7,9 @@
 
   EC.initUI = function initUI() {
     // Pull shared state + helpers from the global namespace.
-    const SIM = EC.SIM;
+    const snap = (EC.ENGINE && EC.ENGINE.getSnapshot) ? EC.ENGINE.getSnapshot() : { SIM: (EC.SIM||{}), UI: (EC.UI_STATE||{}), RENDER: (EC.RENDER_STATE||{}) };
+    const SIM = (snap && snap.SIM) ? snap.SIM : (EC.SIM || {});
+    const UI_STATE = (snap && snap.UI) ? snap.UI : (EC.UI_STATE || {});
 
     // ---------------------------------------------------------------------
     // MVP Redesign UI (Chunk 5)

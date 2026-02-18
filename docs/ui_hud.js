@@ -20,7 +20,7 @@
   function setText(el, cacheKey, value) {
     try {
       if (!el) return;
-      const st = (EC.UI_STATE = EC.UI_STATE || {});
+      const st = UI_STATE;
       const prev = (st.prev = st.prev || {});
       const k = 'hud:' + String(cacheKey || '');
       const v = (value == null) ? '' : String(value);
@@ -33,7 +33,7 @@
   function setHTML(el, cacheKey, value) {
     try {
       if (!el) return;
-      const st = (EC.UI_STATE = EC.UI_STATE || {});
+      const st = UI_STATE;
       const prev = (st.prev = st.prev || {});
       const k = 'hud:' + String(cacheKey || '');
       const v = (value == null) ? '' : String(value);
@@ -45,7 +45,9 @@
 
   // Objective summary text (used in bottom panel)
   MOD.getObjectiveSummaryText = function getObjectiveSummaryText() {
-    const SIM = EC.SIM || {};
+    const snap = (EC.ENGINE && EC.ENGINE.getSnapshot) ? EC.ENGINE.getSnapshot() : { SIM: (EC.SIM||{}), UI: (EC.UI_STATE||{}), RENDER: (EC.RENDER_STATE||{}) };
+    const SIM = snap.SIM || {};
+    const UI = snap.UI || {};
     const lvl = SIM.levelId || 1;
     const def = (typeof EC.getActiveLevelDef === 'function') ? EC.getActiveLevelDef() : ((EC.LEVELS && typeof EC.LEVELS.get === 'function') ? EC.LEVELS.get(lvl) : null);
 
@@ -168,7 +170,9 @@
 
   // Next objective hint (UI only). If a level has no explicit "next", return empty and UI will show —.
   MOD.getNextObjectiveText = function getNextObjectiveText() {
-    const SIM = EC.SIM || {};
+    const snap = (EC.ENGINE && EC.ENGINE.getSnapshot) ? EC.ENGINE.getSnapshot() : { SIM: (EC.SIM||{}), UI: (EC.UI_STATE||{}), RENDER: (EC.RENDER_STATE||{}) };
+    const SIM = snap.SIM || {};
+    const UI = snap.UI || {};
     const lvl = SIM.levelId || 1;
     const def = (typeof EC.getActiveLevelDef === 'function') ? EC.getActiveLevelDef()
       : ((EC.LEVELS && typeof EC.LEVELS.get === 'function') ? EC.LEVELS.get(lvl) : null);
@@ -208,15 +212,12 @@
 
   MOD.init = function init(ctxIn) {
     const ctx = _getCtx(ctxIn);
-    const SIM = ctx.SIM || EC.SIM;
+    const snap = (EC.ENGINE && EC.ENGINE.getSnapshot) ? EC.ENGINE.getSnapshot() : { SIM: (EC.SIM||{}), UI: (EC.UI_STATE||{}), RENDER: (EC.RENDER_STATE||{}) };
+    const SIM = snap.SIM;
+    const UI_STATE = (ctx.UI_STATE = ctx.UI_STATE || snap.UI || {});
+    ctx.SIM = SIM;
     if (!SIM) return;
 
-    // UI-side timers that must tick even during sim hit-stop / pauses.
-    try {
-      if (SIM._breakToastT > 0) SIM._breakToastT = Math.max(0, (SIM._breakToastT || 0) - (dt || 0));
-    } catch (_) {}
-
-    const UI_STATE = (ctx.UI_STATE = ctx.UI_STATE || (EC.UI_STATE = EC.UI_STATE || {}));
     if (UI_STATE._hudInited) return;
     UI_STATE._hudInited = true;
 
@@ -244,7 +245,8 @@
       UI_STATE._lobbyWired = true;
       btnLobbyEl.addEventListener('click', () => {
         try {
-          const SIM = EC.SIM || {};
+          const snap = (EC.ENGINE && EC.ENGINE.getSnapshot) ? EC.ENGINE.getSnapshot() : { SIM: (EC.SIM||{}), UI: (EC.UI_STATE||{}), RENDER: (EC.RENDER_STATE||{}) };
+          const SIM = (snap && snap.SIM) ? snap.SIM : {};
           const isWin = (SIM.levelState === 'win') || !!SIM.mvpWin;
           const isLose = (SIM.levelState === 'lose') || !!SIM.mvpLose || !!SIM.gameOver;
           const resumable = !!(SIM._patientActive && !isWin && !isLose);
@@ -289,7 +291,7 @@
         const domL = _getLogDom();
         const logBodyEl2 = domL.body;
         if (!logBodyEl2) return;
-        const entries = (EC.UI_STATE && EC.UI_STATE.logEntries) ? EC.UI_STATE.logEntries : [];
+        const entries = (UI_STATE && UI_STATE.logEntries) ? UI_STATE.logEntries : [];
         const parts = [];
         for (let i = 0; i < entries.length; i++) {
           const e = entries[i] || {};
@@ -304,18 +306,26 @@
       }
 
       function setLog(on) {
-        const SIM2 = EC.SIM || {};
+        const snap = (EC.ENGINE && EC.ENGINE.getSnapshot) ? EC.ENGINE.getSnapshot() : { SIM: (EC.SIM||{}), UI: (EC.UI_STATE||{}), RENDER: (EC.RENDER_STATE||{}) };
+        const SIM = (snap && snap.SIM) ? snap.SIM : {};
+        function _setUiPaused(flag) {
+          try {
+            if (EC.ENGINE && typeof EC.ENGINE.dispatch === 'function') return EC.ENGINE.dispatch('setUiPaused', !!flag);
+            if (EC.ACTIONS && typeof EC.ACTIONS.setUiPaused === 'function') return EC.ACTIONS.setUiPaused(!!flag);
+          } catch (_) {}
+          return { ok: false, reason: 'missing_action' };
+        }
         const domL = _getLogDom();
         const overlay = domL.overlay;
         // If the overlay isn't in the DOM yet (it lives after scripts), don't toggle pause.
         if (!overlay) {
           _logOpen = false;
-          if (SIM2) SIM2._uiPaused = false;
+          _setUiPaused(false);
           return;
         }
 
         _logOpen = !!on;
-        if (SIM2) SIM2._uiPaused = _logOpen ? true : false;
+        _setUiPaused(_logOpen ? true : false);
         overlay.classList.toggle('show', _logOpen);
         overlay.setAttribute('aria-hidden', _logOpen ? 'false' : 'true');
         if (_logOpen) _renderLogBody();
@@ -336,7 +346,7 @@
           // Copy Log
           if (t.id === 'btnLogCopy' || (t.closest && t.closest('#btnLogCopy'))) {
             try {
-              const entries = (EC.UI_STATE && EC.UI_STATE.logEntries) ? EC.UI_STATE.logEntries : [];
+              const entries = (UI_STATE && UI_STATE.logEntries) ? UI_STATE.logEntries : [];
               const tmp = document.createElement('div');
               const lines = [];
               for (let i = 0; i < entries.length; i++) {
@@ -425,10 +435,20 @@
       window.addEventListener('keydown', (e) => {
         const k = (e.key || '').toLowerCase();
         if (k === 't') {
-          EC.SIM.autoTest = !EC.SIM.autoTest;
+          let res = null;
           try {
-            const on = EC.SIM.autoTest ? 'ON' : 'OFF';
-            console.log('Auto-Test (T): ' + on);
+            if (EC.ENGINE && typeof EC.ENGINE.dispatch === 'function') res = EC.ENGINE.dispatch('toggleAutoTest');
+          } catch (_) {}
+          if (!res) {
+            try {
+              if (EC.ACTIONS && typeof EC.ACTIONS.toggleAutoTest === 'function') res = EC.ACTIONS.toggleAutoTest();
+            } catch (_) {}
+          }
+          try {
+            const snap = (EC.ENGINE && EC.ENGINE.getSnapshot) ? EC.ENGINE.getSnapshot() : { SIM: (EC.SIM||{}), UI: (EC.UI_STATE||{}), RENDER: (EC.RENDER_STATE||{}) };
+            const SIM = (snap && snap.SIM) ? snap.SIM : {};
+            const onB = (res && typeof res.on === 'boolean') ? res.on : !!SIM.autoTest;
+            console.log('Auto-Test (T): ' + (onB ? 'ON' : 'OFF'));
           } catch (_) {}
         }
       });
@@ -444,10 +464,11 @@
 
   MOD.render = function render(dt, ctxIn) {
     const ctx = _getCtx(ctxIn);
-    const SIM = ctx.SIM || EC.SIM;
+    const snap = (EC.ENGINE && EC.ENGINE.getSnapshot) ? EC.ENGINE.getSnapshot() : { SIM: (EC.SIM||{}), UI: (EC.UI_STATE||{}), RENDER: (EC.RENDER_STATE||{}) };
+    const SIM = snap.SIM;
+    const UI_STATE = (ctx.UI_STATE = ctx.UI_STATE || snap.UI || {});
+    ctx.SIM = SIM;
     if (!SIM) return;
-
-    const UI_STATE = ctx.UI_STATE || EC.UI_STATE || {};
     const dom = ctx.dom || {};
     const mvpHudEl = dom.mvpHudEl || document.getElementById('mvpHud');
     const notifyBarEl = document.getElementById('notifyBar');
@@ -469,7 +490,7 @@
     const _isWinNow = (SIM.levelState === 'win') || !!SIM.mvpWin;
     if (_isWinNow && SIM._patientActive && !SIM._autoWinHandled) {
       const pk = String((SIM && (SIM._patientPlanKey || SIM._activePlanKey)) || '').toUpperCase();
-      SIM._autoWinHandled = true;
+      try { if (EC.ENGINE && typeof EC.ENGINE.dispatch === 'function') EC.ENGINE.dispatch('markAutoWinHandled', true); else if (EC.ACTIONS && typeof EC.ACTIONS.markAutoWinHandled === 'function') EC.ACTIONS.markAutoWinHandled(true); } catch (_) {}
       if (pk === 'INTAKE') {
         try { if (EC.endAllMentalBreaks) EC.endAllMentalBreaks(); } catch (_) {}
       } else {
@@ -480,8 +501,8 @@
 
     const T = EC.TUNE || {};
     const E_CAP = (typeof T.ENERGY_CAP === 'number') ? T.ENERGY_CAP : ((typeof T.E_MAX === 'number') ? T.E_MAX : 200);
-
-    const i = (typeof SIM.selectedWellIndex === 'number') ? SIM.selectedWellIndex : -1;
+    const selUI = (typeof UI_STATE.selectedWellIndex === 'number') ? UI_STATE.selectedWellIndex : -1;
+    const i = (selUI >= 0 && selUI < 6) ? selUI : -1;
     const A = (i >= 0) ? (SIM.wellsA[i] || 0) : 0;
     const S = (i >= 0) ? (SIM.wellsS[i] || 0) : 0;
     const psy = (i >= 0) ? (SIM.psyP[i] || 0) : 0;
@@ -773,6 +794,21 @@ let html = `<div class="hudLine1">${line1}</div><div class="hudLine2">${line2}</
       const qs = (typeof window !== 'undefined' && window.location && window.location.search) ? window.location.search : '';
       const verbose = /(?:\?|&)inputdebug=1(?:&|$)/.test(qs);
 
+      // SIM root write-guard summary (warn-only; enable via ?simguard=1 or UI_STATE.debugStrict).
+      try {
+        const SG = (UI_STATE && UI_STATE.simGuardStats) ? UI_STATE.simGuardStats : null;
+        if (SG && typeof SG.count === 'number' && SG.count > 0) {
+          parts.push('SIM WRITE-GUARD: ' + SG.count + ' suspicious root writes');
+          if (verbose && SG.byKey && typeof SG.byKey === 'object') {
+            const bk = SG.byKey;
+            const keys = Object.keys(bk).sort((a, b) => (Number(bk[b] || 0) - Number(bk[a] || 0)));
+            const top = keys.slice(0, 5).map(k => k + ': ' + String(bk[k] || 0));
+            if (top.length) parts.push('Top keys: ' + top.join(', '));
+          }
+          parts.push('');
+        }
+      } catch (_) {}
+
       // Default: show ONLY quirk timeline (event-based), capped.
       parts.push('QUIRK TIMELINE (this run)');
       parts.push('------------------------');
@@ -849,7 +885,7 @@ if (verbose) {
         parts.push('INPUT DEBUG (enabled by ?inputdebug=1)');
         parts.push('------------------------------');
         try {
-          const D = (EC.UI_STATE && EC.UI_STATE.inputDbg) || null;
+          const D = (UI_STATE && UI_STATE.inputDbg) || null;
           if (D) {
             const dom = D.dom || {};
             parts.push(`DOM(canvas) counters: pd=${dom.pd||0} pm=${dom.pm||0} pu=${dom.pu||0} pc=${dom.pc||0}   ts=${dom.ts||0} tm=${dom.tm||0} te=${dom.te||0} tc=${dom.tc||0}`);
@@ -923,7 +959,7 @@ if (verbose) {
         UI_STATE._copyLogWired = true;
         btn.addEventListener('click', async () => {
           try {
-            const dbg = (EC.UI_STATE && EC.UI_STATE.inputDbg) || {};
+            const dbg = (UI_STATE && UI_STATE.inputDbg) || {};
             const log = Array.isArray(dbg.log) ? dbg.log : [];
             const tailLines = log.slice(Math.max(0, log.length - 50));
             const snap = ['=== INPUT LOG (last 50) ===', ...tailLines, '=== END ==='].join('\n');
@@ -947,7 +983,7 @@ if (verbose) {
         });
       }
       const dbgText = parts.join('\n');
-      const st = (EC.UI_STATE = EC.UI_STATE || {});
+      const st = UI_STATE;
       const prev = (st.prev = st.prev || {});
       const k = 'hud:debugText';
       if (prev[k] !== dbgText) {
@@ -967,10 +1003,10 @@ if (verbose) {
       const ov = document.getElementById('logOverlay');
       if (ov && ov.classList.contains('show')) {
         const body = document.getElementById('logBody');
-        const entries = (EC.UI_STATE && EC.UI_STATE.logEntries) ? EC.UI_STATE.logEntries : [];
+        const entries = (UI_STATE && UI_STATE.logEntries) ? UI_STATE.logEntries : [];
         const n = entries.length;
-        if (EC.UI_STATE) {
-          const lastN = (typeof EC.UI_STATE._logRenderN === 'number') ? EC.UI_STATE._logRenderN : -1;
+        if (UI_STATE) {
+          const lastN = (typeof UI_STATE._logRenderN === 'number') ? UI_STATE._logRenderN : -1;
           if (n !== lastN && body) {
             const parts = [];
             for (let i = 0; i < n; i++) {
@@ -982,14 +1018,14 @@ if (verbose) {
             }
             body.innerHTML = parts.join('');
             try { body.scrollTop = body.scrollHeight; } catch (_) {}
-            EC.UI_STATE._logRenderN = n;
+            UI_STATE._logRenderN = n;
           }
         }
       }
     } catch (_) {}
 
-    SIM._selDrive = drive;
-  };
+    try { UI_STATE._selDrive = drive; } catch (_) {}
+};
 
   MOD.onResize = function onResize() {
     if (typeof EC.resize === 'function') EC.resize();
@@ -1011,7 +1047,9 @@ if (verbose) {
   }
   EC.UI_HUD = EC.UI_HUD || {};
   EC.UI_HUD.updateBreakModal = function(){
-    const SIM = EC.SIM;
+    const snap = (EC.ENGINE && EC.ENGINE.getSnapshot) ? EC.ENGINE.getSnapshot() : { SIM: (EC.SIM||{}), UI: (EC.UI_STATE||{}), RENDER: (EC.RENDER_STATE||{}) };
+    const SIM = snap.SIM;
+    const UI = snap.UI || {};
     const el = ensure();
     if (!SIM || !el) return;
     const modal = SIM._breakModal;
@@ -1027,15 +1065,16 @@ if (verbose) {
       if (el.ok && !el.ok._ecBound) {
         el.ok._ecBound = true;
         el.ok.addEventListener('click', function(){
-	          let m = null;
-	          try { m = SIM._breakModal; } catch(_) { m = null; }
-	          try { SIM._breakModal = null; } catch(_){}
-          try { SIM._breakPaused = false; } catch(_){}
+          let res = null;
+          try {
+            if (EC.ENGINE && typeof EC.ENGINE.dispatch === 'function') res = EC.ENGINE.dispatch('ackBreakModal');
+            else if (EC.ACTIONS && typeof EC.ACTIONS.ackBreakModal === 'function') res = EC.ACTIONS.ackBreakModal();
+          } catch (_){}
           try { const ov = qs('breakOverlay'); if (ov){ ov.classList.remove('show'); ov.setAttribute('aria-hidden','true'); } } catch(_){}
-	          try { if (m && typeof m.onOk === 'function') m.onOk(); } catch(_){}
-	          try { if (el.ok) el.ok.textContent = 'OK'; } catch(_){}
+          try { const modal2 = (res && res.modal) ? res.modal : null; if (modal2 && typeof modal2.onOk === 'function') modal2.onOk(); } catch(_){}
+          try { if (el.ok) el.ok.textContent = 'OK'; } catch(_){}
         });
-      }
+}
     } else {
       if (el.ov.classList.contains('show')) {
         el.ov.classList.remove('show');

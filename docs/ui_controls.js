@@ -7,8 +7,28 @@
   const MOD = (EC.UI_CONTROLS = EC.UI_CONTROLS || {});
 
   function _getCtx(ctxIn) {
-    return ctxIn || (EC.UI_STATE && EC.UI_STATE.mvpCtx) || {};
+    try {
+      const snap = (EC.ENGINE && EC.ENGINE.getSnapshot) ? EC.ENGINE.getSnapshot() : { SIM: (EC.SIM||{}), UI: (EC.UI_STATE||{}), RENDER: (EC.RENDER_STATE||{}) };
+      const UI = snap.UI || {};
+      return ctxIn || UI.mvpCtx || {};
+    } catch (_) {
+      return ctxIn || (EC.UI_STATE && EC.UI_STATE.mvpCtx) || {};
+    }
   }
+
+
+  // Selection helper: selection lives in EC.UI_STATE.selectedWellIndex.
+  function _getSelIndex(i) {
+    if (typeof i === 'number') return (i | 0);
+    try {
+      const snap = (EC.ENGINE && EC.ENGINE.getSnapshot) ? EC.ENGINE.getSnapshot() : { SIM: (EC.SIM||{}), UI: (EC.UI_STATE||{}), RENDER: (EC.RENDER_STATE||{}) };
+      const UI_STATE = snap.UI || {};
+      const u = UI_STATE.selectedWellIndex;
+      if (typeof u === 'number' && u >= 0 && u < 6) return (u | 0);
+    } catch (_) {}
+    return -1;
+  }
+
 
 
 // ---------------------------------------------------------------------------
@@ -58,7 +78,8 @@ function energyToUnits(energyFloat) {
 
 // Trait-driven energy cost multiplier (stubborn).
 function _getEnergyCostMult(simIn) {
-  const SIM = simIn || EC.SIM || {};
+  const snap = (EC.ENGINE && EC.ENGINE.getSnapshot) ? EC.ENGINE.getSnapshot() : { SIM: (EC.SIM||{}), UI: (EC.UI_STATE||{}), RENDER: (EC.RENDER_STATE||{}) };
+  const SIM = simIn || snap.SIM || {};
   try {
     const AM = EC.ACTION_MATH;
     if (AM && typeof AM.getEnergyCostMult === 'function') return AM.getEnergyCostMult(SIM);
@@ -76,11 +97,12 @@ function _getEnergyCostMult(simIn) {
 // Preview for a single well apply (used by MOD.render on desktop).
 // Mirrors the init-scoped helper to avoid behavior changes.
 function computeApplyPreview(i, A1In, S1In) {
+  const snap = (EC.ENGINE && EC.ENGINE.getSnapshot) ? EC.ENGINE.getSnapshot() : { SIM: (EC.SIM||{}), UI: (EC.UI_STATE||{}), RENDER: (EC.RENDER_STATE||{}) };
   try {
     const AM = EC.ACTION_MATH;
     if (AM && typeof AM.computeApplyPreview === 'function') return AM.computeApplyPreview(i, A1In, S1In);
   } catch (_) {}
-  const SIM = EC.SIM;
+  const SIM = snap.SIM;
   const UI = EC.UI || {};
   const T = EC.TUNE || {};
   if (!SIM || !SIM.wellsA || !SIM.wellsS) {
@@ -94,7 +116,7 @@ function computeApplyPreview(i, A1In, S1In) {
   const COST_NORM = (typeof T.COST_NORM === 'number' && T.COST_NORM !== 0) ? T.COST_NORM : 100;
   const kPush = (typeof T.OPPOSITE_PUSH_K === 'number') ? T.OPPOSITE_PUSH_K : 0;
 
-  const idx = (typeof i === 'number') ? i : (typeof SIM.selectedWellIndex === 'number' ? SIM.selectedWellIndex : -1);
+  const idx = _getSelIndex(i);
   if (idx < 0 || idx >= 6) {
     return { changed:false, cost:0, impulseCost:0, push:0, A0:0, S0:0, A1:0, S1:0 };
   }
@@ -120,7 +142,8 @@ function computeApplyPreview(i, A1In, S1In) {
 // Returns { cost, i, j, baseCost1, pushCost1, baseCost2, pushCost2 } where cost is a FLOAT
 // in the same energy scale as Apply/swipes (before integer "HUD units" rounding).
 function computeZeroPairCost(i) {
-  const SIM = EC.SIM;
+  const snap = (EC.ENGINE && EC.ENGINE.getSnapshot) ? EC.ENGINE.getSnapshot() : { SIM: (EC.SIM||{}), UI: (EC.UI_STATE||{}), RENDER: (EC.RENDER_STATE||{}) };
+  const SIM = snap.SIM;
   const T = EC.TUNE || {};
   if (!SIM || !SIM.wellsA || !SIM.wellsS) return { cost: 0, i, j: _oppIndex(i) };
 
@@ -132,7 +155,7 @@ function computeZeroPairCost(i) {
   const COST_NORM = (typeof T.COST_NORM === 'number' && T.COST_NORM !== 0) ? T.COST_NORM : 100;
   const kPush = (typeof T.OPPOSITE_PUSH_K === 'number') ? T.OPPOSITE_PUSH_K : 0;
 
-  const idx = (typeof i === 'number') ? i : (typeof SIM.selectedWellIndex === 'number' ? SIM.selectedWellIndex : -1);
+  const idx = _getSelIndex(i);
   const j = _oppIndex(idx);
   if (!(idx >= 0 && idx < 6) || !(j >= 0 && j < 6)) return { cost: 0, i: idx, j };
 
@@ -190,7 +213,7 @@ function computeZeroPairCostCanonical(i) {
     const AM = EC.ACTION_MATH;
     if (AM && typeof AM.computeZeroPairCostCanonical === 'function') return AM.computeZeroPairCostCanonical(i);
   } catch (_) {}
-  const idx = (typeof i === 'number') ? i : (EC.SIM && typeof EC.SIM.selectedWellIndex === 'number' ? EC.SIM.selectedWellIndex : -1);
+  const idx = _getSelIndex(i);
   const j = _oppIndex(idx);
   const c1 = computeZeroPairCost(idx);
   const c2 = computeZeroPairCost(j);
@@ -202,11 +225,13 @@ function computeZeroPairCostCanonical(i) {
 
   MOD.init = function init(ctxIn) {
     const ctx = _getCtx(ctxIn);
-    const SIM = ctx.SIM || EC.SIM;
+    const snap = (EC.ENGINE && EC.ENGINE.getSnapshot) ? EC.ENGINE.getSnapshot() : { SIM: (EC.SIM||{}), UI: (EC.UI_STATE||{}), RENDER: (EC.RENDER_STATE||{}) };
+    const SIM = snap.SIM;
+    const UI_STATE = (ctx.UI_STATE = ctx.UI_STATE || snap.UI || {});
+    ctx.SIM = SIM;
     if (!SIM) return;
 
     // Idempotent init
-    const UI_STATE = (ctx.UI_STATE = ctx.UI_STATE || (EC.UI_STATE = EC.UI_STATE || {}));
     if (UI_STATE._controlsInited) return;
     UI_STATE._controlsInited = true;
 
@@ -276,7 +301,11 @@ function computeZeroPairCostCanonical(i) {
     // Mechanics live in EC.ACTIONS; this wrapper only keeps UI sliders aligned.
     MOD.flickStep = function flickStep(i, dA, dS) {
       const act = (EC.ACTIONS && typeof EC.ACTIONS.flickStep === 'function') ? EC.ACTIONS.flickStep : null;
-      const res = act ? act(i, dA, dS) : { ok: false, reason: 'missing_actions', cost: 0 };
+      let res = null;
+      try {
+        if (EC.ENGINE && typeof EC.ENGINE.dispatch === 'function') res = EC.ENGINE.dispatch('flickStep', i, dA, dS);
+      } catch (_) {}
+      if (!res || res.reason === 'missing_action') res = act ? act(i, dA, dS) : { ok: false, reason: 'missing_actions', cost: 0 };
       if (!res || !res.ok) return res;
 
       // Keep UI sliders aligned with the new values (presentation only).
@@ -295,7 +324,11 @@ function computeZeroPairCostCanonical(i) {
     // Charges integer HUD units when opts.chargeUnits is true.
     MOD.spinZero = function spinZero(i, opts) {
       const act = (EC.ACTIONS && typeof EC.ACTIONS.spinZero === 'function') ? EC.ACTIONS.spinZero : null;
-      const res = act ? act(i, opts) : { ok: false, reason: 'missing_actions', cost: 0, well: i, A: 0, S: 0 };
+      let res = null;
+      try {
+        if (EC.ENGINE && typeof EC.ENGINE.dispatch === 'function') res = EC.ENGINE.dispatch('spinZero', i, opts);
+      } catch (_) {}
+      if (!res || res.reason === 'missing_action') res = act ? act(i, opts) : { ok: false, reason: 'missing_actions', cost: 0, well: i, A: 0, S: 0 };
 
       // Keep UI tidy (presentation only).
       if (res && res.ok) {
@@ -312,7 +345,11 @@ function computeZeroPairCostCanonical(i) {
     // Public: atomically set selected well and opposite well spins to 0 (no slider retarget).
     MOD.zeroPair = function zeroPair(sel, opts) {
       const act = (EC.ACTIONS && typeof EC.ACTIONS.zeroPair === 'function') ? EC.ACTIONS.zeroPair : null;
-      const res = act ? act(sel, opts) : { ok: false, reason: 'missing_actions', cost: 0, well: sel, opp: _oppIndex(sel) };
+      let res = null;
+      try {
+        if (EC.ENGINE && typeof EC.ENGINE.dispatch === 'function') res = EC.ENGINE.dispatch('zeroPair', sel, opts);
+      } catch (_) {}
+      if (!res || res.reason === 'missing_action') res = act ? act(sel, opts) : { ok: false, reason: 'missing_actions', cost: 0, well: sel, opp: _oppIndex(sel) };
       return res;
     };
 
@@ -320,7 +357,7 @@ function computeZeroPairCostCanonical(i) {
       if (deltaAValEl) deltaAValEl.textContent = String(Math.round(UI.targetA || 0));
       if (deltaSValEl) deltaSValEl.textContent = String(Math.round(UI.targetS || 0));
 
-      const i = (typeof SIM.selectedWellIndex === 'number') ? SIM.selectedWellIndex : -1;
+      const i = _getSelIndex(null, SIM);
       if (i !== UI_STATE.prevSel) {
         UI_STATE.prevSel = i;
         if (i >= 0) {
@@ -434,7 +471,7 @@ function computeZeroPairCostCanonical(i) {
 
     if (btnSpinZeroEl) {
       btnSpinZeroEl.addEventListener('click', () => {
-        const i = (typeof SIM.selectedWellIndex === 'number') ? SIM.selectedWellIndex : -1;
+        const i = _getSelIndex(null, SIM);
         if (i < 0) return;
 
         const act = (EC.ACTIONS && typeof EC.ACTIONS.spinZero === 'function') ? EC.ACTIONS.spinZero : null;
@@ -445,7 +482,11 @@ function computeZeroPairCostCanonical(i) {
           // Tutorial instrumentation
           try {
             if (SIM && SIM.tutorialActive) {
-              SIM._tutLastAction = { kind: 'SPIN_ZERO', well: i, cost: (res && typeof res.cost === 'number') ? res.cost : 0 };
+              const payload = { kind: 'SPIN_ZERO', well: i, cost: (res && typeof res.cost === 'number') ? res.cost : 0 };
+              try {
+                if (EC.ENGINE && typeof EC.ENGINE.dispatch === 'function') EC.ENGINE.dispatch('recordTutLastAction', payload);
+                else if (EC.ACTIONS && typeof EC.ACTIONS.recordTutLastAction === 'function') EC.ACTIONS.recordTutLastAction(payload);
+              } catch (_) {}
             }
           } catch (_) {}
 
@@ -460,7 +501,7 @@ function computeZeroPairCostCanonical(i) {
 if (btnZeroPairEl) {
       btnZeroPairEl.addEventListener('click', () => {
         // Resolve selection robustly (matches render + avoids selection mismatch UI bugs)
-        let sel = (typeof SIM.selectedWellIndex === 'number') ? SIM.selectedWellIndex : -1;
+        let sel = _getSelIndex(null, SIM);
         if (!(sel >= 0 && sel < 6)) {
           const ps = (UI_STATE && typeof UI_STATE.prevSel === 'number') ? UI_STATE.prevSel : -1;
           if (ps >= 0 && ps < 6) sel = ps;
@@ -479,7 +520,12 @@ if (btnZeroPairEl) {
           if (SIM && SIM.tutorialActive) {
             const oppIndex = (res && typeof res.opp === 'number') ? res.opp : j;
             const cost = (res && typeof res.cost === 'number') ? res.cost : 0;
-            SIM._tutLastAction = { kind: 'PAIR_ZERO', well: sel, oppIndex: oppIndex, cost: cost };
+            const payload = { kind: 'PAIR_ZERO', well: sel, oppIndex: oppIndex, cost: cost };
+            try {
+              if (EC.ENGINE && typeof EC.ENGINE.dispatch === 'function') EC.ENGINE.dispatch('recordTutLastAction', payload);
+              else if (EC.ACTIONS && typeof EC.ACTIONS.recordTutLastAction === 'function') EC.ACTIONS.recordTutLastAction(payload);
+            } catch (_) {};
+
           }
         } catch (_) {}
       });
@@ -488,23 +534,25 @@ if (btnZeroPairEl) {
     // Apply button removed in mobile-first controls.
 
 // Initial sync on init
-    const _initSel = (typeof SIM.selectedWellIndex === 'number') ? SIM.selectedWellIndex : -1;
+    const _initSel = _getSelIndex(null, SIM);
     if (_initSel >= 0) setTargetsFromSelection(_initSel);
     syncDeltaLabels();
   };
 
   MOD.render = function render(dt, ctxIn) {
     const ctx = _getCtx(ctxIn);
-    const SIM = ctx.SIM || EC.SIM;
+    const snap = (EC.ENGINE && EC.ENGINE.getSnapshot) ? EC.ENGINE.getSnapshot() : { SIM: (EC.SIM||{}), UI: (EC.UI_STATE||{}), RENDER: (EC.RENDER_STATE||{}) };
+    const SIM = snap.SIM;
+    const UI_STATE = (ctx.UI_STATE = ctx.UI_STATE || snap.UI || {});
+    ctx.SIM = SIM;
     if (!SIM) return;
-    const UI_STATE = ctx.UI_STATE || EC.UI_STATE || {};
     const dom = ctx.dom || {};
 
     // Resync sliders/targets after a reset/start (SIM._mvpInitStamp)
     const stampNow = (typeof SIM._mvpInitStamp === 'number') ? SIM._mvpInitStamp : 0;
     if (stampNow !== UI_STATE.lastInitStamp) {
       UI_STATE.lastInitStamp = stampNow;
-      const selResync = (typeof SIM.selectedWellIndex === 'number') ? SIM.selectedWellIndex : 0;
+      const selResync = (_getSelIndex(null, SIM) >= 0 ? _getSelIndex(null, SIM) : 0);
       if (selResync >= 0 && typeof MOD._setTargetsFromSelection === 'function') {
         MOD._setTargetsFromSelection(selResync);
         // Force preview text refresh even if selection didn't change
@@ -514,15 +562,15 @@ if (btnZeroPairEl) {
     }
 
 
-    // Resync sliders/targets after action-driven control changes (SIM._controlsSyncStamp)
-    const cStampNow = (typeof SIM._controlsSyncStamp === 'number') ? SIM._controlsSyncStamp : 0;
+    // Resync sliders/targets after action-driven control changes (UI_STATE._controlsSyncStamp)
+    const cStampNow = (typeof UI_STATE._controlsSyncStamp === 'number') ? UI_STATE._controlsSyncStamp : 0;
     if (typeof UI_STATE.lastControlsSyncStamp !== 'number') {
       UI_STATE.lastControlsSyncStamp = cStampNow;
     } else if (cStampNow !== UI_STATE.lastControlsSyncStamp) {
       UI_STATE.lastControlsSyncStamp = cStampNow;
-      let selResync = (typeof SIM.selectedWellIndex === 'number') ? SIM.selectedWellIndex : -1;
+      let selResync = _getSelIndex(null, SIM);
       if (!(selResync >= 0 && selResync < 6)) {
-        const ss = (typeof SIM._controlsSyncSel === 'number') ? SIM._controlsSyncSel : -1;
+        const ss = (typeof UI_STATE._controlsSyncSel === 'number') ? UI_STATE._controlsSyncSel : -1;
         if (ss >= 0 && ss < 6) selResync = ss;
       }
       if (selResync >= 0 && typeof MOD._setTargetsFromSelection === 'function') {
@@ -629,7 +677,7 @@ if (btnZeroPairEl) {
     } catch (_) {}
 
 
-    let sel = (typeof SIM.selectedWellIndex === 'number') ? SIM.selectedWellIndex : -1;
+    let sel = _getSelIndex(null, SIM);
     // Robust selection for bottom-bar costs: fall back to last known UI selection
     if (!(sel >= 0 && sel < 6)) {
       const ps = (UI_STATE && typeof UI_STATE.prevSel === 'number') ? UI_STATE.prevSel : -1;

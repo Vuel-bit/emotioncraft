@@ -3,6 +3,18 @@
   const EC = (window.EC = window.EC || {});
   EC.INPUT = EC.INPUT || {};
 
+  function _snap(){
+    try {
+      if (EC.ENGINE && typeof EC.ENGINE.getSnapshot === 'function') {
+        const s = EC.ENGINE.getSnapshot();
+        return { SIM: (s && s.SIM) ? s.SIM : (EC.SIM || {}), UI: (s && s.UI) ? s.UI : (EC.UI_STATE || {}), RSTATE: (s && s.RENDER) ? s.RENDER : (EC.RENDER_STATE || { flags:{}, layout:{} }) };
+      }
+    } catch (_) {}
+    try { EC.UI_STATE = EC.UI_STATE || {}; } catch (_) {}
+    try { EC.RENDER_STATE = EC.RENDER_STATE || { flags:{}, layout:{} }; EC.RENDER_STATE.flags = EC.RENDER_STATE.flags || {}; EC.RENDER_STATE.layout = EC.RENDER_STATE.layout || {}; } catch (_) {}
+    return { SIM: EC.SIM || {}, UI: EC.UI_STATE || {}, RSTATE: EC.RENDER_STATE || { flags:{}, layout:{} } };
+  }
+
 
   // Canonical gesture state (single source of truth)
   // Never replace this object reference; mutate fields only.
@@ -31,8 +43,9 @@
 
   EC.INPUT.ensureInputDbg = function ensureInputDbg(){
     try {
-      EC.UI_STATE = EC.UI_STATE || {};
-      const D = EC.UI_STATE.inputDbg = EC.UI_STATE.inputDbg || {};
+      const snap = _snap();
+      const UI = snap.UI;
+      const D = UI.inputDbg = UI.inputDbg || {};
       D.dom = D.dom || { pd:0, pm:0, pu:0, pc:0, ts:0, tm:0, te:0, tc:0 };
       D.pixiStage = D.pixiStage || { pd:0, pm:0, pu:0, po:0, pc:0 };
       D.pixiWell = D.pixiWell || { pd:0, pm:0, pu:0, po:0, pc:0 };
@@ -184,19 +197,21 @@
     // Default OFF: only show gesture debug when ?inputdebug=1.
     try {
       const enabled = (EC.INPUT && typeof EC.INPUT.isInputDebugEnabled === 'function') ? !!EC.INPUT.isInputDebugEnabled() : false;
-      EC.UI_STATE = EC.UI_STATE || {};
+      const snap = _snap();
+      const UI = snap.UI;
       if (!enabled) {
-        EC.UI_STATE.gestureDebug = '';
+        UI.gestureDebug = '';
         return;
       }
-      EC.UI_STATE.gestureDebug = s;
+      UI.gestureDebug = s;
       if (EC.DEBUG) {
         try { console.log(s); } catch (_) {}
       }
     } catch (_) {
       try {
-        EC.UI_STATE = EC.UI_STATE || {};
-        EC.UI_STATE.gestureDebug = '';
+        const snap = _snap();
+        const UI = snap.UI;
+        UI.gestureDebug = '';
       } catch (_) {}
     }
   };
@@ -321,7 +336,7 @@
   }
 
   // Stable API: pick a well index from DOM client coords.
-  // Returns 0..5 or -1. Also stores last pick detail on EC.UI_STATE.inputDbg for snapshot/debug.
+  // Returns 0..5 or -1. Also stores last pick detail on UI.inputDbg for snapshot/debug.
   EC.INPUT.pickWellIndexFromClientXY = function(clientX, clientY) {
     const app = (EC.RENDER && EC.RENDER.app) ? EC.RENDER.app : null;
     const map = _clientToRenderXY(clientX, clientY, app);
@@ -363,9 +378,10 @@
     const out = { idx: inside ? bestCand : -1, inside, rx, ry, dist, r, cand: bestCand, cx, cy };
 // Snapshot for debug (optional; main.js also logs)
     try {
-      EC.UI_STATE = EC.UI_STATE || {};
-      EC.UI_STATE.inputDbg = EC.UI_STATE.inputDbg || {};
-      EC.UI_STATE.inputDbg.lastPickDetail = out;
+      const snap = _snap();
+      const UI = snap.UI;
+      UI.inputDbg = UI.inputDbg || {};
+      UI.inputDbg.lastPickDetail = out;
     } catch (_) {}
 
     return out;
@@ -466,7 +482,9 @@
 
       // Update always-visible gesture line
       try {
-        const D = EC.UI_STATE && EC.UI_STATE.inputDbg;
+        const snap = _snap();
+        const UI = snap.UI;
+        const D = UI && UI.inputDbg;
         if (D) D.gestureLine = `active=1 key=${incomingKey||'?'} well=${idx} x0/y0=${Math.round(x0)}/${Math.round(y0)} t0=${Math.round(t0)}`;
       } catch (_) {}
 
@@ -485,7 +503,9 @@
 
   function _writeArmLine(res) {
     try {
-      const D = EC.UI_STATE && EC.UI_STATE.inputDbg;
+      const snap = _snap();
+      const UI = snap.UI;
+      const D = UI && UI.inputDbg;
       if (!D) return;
       const ok = res.ok ? 'Y' : 'N';
       D.armLine = `ok=${ok} reason=${res.reason||'unknown_false'} gsId=${(EC.INPUT.gestureState&&EC.INPUT.gestureState._id)||'?'} gsPtrOk=1 active=${res.active||0} storedKey=${res.storedKey||'?'} incomingKey=${res.incomingKey||'?'} storedWell=${res.storedWell||'?'} incomingWell=${res.incomingWell||'?'}${res.err ? (' err=' + res.err) : ''}`;
@@ -512,9 +532,10 @@
 
   function _idbgSafe() {
     try {
-      EC.UI_STATE = EC.UI_STATE || {};
-      EC.UI_STATE.inputDbg = EC.UI_STATE.inputDbg || {};
-      const D = EC.UI_STATE.inputDbg;
+      const snap = _snap();
+      const UI = snap.UI;
+      UI.inputDbg = UI.inputDbg || {};
+      const D = UI.inputDbg;
       const enabled = (EC.INPUT && typeof EC.INPUT.isInputDebugEnabled === 'function') ? !!EC.INPUT.isInputDebugEnabled() : false;
       if (enabled) {
         if (!Array.isArray(D.log)) D.log = [];
@@ -639,9 +660,11 @@
         applyReason = 'invalid_idx';
       } else {
         // Tutorial gating: block non-focus interactions (and optionally block swipes entirely during button steps).
-        const tutOn = !!(EC.SIM && EC.SIM.tutorialActive);
-        const allow = tutOn && (typeof EC.SIM._tutAllowWell === 'number') ? (EC.SIM._tutAllowWell|0) : -1;
-        const blockSwipes = tutOn ? !!EC.SIM._tutBlockSwipes : false;
+        const snap = _snap();
+        const SIM = snap.SIM;
+        const tutOn = !!(SIM && SIM.tutorialActive);
+        const allow = tutOn && (typeof SIM._tutAllowWell === 'number') ? (SIM._tutAllowWell|0) : -1;
+        const blockSwipes = tutOn ? !!SIM._tutBlockSwipes : false;
 
         const tutGateTap = tutOn && (allow >= 0) && (w !== allow);
         const tutGateSwipe = tutOn && ((blockSwipes && cls !== 'TAP') || ((allow >= 0) && (w !== allow)));
@@ -651,7 +674,11 @@
           applied = '0';
           applyReason = tutGateTap ? 'tut_gate' : 'tap';
           if (!tutGateTap) {
-            try { if (EC.SIM) EC.SIM.selectedWellIndex = w; } catch (_) {}
+            try {
+              const eng = EC.ENGINE;
+              if (eng && typeof eng.dispatch === 'function') eng.dispatch('selectWell', w);
+              else if (EC.ACTIONS && typeof EC.ACTIONS.selectWell === 'function') EC.ACTIONS.selectWell(w);
+            } catch (_) {}
           }
         } else if (tutGateSwipe) {
           applied = '0';
@@ -671,8 +698,8 @@
 
           // Long-press + drag: snap to extreme (max out) on the affected stat.
           if (hold && cls === 'DRAG') {
-            const A0c = (EC.SIM && EC.SIM.wellsA) ? (EC.SIM.wellsA[w] || 0) : 0;
-            const S0c = (EC.SIM && EC.SIM.wellsS) ? (EC.SIM.wellsS[w] || 0) : 0;
+            const A0c = (SIM && SIM.wellsA) ? (SIM.wellsA[w] || 0) : 0;
+            const S0c = (SIM && SIM.wellsS) ? (SIM.wellsS[w] || 0) : 0;
 
             if (dir === 'RIGHT') {
               const tgt = 100;
@@ -696,23 +723,33 @@
             steps = _clampI(Math.max(1, Math.round(Math.abs((Math.abs(dA) > 0) ? dA : dS) / STEP_UNIT)), 1, DRAG_MAX_STEPS);
           }
 
-          try { if (EC.SIM) EC.SIM.selectedWellIndex = w; } catch (_) {}
+          try {
+            const eng = EC.ENGINE;
+            if (eng && typeof eng.dispatch === 'function') eng.dispatch('selectWell', w);
+            else if (EC.ACTIONS && typeof EC.ACTIONS.selectWell === 'function') EC.ACTIONS.selectWell(w);
+          } catch (_) {}
 
           // Tutorial instrumentation: record opposite spin before/after for step checks.
           let oppIndex = -1;
           let oppSpinBefore = 0;
           try {
-            if (EC.SIM && EC.SIM.tutorialActive && EC.CONST && Array.isArray(EC.CONST.OPP)) {
+            const snap3 = _snap();
+      const SIM3 = snap3.SIM;
+      if (SIM3 && SIM3.tutorialActive && EC.CONST && Array.isArray(EC.CONST.OPP)) {
               oppIndex = EC.CONST.OPP[w];
-              if (oppIndex != null && oppIndex >= 0 && oppIndex < 6) oppSpinBefore = (EC.SIM.wellsS && typeof EC.SIM.wellsS[oppIndex] === 'number') ? EC.SIM.wellsS[oppIndex] : 0;
+              if (oppIndex != null && oppIndex >= 0 && oppIndex < 6) oppSpinBefore = (SIM3.wellsS && typeof SIM3.wellsS[oppIndex] === 'number') ? SIM3.wellsS[oppIndex] : 0;
             }
           } catch (_) {}
 
           cost = 0;
           const fn = (EC.ACTIONS && typeof EC.ACTIONS.flickStep === 'function') ? EC.ACTIONS.flickStep : null;
-          if (fn) {
-            try {
-              const res = fn(w, dA, dS);
+          try {
+              const res = (EC.ENGINE && typeof EC.ENGINE.dispatch === 'function') ? EC.ENGINE.dispatch('flickStep', w, dA, dS) : (fn ? fn(w, dA, dS) : null);
+
+              if (!res) {
+                applied = 'fail';
+                applyReason = 'missing_flickStep';
+              } else {
               const ok = !!(res && res.ok);
               cost = (res && typeof res.cost === 'number') ? res.cost : 0;
               if (!ok) {
@@ -728,12 +765,14 @@
 
               // Record the last successful tutorial action.
               try {
-                if (EC.SIM && EC.SIM.tutorialActive && ok) {
+                const snap4 = _snap();
+      const SIM4 = snap4.SIM;
+      if (SIM4 && SIM4.tutorialActive && ok) {
                   let oppSpinAfter = 0;
                   if (oppIndex != null && oppIndex >= 0 && oppIndex < 6) {
-                    oppSpinAfter = (EC.SIM.wellsS && typeof EC.SIM.wellsS[oppIndex] === 'number') ? EC.SIM.wellsS[oppIndex] : 0;
+                    oppSpinAfter = (SIM4.wellsS && typeof SIM4.wellsS[oppIndex] === 'number') ? SIM4.wellsS[oppIndex] : 0;
                   }
-                  EC.SIM._tutLastAction = {
+                  const payload = {
                     kind: 'SWIPE',
                     well: w,
                     dA: dA,
@@ -743,16 +782,17 @@
                     oppSpinBefore: oppSpinBefore,
                     oppSpinAfter: oppSpinAfter,
                   };
+                  try {
+                    if (EC.ENGINE && typeof EC.ENGINE.dispatch === 'function') EC.ENGINE.dispatch('recordTutLastAction', payload);
+                    else if (EC.ACTIONS && typeof EC.ACTIONS.recordTutLastAction === 'function') EC.ACTIONS.recordTutLastAction(payload);
+                  } catch (_) {}
                 }
               } catch (_) {}
+              }
             } catch (_) {
               applied = 'fail';
               applyReason = 'apply_throw';
             }
-          } else {
-            applied = 'fail';
-            applyReason = 'missing_flickStep';
-          }
         }
       }
 

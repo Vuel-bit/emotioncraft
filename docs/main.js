@@ -187,7 +187,16 @@
   window.addEventListener('resize', () => EC.resize && EC.resize());
   window.addEventListener('orientationchange', () => EC.resize && EC.resize());
 
-  if (EC.tick) app.ticker.add(EC.tick);
+  // Prefer ENGINE tick (allows SIM write-guard to bracket "engine time").
+  app.ticker.add((delta) => {
+    try {
+      if (EC.ENGINE && typeof EC.ENGINE.tick === 'function') return EC.ENGINE.tick(delta);
+      if (typeof EC.tick === 'function') return EC.tick(delta);
+    } catch (e) {
+      try { console.error('main ticker error', e); } catch (_) {}
+    }
+  });
+
 
   // SFX init (safe no-op until unlocked by user gesture)
   if (typeof EC.safe === 'function') {

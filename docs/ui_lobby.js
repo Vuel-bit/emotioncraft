@@ -6,7 +6,7 @@
 */
 (() => {
   const EC = (window.EC = window.EC || {});
-  const SIM = (EC.SIM = EC.SIM || {});
+  const SIM = EC.SIM || {};
 
   // Plan-pick flow: when intake is done, Start opens plan choice without reserving/removing.
   let pendingPlanPickPatientId = null;
@@ -23,6 +23,27 @@
   let _heroesOpen = false;
 
   function $(id) { return document.getElementById(id); }
+
+  function _setInLobby(flag) {
+    try {
+      if (EC.ENGINE && typeof EC.ENGINE.dispatch === 'function') return EC.ENGINE.dispatch('setInLobby', !!flag);
+      if (EC.ACTIONS && typeof EC.ACTIONS.setInLobby === 'function') return EC.ACTIONS.setInLobby(!!flag);
+    } catch (_) {}
+    return { ok: false, reason: 'no_engine' };
+  }
+
+
+  function _snap(){
+    try {
+      if (EC.ENGINE && typeof EC.ENGINE.getSnapshot === 'function') {
+        const s = EC.ENGINE.getSnapshot();
+        return { SIM: (s && s.SIM) ? s.SIM : (EC.SIM || {}), UI: (s && s.UI) ? s.UI : (EC.UI_STATE || {}), RSTATE: (s && s.RENDER) ? s.RENDER : (EC.RENDER_STATE || { flags:{}, layout:{} }) };
+      }
+    } catch (_) {}
+    try { EC.UI_STATE = EC.UI_STATE || {}; } catch (_) {}
+    try { EC.RENDER_STATE = EC.RENDER_STATE || { flags:{}, layout:{} }; EC.RENDER_STATE.flags = EC.RENDER_STATE.flags || {}; EC.RENDER_STATE.layout = EC.RENDER_STATE.layout || {}; } catch (_) {}
+    return { SIM: EC.SIM || {}, UI: EC.UI_STATE || {}, RSTATE: EC.RENDER_STATE || { flags:{}, layout:{} } };
+  }
 
   function ensureElements() {
     return {
@@ -373,7 +394,8 @@
           _rewardShowingFor = null;
           els.rewardOverlay.style.display = 'none';
           try { renderList(els); } catch (_) {}
-          try { const sel = (EC.UI_STATE && EC.UI_STATE.selectedPatientId) ? EC.UI_STATE.selectedPatientId : null; if (sel && EC.PAT && EC.PAT.get) renderDetails(els, EC.PAT.get(sel)); } catch (_) {}
+          try { const UI = _snap().UI;
+          const sel = (UI && UI.selectedPatientId) ? UI.selectedPatientId : null; if (sel && EC.PAT && EC.PAT.get) renderDetails(els, EC.PAT.get(sel)); } catch (_) {}
         });
         secQ.appendChild(btn);
       });
@@ -391,7 +413,8 @@
       _rewardShowingFor = null;
       els.rewardOverlay.style.display = 'none';
       try { renderList(els); } catch (_) {}
-      try { const sel = (EC.UI_STATE && EC.UI_STATE.selectedPatientId) ? EC.UI_STATE.selectedPatientId : null; if (sel && EC.PAT && EC.PAT.get) renderDetails(els, EC.PAT.get(sel)); } catch (_) {}
+      try { const UI = _snap().UI;
+          const sel = (UI && UI.selectedPatientId) ? UI.selectedPatientId : null; if (sel && EC.PAT && EC.PAT.get) renderDetails(els, EC.PAT.get(sel)); } catch (_) {}
     });
     secM.appendChild(mb);
     body.appendChild(secM);
@@ -407,7 +430,8 @@
       _rewardShowingFor = null;
       els.rewardOverlay.style.display = 'none';
       try { renderList(els); } catch (_) {}
-      try { const sel = (EC.UI_STATE && EC.UI_STATE.selectedPatientId) ? EC.UI_STATE.selectedPatientId : null; if (sel && EC.PAT && EC.PAT.get) renderDetails(els, EC.PAT.get(sel)); } catch (_) {}
+      try { const UI = _snap().UI;
+          const sel = (UI && UI.selectedPatientId) ? UI.selectedPatientId : null; if (sel && EC.PAT && EC.PAT.get) renderDetails(els, EC.PAT.get(sel)); } catch (_) {}
     });
     secV.appendChild(vb);
     body.appendChild(secV);
@@ -436,7 +460,8 @@
           _rewardShowingFor = null;
           els.rewardOverlay.style.display = 'none';
           try { renderList(els); } catch (_) {}
-          try { const sel = (EC.UI_STATE && EC.UI_STATE.selectedPatientId) ? EC.UI_STATE.selectedPatientId : null; if (sel && EC.PAT && EC.PAT.get) renderDetails(els, EC.PAT.get(sel)); } catch (_) {}
+          try { const UI = _snap().UI;
+          const sel = (UI && UI.selectedPatientId) ? UI.selectedPatientId : null; if (sel && EC.PAT && EC.PAT.get) renderDetails(els, EC.PAT.get(sel)); } catch (_) {}
         });
         secT.appendChild(btn);
       });
@@ -686,7 +711,7 @@
 
       // Optional "?" details panel (per selected patient)
       try {
-        const UI = EC.UI_STATE || (EC.UI_STATE = {});
+        const UI = _snap().UI;
         const show = !!UI.lobbyPatientHelpOn;
         if (els.detailsHelp) {
           if (!show) {
@@ -793,7 +818,8 @@
       return;
     }
 
-    const wantedSel = (EC.UI_STATE && EC.UI_STATE.selectedPatientId) ? EC.UI_STATE.selectedPatientId : null;
+    const UI = _snap().UI;
+    const wantedSel = (UI && UI.selectedPatientId) ? UI.selectedPatientId : null;
     let didSelect = false;
 
     items.forEach((p) => {
@@ -825,8 +851,8 @@
       row.appendChild(right);
 
       row.addEventListener('click', () => {
-        EC.UI_STATE = EC.UI_STATE || {};
-        EC.UI_STATE.selectedPatientId = p.id;
+        const UI = _snap().UI;
+        UI.selectedPatientId = p.id;
 
         const rows = els.list.querySelectorAll('.patientItem');
         rows.forEach((r) => r.classList.remove('selected'));
@@ -848,8 +874,8 @@
     if (!didSelect) {
       const first = items[0];
       if (first && first.id) {
-        EC.UI_STATE = EC.UI_STATE || {};
-        EC.UI_STATE.selectedPatientId = first.id;
+        const UI = _snap().UI;
+        UI.selectedPatientId = first.id;
         const rows = els.list.querySelectorAll('.patientItem');
         if (rows && rows[0]) rows[0].classList.add('selected');
         if (els.startBtn) els.startBtn.disabled = false;
@@ -871,20 +897,22 @@
 
   function init() {
     const els = ensureElements();
-    EC.UI_STATE = EC.UI_STATE || {};
-    EC.UI_STATE.selectedPatientId = EC.UI_STATE.selectedPatientId || null;
+    const UI = _snap().UI;
+    UI.selectedPatientId = UI.selectedPatientId || null;
     renderList(els);
 
     // Patient "?" info toggle
     try {
-      EC.UI_STATE.lobbyPatientHelpOn = !!EC.UI_STATE.lobbyPatientHelpOn;
+      const UI = _snap().UI;
+    UI.lobbyPatientHelpOn = !!UI.lobbyPatientHelpOn;
       if (els.infoBtn && !els.infoBtn._ecBound) {
         els.infoBtn._ecBound = true;
         els.infoBtn.addEventListener('click', () => {
-          EC.UI_STATE.lobbyPatientHelpOn = !EC.UI_STATE.lobbyPatientHelpOn;
+          const UI = _snap().UI;
+    UI.lobbyPatientHelpOn = !UI.lobbyPatientHelpOn;
           // Re-render details for current selection
           try {
-            const pid = EC.UI_STATE.selectedPatientId;
+            const pid = _snap().UI.selectedPatientId;
             const p = (EC.PAT && typeof EC.PAT.get === 'function') ? EC.PAT.get(pid) : null;
             renderDetails(els, p);
           } catch (_) {}
@@ -926,7 +954,7 @@
         if (EC.PAT && typeof EC.PAT.resumeFromLobby === 'function') {
           EC.PAT.resumeFromLobby();
         } else {
-          SIM.inLobby = false;
+          _setInLobby(false);
         }
         hide(els);
       });
@@ -951,7 +979,7 @@
         try { if (_heroesOpen) hideHeroes(els); } catch (_) {}
         pendingPlanPickPatientId = null;
 
-        SIM.inLobby = false;
+        _setInLobby(false);
         hide(els);
 
         try {
@@ -962,13 +990,13 @@
     if (els.startBtn) {
       // Disabled until a patient is selected (renderList may auto-select first).
             // Disabled until a patient is selected (renderList may auto-select first).
-      els.startBtn.disabled = !EC.UI_STATE.selectedPatientId;
+      els.startBtn.disabled = !_snap().UI.selectedPatientId;
 
       ensurePlanChoiceUI(els);
 
       // Start / Begin
       els.startBtn.addEventListener('click', () => {
-        const pid = EC.UI_STATE.selectedPatientId;
+        const pid = _snap().UI.selectedPatientId;
         if (!pid || !EC.PAT) return;
 
         const p = (EC.PAT.get && typeof EC.PAT.get === 'function') ? EC.PAT.get(pid) : null;
@@ -991,7 +1019,7 @@
             EC.PAT.start(pid, 'INTAKE');
           }
           pendingPlanPickPatientId = null;
-          SIM.inLobby = false;
+          _setInLobby(false);
           hidePlanChoice(els);
           hide(els);
           return;
@@ -1011,7 +1039,7 @@
           hidePlanChoice(els);
           if (pid && EC.PAT && EC.PAT.beginFromLobby) EC.PAT.beginFromLobby(pid);
           if (EC.PAT && EC.PAT.startPending) EC.PAT.startPending('WEEKLY');
-          SIM.inLobby = false;
+          _setInLobby(false);
           hide(els);
         });
       }
@@ -1023,7 +1051,7 @@
           hidePlanChoice(els);
           if (pid && EC.PAT && EC.PAT.beginFromLobby) EC.PAT.beginFromLobby(pid);
           if (EC.PAT && EC.PAT.startPending) EC.PAT.startPending('ZEN');
-          SIM.inLobby = false;
+          _setInLobby(false);
           hide(els);
         });
       }
@@ -1036,7 +1064,7 @@
           hidePlanChoice(els);
           if (pid && EC.PAT && EC.PAT.beginFromLobby) EC.PAT.beginFromLobby(pid);
           if (EC.PAT && EC.PAT.startPending) EC.PAT.startPending('TRANQUILITY');
-          SIM.inLobby = false;
+          _setInLobby(false);
           hide(els);
         });
       }
@@ -1048,7 +1076,7 @@
           hidePlanChoice(els);
           if (pid && EC.PAT && EC.PAT.beginFromLobby) EC.PAT.beginFromLobby(pid);
           if (EC.PAT && EC.PAT.startPending) EC.PAT.startPending('TRANSCENDENCE');
-          SIM.inLobby = false;
+          _setInLobby(false);
           hide(els);
         });
       }
@@ -1063,7 +1091,7 @@
     }
 
     // Start in lobby by default.
-    SIM.inLobby = true;
+    _setInLobby(true);
     show(els);
   }
 
@@ -1226,6 +1254,10 @@ function hidePlanChoice(els) {
 
 function render() {
     const els = ensureElements();
+    const snap = _snap();
+    const SIM = snap.SIM;
+    const UI = snap.UI;
+    const RSTATE = snap.RSTATE;
     if (!els.overlay) return;
     const want = !!(SIM && SIM.inLobby);
     if (want) {
@@ -1266,9 +1298,10 @@ function render() {
       } catch (_) { /* ignore */ }
 
       // Ensure list stays current.
-      const stamp = (EC.UI_STATE && EC.UI_STATE._lobbyDirtyStamp) ? EC.UI_STATE._lobbyDirtyStamp : 0;
-      if (EC.UI_STATE && EC.UI_STATE._lobbyLastStamp !== stamp) {
-        EC.UI_STATE._lobbyLastStamp = stamp;
+      const UI = _snap().UI;
+    const stamp = (UI && UI._lobbyDirtyStamp) ? UI._lobbyDirtyStamp : 0;
+      if (UI && UI._lobbyLastStamp !== stamp) {
+        UI._lobbyLastStamp = stamp;
         renderList(els);
       }
 

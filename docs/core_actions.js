@@ -11,10 +11,9 @@
   }
 
   function _stampControlsSync(i) {
-    const SIM = EC.SIM;
-    if (!SIM) return;
-    SIM._controlsSyncStamp = (SIM._controlsSyncStamp || 0) + 1;
-    SIM._controlsSyncSel = i;
+    const UI_STATE = EC.UI_STATE || (EC.UI_STATE = {});
+    UI_STATE._controlsSyncStamp = (UI_STATE._controlsSyncStamp || 0) + 1;
+    UI_STATE._controlsSyncSel = i;
   }
 
   function _getAM() {
@@ -32,6 +31,21 @@
   // ---------------------------------------------------------------------------
   // Public EC.ACTIONS implementations
   // ---------------------------------------------------------------------------
+
+  // Select the active well (presentation should call via EC.ENGINE.dispatch).
+  MOD.selectWell = function selectWell(i) {
+    const idx = (typeof i === 'number') ? (i | 0) : -1;
+    if (!(idx >= 0 && idx < 6)) return { ok: false, reason: 'invalid_idx', well: idx };
+
+    // Canonical selection lives in UI_STATE (presentation context).
+    const UI_STATE = EC.UI_STATE || (EC.UI_STATE = {});
+    UI_STATE.selectedWellIndex = idx;
+
+    // Stamp controls sync (selection is UI-only; SIM does not store selectedWellIndex).
+    _stampControlsSync(idx);
+
+    return { ok: true, well: idx };
+  };
 
   MOD.flickStep = function flickStep(i, dA, dS) {
     const SIM = EC.SIM;
@@ -126,4 +140,83 @@
 
     return { ok: true, reason: 'ok', cost: pairUnits, well: i, opp: j };
   };
+  // ---------------------------------------------------------------------------
+  // UI-facing helpers (to keep presentation from mutating SIM directly)
+  // ---------------------------------------------------------------------------
+
+  MOD.toggleAutoTest = function toggleAutoTest() {
+    const SIM = EC.SIM;
+    if (!SIM) return _missing();
+    SIM.autoTest = !SIM.autoTest;
+    return { ok: true, on: !!SIM.autoTest };
+  };
+
+  MOD.markAutoWinHandled = function markAutoWinHandled(flag = true) {
+    const SIM = EC.SIM;
+    if (!SIM) return _missing();
+    SIM._autoWinHandled = !!flag;
+    return { ok: true };
+  };
+
+
+MOD.setUiPaused = function setUiPaused(flag) {
+  const SIM = EC.SIM;
+  if (!SIM) return { ok: false, reason: 'missing_sim' };
+  SIM._uiPaused = !!flag;
+  return { ok: true, paused: !!SIM._uiPaused };
+};
+
+
+  MOD.ackBreakModal = function ackBreakModal() {
+    const SIM = EC.SIM;
+    if (!SIM) return _missing();
+    let modal = null;
+    try { modal = SIM._breakModal || null; } catch (_) { modal = null; }
+    try { SIM._breakModal = null; } catch (_) {}
+    try { SIM._breakPaused = false; } catch (_) {}
+    return { ok: true, modal };
+  };
+
+  MOD.recordTutLastAction = function recordTutLastAction(payload) {
+    const SIM = EC.SIM;
+    if (!SIM) return _missing();
+    if (!SIM.tutorialActive) return { ok: false, reason: 'notutorial' };
+    if (!payload || typeof payload !== 'object') return { ok: false, reason: 'badpayload' };
+    SIM._tutLastAction = payload;
+    return { ok: true };
+  };
+
+  MOD.setInLobby = function setInLobby(flag) {
+    const SIM = EC.SIM;
+    if (!SIM) return { ok: false, reason: 'missing_sim' };
+    SIM.inLobby = !!flag;
+    return { ok: true, inLobby: !!SIM.inLobby };
+  };
+
+
+  // Wrap all actions so direct EC.ACTIONS.* calls are considered "allowed" SIM writes
+  // by the SIM write-guard (best-effort; idempotent).
+  try {
+    const A = EC.ACTIONS || MOD;
+    if (A) {
+      Object.keys(A).forEach((name) => {
+        const fn = A[name];
+        if (typeof fn !== 'function') return;
+        if (fn.__ecWrapped) return;
+        const wrapped = function(...args) {
+          try {
+            if (EC.ENGINE && typeof EC.ENGINE._withSimWrites === 'function') {
+              const d = Number(EC.ENGINE._simWriteDepth || 0);
+              if (d > 0) return fn.apply(A, args);
+              return EC.ENGINE._withSimWrites('action:' + name, () => fn.apply(A, args));
+            }
+          } catch (_) {}
+          return fn.apply(A, args);
+        };
+        wrapped.__ecWrapped = true;
+        wrapped.__ecOrig = fn;
+        try { A[name] = wrapped; } catch (_) {}
+      });
+    }
+  } catch (_) {}
 })();

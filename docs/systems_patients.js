@@ -15,6 +15,16 @@
 
   const T = () => (EC.TUNE || {});
 
+  // Route lobby state changes through ACTIONS (single SIM write point).
+  function _setInLobby(flag) {
+    try {
+      if (EC.ACTIONS && typeof EC.ACTIONS.setInLobby === 'function') return EC.ACTIONS.setInLobby(!!flag);
+      const eng = EC.ENGINE;
+      if (eng && typeof eng.dispatch === 'function') return eng.dispatch('setInLobby', !!flag);
+    } catch (_) {}
+    return { ok: false, reason: 'missing_setInLobby' };
+  }
+
   const hueName = (i) => (EC.hueLabel ? EC.hueLabel(i) : ((CONST.HUES && CONST.HUES[i]) ? CONST.HUES[i] : `Hue ${i}`));
   const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
   const rand = (a, b) => (a + Math.random() * (b - a));
@@ -1064,7 +1074,7 @@ function _uniq(arr) {
     SIM._patientId = p.id;
     SIM._patientLevelId = def.id;
     SIM._patientPlanKey = plan && plan.planKey ? plan.planKey : useKey;
-    SIM.inLobby = false;
+    _setInLobby(false);
 
     STATE.activePatientId = p.id;
 
@@ -1213,7 +1223,7 @@ if (pk === 'INTAKE') {
     STATE.activePatientId = null;
     STATE.pendingStartId = null;
 
-    SIM.inLobby = true;
+    _setInLobby(true);
     SIM._patientActive = false;
     SIM._patientId = null;
     SIM.patientTraits = [];
@@ -1222,7 +1232,7 @@ if (pk === 'INTAKE') {
 
     if (SIM && typeof SIM.initMVP === 'function') {
       SIM.initMVP(1);
-      SIM.inLobby = true;
+      _setInLobby(true);
     }
 
     if (EC.UI_STATE) EC.UI_STATE._lobbyDirtyStamp = (EC.UI_STATE._lobbyDirtyStamp || 0) + 1;
@@ -1235,13 +1245,13 @@ if (pk === 'INTAKE') {
   }
 
 function openLobbyPause() {
-    SIM.inLobby = true;
+    _setInLobby(true);
     // Keep SIM._patientActive + current sim state intact for Resume.
     if (EC.UI_STATE) EC.UI_STATE._lobbyDirtyStamp = (EC.UI_STATE._lobbyDirtyStamp || 0) + 1;
   }
 
   function resumeFromLobby() {
-    SIM.inLobby = false;
+    _setInLobby(false);
     if (EC.UI_STATE) EC.UI_STATE._lobbyDirtyStamp = (EC.UI_STATE._lobbyDirtyStamp || 0) + 1;
   }
 

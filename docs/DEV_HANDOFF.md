@@ -1,12 +1,29 @@
 # Emotioncraft — Current Build Handoff (2026-02-13)
 
-Build ID: **v0_2_103_passD (pass7)**
+Build ID: **v0_2_103_passD (passA9)**
 
 ## Non-negotiables (project guardrails)
 - **docs/** is the runnable web root (GitHub Pages).
 - **No ES modules / no bundler.** Single global namespace: `window.EC`.
 - Keep existing file split; only add new files if necessary and wire them into `docs/index.html` script order.
 - Do **not** shrink the Pixi gameplay area; HUD/drawer changes must remain overlay-only.
+
+## Engine façade (Pass A1 — boundary start)
+- New façade: `docs/core_engine.js` exposes `EC.ENGINE.dispatch(actionName, ...args)` -> calls `EC.ACTIONS[actionName](...args)` (best-effort, no-throw).
+- `EC.ENGINE.getSnapshot()` returns `{ SIM: EC.SIM, UI: EC.UI_STATE, RENDER: EC.RENDER_STATE }` (references).
+- `EC.ENGINE.tick(delta)` brackets `EC.tickEngine(delta)` (sim only) and then calls `EC.tickUI(safeDt)` outside the bracket; falls back to `EC.tick(delta)` if split tick is unavailable.
+- **Rule start:** presentation modules should not mutate `EC.SIM` directly; route SIM writes through `EC.ENGINE.dispatch(...)` (or `EC.ACTIONS.*` when needed).
+- Render-only layout state moved under `EC.RENDER_STATE.layout` (`mvpGeom`, `psycheRadius`). Render code must not write these into SIM.
+- Pass A2: presentation no longer writes SIM directly for: autoTest toggle, auto-win handled flag, break modal ack/close, tutorial last-action recording, and HUD selDrive (moved to EC.UI_STATE).
+- Pass A3: canonical selected well moved to `EC.UI_STATE.selectedWellIndex`; presentation reads prefer UI_STATE.
+- Pass A5: `EC.SIM` no longer stores selection at all (no `SIM selectedWellIndex`).
+- Pass A6: Control-sync stamps moved from SIM into `EC.UI_STATE._controlsSyncStamp/_controlsSyncSel` (ui_controls reads UI_STATE). Engine systems route lobby state changes through `EC.ACTIONS.setInLobby` (systems no longer assign `SIM.inLobby` directly).
+- Pass A7: Optional debug SIM root write-guard (?simguard=1 or UI_STATE.debugStrict). Warns on SIM root writes outside ENGINE dispatch/tickEngine brackets; warn-only with cap + stats in UI_STATE.simGuardStats.
+- Pass A8: Tick split into `EC.tickEngine` (sim) + `EC.tickUI` (presentation). Engine bracketing covers only tickEngine; UI runs outside bracket.
+- Pass A9: SIM write-guard improved — tag chaining uses '>' for nested contexts (e.g., tickEngine>dispatch:spinZero). Action wrappers only bracket when depth==0 (dispatch/tickEngine tags stay clean). Debug overlay prints sim-guard suspicious-write totals (top keys shown when ?inputdebug=1).
+- Pass A10: Presentation reads begin migrating to EC.ENGINE.getSnapshot() (Phase 1: ui_hud.js, ui_controls.js, render_wells_update.js).
+- Pass A4: Lobby no longer mutates `SIM.inLobby` directly; uses `EC.ACTIONS.setInLobby` via `EC.ENGINE.dispatch('setInLobby', ...)`.
+
 
 ## What this build is
 - Lobby-driven patient roster (10 total; lobby shows 3 slots at a time).
@@ -84,3 +101,17 @@ Source: `docs/systems_patients.js`, `docs/ui_lobby.js`
 4) Trigger a mental break -> hit-stop + FX + log entry; quirks cancel and ramp timers reset.
 5) Enable Debug -> quirk timeline fills as quirks occur; Copy Debug copies text.
 6) Zen / Tranquility / Transcendence -> top-right timer counts down; timer-expiry loss reason is exactly "Time expired."
+
+**Pass A5 (selection cleanup)**
+- `EC.SIM` no longer stores selection. All selection reads use `EC.UI_STATE.selectedWellIndex`.
+
+**Pass A11 (snapshot reads phase 2)**
+- Presentation modules now read state via `EC.ENGINE.getSnapshot()` in: `render_wells`, `render_wells_init`, `systems_input`, `ui_lobby`.
+- Selection reads remain UI-only: `EC.UI_STATE.selectedWellIndex`.
+
+**Pass A12 (pause via ACTIONS + snapshot glue)**
+- Added `EC.ACTIONS.setUiPaused(flag)`; Log overlay pause now uses `EC.ENGINE.dispatch('setUiPaused', ...)` (fallback to ACTIONS). HUD no longer writes `SIM._uiPaused` directly.
+- ui_app seeds SIM/UI pointers via `EC.ENGINE.getSnapshot()` (defensive fallback).
+
+**Pass A13 (runnability smoke pass)**
+- No functional changes; metadata-only pass to mark a clean baseline after A12 migration.

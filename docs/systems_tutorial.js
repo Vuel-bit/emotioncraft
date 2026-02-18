@@ -40,7 +40,21 @@
   }
 
   function _forceSelect(i) {
-    try { SIM.selectedWellIndex = i; } catch(_) {}
+    try {
+      const eng = EC.ENGINE;
+      if (eng && typeof eng.dispatch === 'function') eng.dispatch('selectWell', i);
+      else if (EC.ACTIONS && typeof EC.ACTIONS.selectWell === 'function') EC.ACTIONS.selectWell(i);
+    } catch(_) {}
+  }
+
+  // Route lobby state changes through ACTIONS (single SIM write point).
+  function _setInLobby(flag) {
+    try {
+      if (EC.ACTIONS && typeof EC.ACTIONS.setInLobby === 'function') return EC.ACTIONS.setInLobby(!!flag);
+      const eng = EC.ENGINE;
+      if (eng && typeof eng.dispatch === 'function') return eng.dispatch('setInLobby', !!flag);
+    } catch (_) {}
+    return { ok: false, reason: 'missing_setInLobby' };
   }
 
   function _clearLastAction() {
@@ -314,7 +328,7 @@
               try {
                 if (EC.PAT && typeof EC.PAT.backToLobby === 'function') EC.PAT.backToLobby();
                 else {
-                  SIM.inLobby = true;
+                  _setInLobby(true);
                   const ov = document.getElementById('lobbyOverlay');
                   if (ov) ov.classList.add('show');
                 }

@@ -169,9 +169,14 @@
   // Returns { cost, i, j, baseCost1, pushCost1, baseCost2, pushCost2 } where cost is a FLOAT
   // in the same energy scale as Apply/swipes (before integer "HUD units" rounding).
   function computeZeroPairCost(i) {
+    const idx = (typeof i === 'number') ? (i | 0) : -1;
+    if (!(idx >= 0 && idx < 6)) {
+      return { cost: 0, i: -1, j: -1, baseCost1: 0, pushCost1: 0, baseCost2: 0, pushCost2: 0, reason: 'nosel' };
+    }
+
     const SIM = EC.SIM;
     const T = EC.TUNE || {};
-    if (!SIM || !SIM.wellsA || !SIM.wellsS) return { cost: 0, i, j: _oppIndex(i) };
+    if (!SIM || !SIM.wellsA || !SIM.wellsS) return { cost: 0, i: idx, j: _oppIndex(idx), baseCost1: 0, pushCost1: 0, baseCost2: 0, pushCost2: 0, reason: 'missing_sim' };
 
     const A_MIN = (typeof T.A_MIN === 'number') ? T.A_MIN : 0;
     const A_MAX = (typeof T.A_MAX === 'number') ? T.A_MAX : 100;
@@ -180,8 +185,6 @@
 
     const COST_NORM = (typeof T.COST_NORM === 'number' && T.COST_NORM !== 0) ? T.COST_NORM : 100;
     const kPush = (typeof T.OPPOSITE_PUSH_K === 'number') ? T.OPPOSITE_PUSH_K : 0;
-
-    const idx = (typeof i === 'number') ? i : (typeof SIM.selectedWellIndex === 'number' ? SIM.selectedWellIndex : -1);
     const j = _oppIndex(idx);
     if (!(idx >= 0 && idx < 6) || !(j >= 0 && j < 6)) return { cost: 0, i: idx, j };
 
@@ -235,7 +238,10 @@
 
   // Canonical zero-pair cost: averaged across both selection directions for symmetry.
   AM.computeZeroPairCostCanonical = function computeZeroPairCostCanonical(i) {
-    const idx = (typeof i === 'number') ? i : (EC.SIM && typeof EC.SIM.selectedWellIndex === 'number' ? EC.SIM.selectedWellIndex : -1);
+    const idx = (typeof i === 'number') ? (i | 0) : -1;
+    if (!(idx >= 0 && idx < 6)) {
+      return { cost: 0, i: -1, j: -1, dirA: 0, dirB: 0, reason: 'nosel' };
+    }
     const j = _oppIndex(idx);
     const c1 = computeZeroPairCost(idx);
     const c2 = computeZeroPairCost(j);

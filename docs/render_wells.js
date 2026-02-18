@@ -32,6 +32,23 @@
   // Authoritative well geometry for DOM hit-testing (updated by MVP view update)
   EC.RENDER.wellGeom = EC.RENDER.wellGeom || { cx: new Array(6).fill(0), cy: new Array(6).fill(0), hitR: new Array(6).fill(0) };
 
+  function _snap(){
+    try {
+      if (EC.ENGINE && typeof EC.ENGINE.getSnapshot === 'function') {
+        const s = EC.ENGINE.getSnapshot();
+        return { SIM: (s && s.SIM) ? s.SIM : (EC.SIM || {}), UI: (s && s.UI) ? s.UI : (EC.UI_STATE || {}), RSTATE: (s && s.RENDER) ? s.RENDER : (EC.RENDER_STATE || { flags:{}, layout:{} }) };
+      }
+    } catch (_) {}
+    try { EC.UI_STATE = EC.UI_STATE || {}; } catch (_) {}
+    try {
+      EC.RENDER_STATE = EC.RENDER_STATE || { flags:{}, layout:{} };
+      EC.RENDER_STATE.flags = EC.RENDER_STATE.flags || {};
+      EC.RENDER_STATE.layout = EC.RENDER_STATE.layout || {};
+    } catch (_) {}
+    return { SIM: EC.SIM || {}, UI: EC.UI_STATE || {}, RSTATE: EC.RENDER_STATE || { flags:{}, layout:{} } };
+  }
+
+
   const PSYCHE_COLORS = {
   red:    0xff4650,
   purple: 0xa46bff,
@@ -160,8 +177,17 @@ function _trendGlyph(ratePerSec) {
 function renderPsyche() {
   ensurePsycheView();
 
-  const SIM = EC.SIM;
+  const snap = _snap();
+  const SIM = snap.SIM;
+  const UI = snap.UI;
+  const RSTATE = snap.RSTATE;
   if (!SIM || !EC.RENDER || !EC.RENDER.psycheG) return;
+
+  // Render state bucket (created by ENGINE.getSnapshot or _snap fallback)
+  RSTATE.flags = RSTATE.flags || {};
+  RSTATE.layout = RSTATE.layout || {};
+  if (!('mvpPrevSpinT' in RSTATE)) RSTATE.mvpPrevSpinT = null;
+  const LAYOUT = (RSTATE.layout = RSTATE.layout || {});
 
   const hues = (EC.CONST && EC.CONST.HUES) || EC.HUES || ['red', 'purple', 'blue', 'green', 'yellow', 'orange'];
   const P = SIM.psyP || new Array(6).fill(0);
@@ -170,10 +196,10 @@ function renderPsyche() {
   const nowMs = (typeof performance !== 'undefined' && performance && typeof performance.now === 'function') ? performance.now() : Date.now();
 
   // --- Safe circle inside the well ring (guaranteed no collision with wells) ---
-  const geom = SIM.mvpGeom || null;
+  const geom = (LAYOUT && LAYOUT.mvpGeom) ? LAYOUT.mvpGeom : (SIM.mvpGeom || null);
   const ringR = (geom && typeof geom.ringR === 'number')
     ? geom.ringR
-    : ((typeof SIM.psycheRadius === 'number') ? SIM.psycheRadius * 2.4 : 140);
+    : ((typeof LAYOUT.psycheRadius==='number') ? LAYOUT.psycheRadius * 2.4 : ((typeof SIM.psycheRadius==='number') ? SIM.psycheRadius * 2.4 : 140));
 
   const wellMaxR = (geom && typeof geom.wellMaxR === 'number')
     ? geom.wellMaxR
@@ -531,7 +557,15 @@ function layout() {
   if (EC.ensurePsycheView) EC.ensurePsycheView();
 
   const app = EC.RENDER.app;
-  const SIM = EC.SIM;
+  const snap = _snap();
+  const SIM = snap.SIM;
+  const UI = snap.UI;
+  const RSTATE = snap.RSTATE;
+  // Render state bucket (created by ENGINE.getSnapshot or _snap fallback)
+  RSTATE.flags = RSTATE.flags || {};
+  RSTATE.layout = RSTATE.layout || {};
+  if (!('mvpPrevSpinT' in RSTATE)) RSTATE.mvpPrevSpinT = null;
+  const LAYOUT = (RSTATE.layout = RSTATE.layout || {});
 
   // Use logical pixels (app.screen) for layout; renderer.* are device pixels.
   const w = app.screen.width;
@@ -573,7 +607,7 @@ function layout() {
     const wellMaxR = clamp(boardSize * 0.145, wellMinR + 8, 110);
     const ringR = clamp(boardSize * 0.43, psycheR + wellMaxR + 18, boardSize * 0.49);
 
-    SIM.mvpGeom = {
+    LAYOUT.mvpGeom = {
       cx, cy,
       boardSize,
       psycheR,
@@ -590,8 +624,8 @@ function layout() {
     if (EC.RENDER && EC.RENDER.psycheLayer) {
       EC.RENDER.psycheLayer.position.set(cx, cy);
     }
-    // Store radius for renderPsyche
-    SIM.psycheRadius = psycheR;
+    // Store radius for renderPsyche (render-only state; do not write to SIM)
+    LAYOUT.psycheRadius = psycheR;
 
     // Place psyche debug text at top-left
     if (EC.RENDER && EC.RENDER.psycheDebugText) {

@@ -40,7 +40,67 @@
   };
 
   // Attach MVP fields onto EC.SIM (does not replace existing SIM usage).
-  const SIM = (EC.SIM = EC.SIM || {});
+  let SIM = (EC.SIM = EC.SIM || {});
+
+  // Debug SIM root write-guard (warn-only). Enable via:
+  // - URL: ?simguard=1
+  // - OR EC.UI_STATE.debugStrict === true
+  // Root-level only (catches SIM.someKey = ...). Never blocks, never throws.
+  (function _maybeWrapSimGuard() {
+    try {
+      const U = (EC.UI_STATE = EC.UI_STATE || {});
+      const qs = (typeof location !== 'undefined' && location && typeof location.search === 'string') ? location.search : '';
+      const enabled = (U && U.debugStrict === true) || (qs.indexOf('simguard=1') !== -1);
+      if (!enabled) return;
+      if (U._simGuardWrapped) return;
+
+      const target = EC.SIM;
+      if (!target || typeof target !== 'object') return;
+
+      U._simGuardWrapped = true;
+      U.simGuardStats = U.simGuardStats || { count: 0, byKey: {} };
+      if (typeof U._simGuardWarnBudget !== 'number') U._simGuardWarnBudget = 50;
+
+      EC.SIM = new Proxy(target, {
+        set(t, prop, value, receiver) {
+          let allowed = false;
+          try {
+            // Before ENGINE exists (load-order), allow bootstrap writes to avoid noisy startup spam.
+            if (!EC.ENGINE) allowed = true;
+            else allowed = !!(EC.ENGINE && EC.ENGINE._simWriteDepth > 0);
+          } catch (_) {}
+
+          if (!allowed) {
+            try {
+              const key = String(prop);
+              const stats = (U.simGuardStats = U.simGuardStats || { count: 0, byKey: {} });
+              stats.count = (stats.count || 0) + 1;
+              stats.byKey = stats.byKey || {};
+              stats.byKey[key] = (stats.byKey[key] || 0) + 1;
+
+              if ((U._simGuardWarnBudget || 0) > 0) {
+                U._simGuardWarnBudget = (U._simGuardWarnBudget || 0) - 1;
+                const tag = (EC.ENGINE && EC.ENGINE._simWriteTag) ? EC.ENGINE._simWriteTag : '';
+                console.warn('[SIM write-guard] root write outside ENGINE:', key, 'tag=', tag);
+                if (U._simGuardWarnBudget === 0) {
+                  console.warn('[SIM write-guard] further warnings suppressed');
+                }
+              }
+            } catch (_) {}
+          }
+
+          try { return Reflect.set(t, prop, value, receiver); } catch (_) {
+            try { t[prop] = value; } catch (_) {}
+            return true;
+          }
+        }
+      });
+
+      // Ensure local SIM alias points at the guarded SIM proxy.
+      SIM = EC.SIM;
+    } catch (_) {}
+  })();
+
   SIM.wellsA = SIM.wellsA || new Array(6).fill(50);
   SIM.wellsS = SIM.wellsS || new Array(6).fill(0);
   SIM.psyP   = SIM.psyP   || new Array(6).fill(100);
@@ -341,8 +401,16 @@
     SIM.energy = _ecStartEnergy();
 
     // Selection defaults + slider resync stamp
-    SIM.selectedWellIndex = (typeof SIM.selectedWellIndex === 'number') ? SIM.selectedWellIndex : 0;
-    if (SIM.selectedWellIndex < 0 || SIM.selectedWellIndex > 5) SIM.selectedWellIndex = 0;
+    // Selection is UI-only (EC.UI_STATE.selectedWellIndex). SIM must not store selectedWellIndex.
+    try {
+      const UI_STATE = EC.UI_STATE || (EC.UI_STATE = {});
+      let sel = (typeof UI_STATE.selectedWellIndex === 'number') ? (UI_STATE.selectedWellIndex | 0) : 0;
+      if (!(sel >= 0 && sel < 6)) sel = 0;
+      UI_STATE.selectedWellIndex = sel;
+      // Force control panel to resync to current selection.
+      UI_STATE._controlsSyncStamp = (UI_STATE._controlsSyncStamp || 0) + 1;
+      UI_STATE._controlsSyncSel = sel;
+    } catch (_) {}
 
     SIM._mvpInitStamp = (typeof SIM._mvpInitStamp === 'number') ? (SIM._mvpInitStamp + 1) : 1;
 
@@ -367,8 +435,15 @@
       SIM.mvpWin = false;
       SIM.hasWon = false;
       SIM._loggedMvpWin = false;
-      // Keep selection valid but safe.
-      if (typeof SIM.selectedWellIndex !== 'number') SIM.selectedWellIndex = 0;
+      // Clamp UI selection and resync controls (selection is UI-only).
+      try {
+        const UI_STATE = EC.UI_STATE || (EC.UI_STATE = {});
+        let sel = (typeof UI_STATE.selectedWellIndex === 'number') ? (UI_STATE.selectedWellIndex | 0) : 0;
+        if (!(sel >= 0 && sel < 6)) sel = 0;
+        UI_STATE.selectedWellIndex = sel;
+        UI_STATE._controlsSyncStamp = (UI_STATE._controlsSyncStamp || 0) + 1;
+      UI_STATE._controlsSyncSel = sel;
+      } catch (_) {}
     }
   };
 

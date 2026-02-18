@@ -184,9 +184,15 @@
   
   
   function updateMvpBoardView() {
-    const SIM = EC.SIM;
+    const snap = (EC.ENGINE && EC.ENGINE.getSnapshot) ? EC.ENGINE.getSnapshot() : { SIM: (EC.SIM||{}), UI: (EC.UI_STATE||{}), RENDER: (EC.RENDER_STATE||{}) };
+    const SIM = snap.SIM;
+    const UI_STATE = snap.UI;
+    const RSTATE = snap.RENDER;
     if (!SIM || !SIM.wellsA || SIM.wellsA.length !== 6) return;
-    const RSTATE = (EC.RENDER_STATE = EC.RENDER_STATE || { flags: {}, layout: {}, mvpPrevSpinT: null });
+    // RSTATE is ensured by ENGINE.getSnapshot(); fill missing defaults here.
+    if (!RSTATE.flags) RSTATE.flags = {};
+    if (!RSTATE.layout) RSTATE.layout = {};
+    if (!('mvpPrevSpinT' in RSTATE)) RSTATE.mvpPrevSpinT = null;
     if (EC.RENDER_WELLS_INIT && EC.RENDER_WELLS_INIT.ensure) EC.RENDER_WELLS_INIT.ensure();
     if (!EC.RENDER || !EC.RENDER.mvpWells) return;
     // Defensive: if views didn't fully build (e.g., during a reset), don't hard-crash.
@@ -195,14 +201,16 @@
       return;
     }
   
-    const geom = SIM.mvpGeom;
+    const layout = (RSTATE && RSTATE.layout) ? RSTATE.layout : null;
+    const geom = (layout && layout.mvpGeom) ? layout.mvpGeom : SIM.mvpGeom;
     if (!geom) return;
 
     // ------------------------------------------------------------
     // Authoritative well geometry for DOM hit-testing (mobile)
     // Stored in canvas-local coordinates (Pixi screen coords)
     // ------------------------------------------------------------
-    const dbg = (EC.UI_STATE = EC.UI_STATE || {}).inputDbg = (EC.UI_STATE.inputDbg || {});
+    UI_STATE.inputDbg = UI_STATE.inputDbg || {};
+    const dbg = UI_STATE.inputDbg;
     const RENDER = (EC.RENDER = EC.RENDER || {});
     const WG = (RENDER.wellGeom = RENDER.wellGeom || {
       cx: new Array(6).fill(NaN),
@@ -578,7 +586,8 @@
       }
 
       // Crisp rim + selection (separate from outer halo)
-      const sel = (typeof SIM.selectedWellIndex === 'number') ? SIM.selectedWellIndex : -1;
+      // UI_STATE comes from ENGINE snapshot
+      const sel = (typeof UI_STATE.selectedWellIndex === 'number') ? UI_STATE.selectedWellIndex : -1;
       const isSel = (i === sel);
       const tutOn = !!SIM.tutorialActive;
       const tutStep = (typeof SIM._tutStep === 'number') ? (SIM._tutStep|0) : 0;
@@ -926,7 +935,7 @@
     // Debug-only: throttled inspector to confirm interior layers are renderable.
     if (EC.DEBUG) {
       const nowS = (typeof SIM.runSeconds === 'number') ? SIM.runSeconds : tNow;
-      const st = (EC.RENDER_STATE = EC.RENDER_STATE || {});
+      const st = RSTATE;
       if (!st._dbgLiquidNext || nowS >= st._dbgLiquidNext) {
         st._dbgLiquidNext = nowS + 1.0;
         try {

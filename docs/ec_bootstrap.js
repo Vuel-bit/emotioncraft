@@ -15,10 +15,21 @@ Emotioncraft — bootstrap + hardening helpers (no gameplay behavior changes)
   // Anything that must survive across frames/reset/level changes should live here.
   EC.UI_STATE = EC.UI_STATE || {
     prev: {},
+    selectedWellIndex: 0,
     lastPreview: null,
     debugOn: false,
     debugStrict: false,
   };
+
+  // Clamp/normalize UI selection (canonical selected well lives in UI_STATE).
+  try {
+    const U = EC.UI_STATE || (EC.UI_STATE = {});
+    let idx = (typeof U.selectedWellIndex === 'number') ? (U.selectedWellIndex | 0) : 0;
+    if (!(idx >= 0 && idx < 6)) idx = 0;
+    U.selectedWellIndex = idx;
+  } catch (_) {
+    /* never throw */
+  }
 
   EC.RENDER_STATE = EC.RENDER_STATE || {
     flags: {},

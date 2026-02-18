@@ -1,3 +1,6 @@
+Pass A13 (runnability smoke pass)
+- No functional changes; metadata-only pass to mark post-migration smoke-check baseline.
+
 ## v0_2_103_passD (2026-02-12)
 - passD Pass 1 — boot/start hardening (main.js).
 - Bootstrap: add EC._registerModule + EC.safe (debug-only warnings).
@@ -90,3 +93,25 @@ Pass 39: Hotfixes — restored desktop long-press drag scaling (canonical releas
 Pass 40: Stage pointer-up fallback now routes through the canonical release resolver (removes duplicate flick-only logic). Weekly fallback label preserved (no underscore-normalized labels for unknown plan keys). No behavior changes.
 
 Pass 41: Updated Tranquility plan bands/thresholds in data_plans. Persisted spill/break info popups once per user via Firestore ui.seenFirstPopups (still session-only when signed out).
+
+Pass A1: Added core_engine.js (EC.ENGINE facade) and wired into index.html. Began enforcing architecture boundary: presentation modules do not mutate EC.SIM directly (selectWell routed through EC.ENGINE/EC.ACTIONS). Render-only layout state (mvpGeom, psycheRadius) moved to EC.RENDER_STATE.layout (render no longer writes these into SIM).
+
+Pass A2: Added UI-facing actions (toggleAutoTest, markAutoWinHandled, ackBreakModal, recordTutLastAction) to keep presentation from mutating SIM directly. Updated ui_hud.js, ui_controls.js, and systems_input.js to route SIM mutations via EC.ENGINE.dispatch (fallback to EC.ACTIONS). Removed broken UI-side break toast timer write from ui_hud.js init; moved HUD selDrive to EC.UI_STATE.
+
+Pass A3: Selection migrated to UI_STATE (canonical `EC.UI_STATE.selectedWellIndex`). `EC.ACTIONS.selectWell` now writes UI_STATE and mirrors SIM for compatibility. Presentation modules (ui_controls, ui_hud, render_wells_update) now read selection from UI_STATE first (SIM fallback only).
+
+Pass A4: Lobby boundary cleanup — added `EC.ACTIONS.setInLobby` and updated ui_lobby to route all inLobby mutations via `EC.ENGINE.dispatch`/ACTIONS. ui_lobby no longer initializes EC.SIM during module load.
+
+Pass A5: Removed SIM selectedWellIndex entirely. Selection is UI-only in EC.UI_STATE.selectedWellIndex; removed SIM mirroring + all SIM selection fallbacks (core_actions, core_model, core_action_math, ui_controls, ui_hud, render_wells_update).
+
+Pass A6: Moved control-sync stamps (_controlsSyncStamp/_controlsSyncSel) from SIM to EC.UI_STATE (core_actions/core_model writers + ui_controls reader). Engine systems no longer assign SIM.inLobby directly; route all inLobby mutations through EC.ACTIONS.setInLobby (systems_patients, systems_tutorial).
+
+Pass A7: Added optional debug SIM root write-guard (warn-only; enable via ?simguard=1 or UI_STATE.debugStrict). Main ticker now prefers EC.ENGINE.tick; ENGINE dispatch/tick bracket SIM writes via ENGINE._withSimWrites; direct EC.ACTIONS calls are wrapped to be bracketed when ENGINE is present.
+
+Pass A8: Tick split into EC.tickEngine (sim mutations only) and EC.tickUI (presentation updates). EC.tick remains as a thin wrapper. EC.ENGINE.tick now brackets only tickEngine and runs tickUI outside the bracket so SIM write-guard can reliably warn on accidental UI/root SIM writes.
+Pass A9: SIM write-guard improvements — ENGINE _withSimWrites now chains tags with '>' for nested contexts; direct ACTIONS wrapper only brackets when not already inside ENGINE bracket (cleaner tags); debug overlay shows sim-guard suspicious-write totals and (when ?inputdebug=1) top keys.
+Pass A10: Phase 1 read-surface migration — ENGINE.getSnapshot standardized; ui_hud.js, ui_controls.js, and render_wells_update.js now read SIM/UI/RENDER via snapshot locals (defensive fallback when ENGINE missing). No behavior changes.
+
+Pass A11: Phase 2 read-surface migration — render_wells.js, render_wells_init.js, systems_input.js, ui_lobby.js now read SIM/UI/RENDER via EC.ENGINE.getSnapshot() locals (defensive _snap fallback inside each module). No behavior changes.
+
+Pass A12: Removed the last presentation→SIM write (SIM._uiPaused). Added `EC.ACTIONS.setUiPaused`; ui_hud Log overlay toggles pause via ENGINE.dispatch/ACTIONS. ui_hud init handlers use snapshot locals; ui_app seeds ctx from snapshot. No behavior changes.
