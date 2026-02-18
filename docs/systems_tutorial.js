@@ -349,8 +349,20 @@
             onOk: function () {
               try { MOD.stop(); } catch (_) {}
               try {
-                if (EC.PAT && typeof EC.PAT.backToLobby === 'function') EC.PAT.backToLobby();
-                else {
+                let did = false;
+                try {
+                  if (EC.ENGINE && typeof EC.ENGINE.dispatch === 'function') {
+                    EC.ENGINE.dispatch('patBackToLobby');
+                    did = true;
+                  } else if (EC.ACTIONS && typeof EC.ACTIONS.patBackToLobby === 'function') {
+                    EC.ACTIONS.patBackToLobby();
+                    did = true;
+                  } else if (EC.PAT && typeof EC.PAT.backToLobby === 'function') {
+                    EC.PAT.backToLobby();
+                    did = true;
+                  }
+                } catch (_) {}
+                if (!did) {
                   _setInLobby(true);
                   const ov = document.getElementById('lobbyOverlay');
                   if (ov) ov.classList.add('show');

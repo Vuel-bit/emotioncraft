@@ -206,6 +206,41 @@ MOD.setUiPaused = function setUiPaused(flag) {
     return { ok: true };
   };
 
+  // ---------------------------------------------------------------------------
+  // Patient session transition wrappers (UI should dispatch these; keeps patient
+  // session SIM writes inside the ENGINE/ACTIONS bracket for simguard).
+  // ---------------------------------------------------------------------------
+
+  MOD.patBeginFromLobby = function patBeginFromLobby(pid) {
+    if (!EC.PAT || typeof EC.PAT.beginFromLobby !== 'function') return { ok: false, reason: 'missing_beginFromLobby' };
+    EC.PAT.beginFromLobby(pid);
+    return { ok: true };
+  };
+
+  MOD.patStartPending = function patStartPending(planKey) {
+    if (!EC.PAT || typeof EC.PAT.startPending !== 'function') return { ok: false, reason: 'missing_startPending' };
+    EC.PAT.startPending(planKey);
+    return { ok: true };
+  };
+
+  MOD.patBackToLobby = function patBackToLobby() {
+    if (!EC.PAT || typeof EC.PAT.backToLobby !== 'function') return { ok: false, reason: 'missing_backToLobby' };
+    EC.PAT.backToLobby();
+    return { ok: true };
+  };
+
+  MOD.patOpenLobbyPause = function patOpenLobbyPause() {
+    if (!EC.PAT || typeof EC.PAT.openLobbyPause !== 'function') return { ok: false, reason: 'missing_openLobbyPause' };
+    EC.PAT.openLobbyPause();
+    return { ok: true };
+  };
+
+  MOD.patResumeFromLobby = function patResumeFromLobby() {
+    if (!EC.PAT || typeof EC.PAT.resumeFromLobby !== 'function') return { ok: false, reason: 'missing_resumeFromLobby' };
+    EC.PAT.resumeFromLobby();
+    return { ok: true };
+  };
+
 
 
   // Wrap all actions so direct EC.ACTIONS.* calls are considered "allowed" SIM writes

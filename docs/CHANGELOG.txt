@@ -115,3 +115,7 @@ Pass A11: Phase 2 read-surface migration — render_wells.js, render_wells_init.
 Pass A12: Removed the last presentation→SIM write (SIM._uiPaused). Added `EC.ACTIONS.setUiPaused`; ui_hud Log overlay toggles pause via ENGINE.dispatch/ACTIONS. ui_hud init handlers use snapshot locals; ui_app seeds ctx from snapshot. No behavior changes.
 
 Pass A14: SIM write-guard HUD improvements — stats now always maintain byKey counts, record up to 10 samples (key + tag chain), and the Debug panel always shows top 5 suspicious keys when simguard is enabled (samples shown only with ?inputdebug=1).
+
+Pass A15: Bracketed init/reset entry points — resetRun + initMVP are routed through ENGINE.dispatch/ACTIONS so simguard brackets startup/reset root writes (levelState/mvpWin/mvpLose/gameOver*).
+
+Pass A16: Patient session transitions dispatched — added ACTIONS wrappers for EC.PAT transitions and routed UI call sites (lobby + HUD) through ENGINE.dispatch/ACTIONS to prevent simguard flagging patient-session root writes.

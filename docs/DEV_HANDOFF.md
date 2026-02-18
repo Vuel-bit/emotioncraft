@@ -120,3 +120,6 @@ Source: `docs/systems_patients.js`, `docs/ui_lobby.js`
 
 ### Pass A15
 - Startup/reset + MVP init are routed through ENGINE.dispatch/ACTIONS (resetRun, initMVP) so simguard brackets levelState/mvpWin/mvpLose/gameOver* writes during init/reset.
+
+### Pass A16
+- Patient session transitions are now routed through ENGINE.dispatch/ACTIONS wrappers (beginFromLobby/startPending/resumeFromLobby/openLobbyPause/backToLobby) so simguard does not flag patient-session root writes triggered from UI.

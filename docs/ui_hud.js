@@ -251,11 +251,24 @@
           const isLose = (SIM.levelState === 'lose') || !!SIM.mvpLose || !!SIM.gameOver;
           const resumable = !!(SIM._patientActive && !isWin && !isLose);
 
-          if (resumable && EC.PAT && typeof EC.PAT.openLobbyPause === 'function') {
-            EC.PAT.openLobbyPause();
-            return;
+          if (resumable) {
+            try {
+              if (EC.ENGINE && typeof EC.ENGINE.dispatch === 'function') {
+                const r = EC.ENGINE.dispatch('patOpenLobbyPause');
+                if (r && r.ok) return;
+              }
+              if (EC.ACTIONS && typeof EC.ACTIONS.patOpenLobbyPause === 'function') {
+                const r2 = EC.ACTIONS.patOpenLobbyPause();
+                if (r2 && r2.ok) return;
+              }
+            } catch (_) {}
+            try { if (EC.PAT && typeof EC.PAT.openLobbyPause === 'function') { EC.PAT.openLobbyPause(); return; } } catch (_) {}
           }
-          if (EC.PAT && typeof EC.PAT.backToLobby === 'function') EC.PAT.backToLobby();
+          try {
+            if (EC.ENGINE && typeof EC.ENGINE.dispatch === 'function') { EC.ENGINE.dispatch('patBackToLobby'); return; }
+            if (EC.ACTIONS && typeof EC.ACTIONS.patBackToLobby === 'function') { EC.ACTIONS.patBackToLobby(); return; }
+          } catch (_) {}
+          try { if (EC.PAT && typeof EC.PAT.backToLobby === 'function') EC.PAT.backToLobby(); } catch (_) {}
         } catch (_) { /* ignore */ }
       });
     }
@@ -514,7 +527,11 @@
       if (pk === 'INTAKE') {
         try { if (EC.endAllMentalBreaks) EC.endAllMentalBreaks(); } catch (_) {}
       } else {
-        try { if (EC.PAT && typeof EC.PAT.backToLobby === 'function') EC.PAT.backToLobby(); } catch (_) {}
+        try {
+          if (EC.ENGINE && typeof EC.ENGINE.dispatch === 'function') EC.ENGINE.dispatch('patBackToLobby');
+          else if (EC.ACTIONS && typeof EC.ACTIONS.patBackToLobby === 'function') EC.ACTIONS.patBackToLobby();
+          else if (EC.PAT && typeof EC.PAT.backToLobby === 'function') EC.PAT.backToLobby();
+        } catch (_) {}
         return;
       }
     }

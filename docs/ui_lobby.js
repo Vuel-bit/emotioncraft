@@ -32,6 +32,33 @@
     return { ok: false, reason: 'no_engine' };
   }
 
+  // Patient transition helpers: prefer ENGINE.dispatch (bracketed), fallback to ACTIONS,
+  // last-resort direct EC.PAT call (avoid if possible).
+  function _patBeginFromLobby(pid) {
+    try {
+      if (EC.ENGINE && typeof EC.ENGINE.dispatch === 'function') return EC.ENGINE.dispatch('patBeginFromLobby', pid);
+      if (EC.ACTIONS && typeof EC.ACTIONS.patBeginFromLobby === 'function') return EC.ACTIONS.patBeginFromLobby(pid);
+      if (EC.PAT && typeof EC.PAT.beginFromLobby === 'function') { EC.PAT.beginFromLobby(pid); return { ok: true, legacy: true }; }
+    } catch (_) {}
+    return { ok: false, reason: 'missing_patBeginFromLobby' };
+  }
+  function _patStartPending(planKey) {
+    try {
+      if (EC.ENGINE && typeof EC.ENGINE.dispatch === 'function') return EC.ENGINE.dispatch('patStartPending', planKey);
+      if (EC.ACTIONS && typeof EC.ACTIONS.patStartPending === 'function') return EC.ACTIONS.patStartPending(planKey);
+      if (EC.PAT && typeof EC.PAT.startPending === 'function') { EC.PAT.startPending(planKey); return { ok: true, legacy: true }; }
+    } catch (_) {}
+    return { ok: false, reason: 'missing_patStartPending' };
+  }
+  function _patResumeFromLobby() {
+    try {
+      if (EC.ENGINE && typeof EC.ENGINE.dispatch === 'function') return EC.ENGINE.dispatch('patResumeFromLobby');
+      if (EC.ACTIONS && typeof EC.ACTIONS.patResumeFromLobby === 'function') return EC.ACTIONS.patResumeFromLobby();
+      if (EC.PAT && typeof EC.PAT.resumeFromLobby === 'function') { EC.PAT.resumeFromLobby(); return { ok: true, legacy: true }; }
+    } catch (_) {}
+    return { ok: false, reason: 'missing_patResumeFromLobby' };
+  }
+
 
   function _snap(){
     try {
@@ -951,9 +978,8 @@
     // Resume button (only shown when a session is paused and resumable)
     if (els.resumeBtn) {
       els.resumeBtn.addEventListener('click', () => {
-        if (EC.PAT && typeof EC.PAT.resumeFromLobby === 'function') {
-          EC.PAT.resumeFromLobby();
-        } else {
+        const r = _patResumeFromLobby();
+        if (!r || !r.ok) {
           _setInLobby(false);
         }
         hide(els);
@@ -1005,17 +1031,14 @@
         // Intake gating: first session is always INTAKE (Begin starts immediately).
         if (!p.intakeDone) {
           // Rotation rule: reserve patient (remove from slots + refill) before starting.
-          if (EC.PAT.beginFromLobby && typeof EC.PAT.beginFromLobby === 'function') {
-            EC.PAT.beginFromLobby(pid);
-          }
+          _patBeginFromLobby(pid);
           // Refresh slot list immediately.
           try { renderList(els); } catch (_) {}
 
-          if (EC.PAT.startPending && typeof EC.PAT.startPending === 'function') {
-            EC.PAT.startPending('INTAKE');
-          } else if (EC.PAT.startRun && typeof EC.PAT.startRun === 'function') {
+          const sp = _patStartPending('INTAKE');
+          if (!(sp && sp.ok) && EC.PAT && EC.PAT.startRun && typeof EC.PAT.startRun === 'function') {
             EC.PAT.startRun(pid, 'INTAKE');
-          } else if (EC.PAT.start) {
+          } else if (!(sp && sp.ok) && EC.PAT && EC.PAT.start) {
             EC.PAT.start(pid, 'INTAKE');
           }
           pendingPlanPickPatientId = null;
@@ -1037,8 +1060,8 @@
           const pid = pendingPlanPickPatientId;
           pendingPlanPickPatientId = null;
           hidePlanChoice(els);
-          if (pid && EC.PAT && EC.PAT.beginFromLobby) EC.PAT.beginFromLobby(pid);
-          if (EC.PAT && EC.PAT.startPending) EC.PAT.startPending('WEEKLY');
+          if (pid) _patBeginFromLobby(pid);
+          _patStartPending('WEEKLY');
           _setInLobby(false);
           hide(els);
         });
@@ -1049,8 +1072,8 @@
           const pid = pendingPlanPickPatientId;
           pendingPlanPickPatientId = null;
           hidePlanChoice(els);
-          if (pid && EC.PAT && EC.PAT.beginFromLobby) EC.PAT.beginFromLobby(pid);
-          if (EC.PAT && EC.PAT.startPending) EC.PAT.startPending('ZEN');
+          if (pid) _patBeginFromLobby(pid);
+          _patStartPending('ZEN');
           _setInLobby(false);
           hide(els);
         });
@@ -1062,8 +1085,8 @@
           const pid = pendingPlanPickPatientId;
           pendingPlanPickPatientId = null;
           hidePlanChoice(els);
-          if (pid && EC.PAT && EC.PAT.beginFromLobby) EC.PAT.beginFromLobby(pid);
-          if (EC.PAT && EC.PAT.startPending) EC.PAT.startPending('TRANQUILITY');
+          if (pid) _patBeginFromLobby(pid);
+          _patStartPending('TRANQUILITY');
           _setInLobby(false);
           hide(els);
         });
@@ -1074,8 +1097,8 @@
           const pid = pendingPlanPickPatientId;
           pendingPlanPickPatientId = null;
           hidePlanChoice(els);
-          if (pid && EC.PAT && EC.PAT.beginFromLobby) EC.PAT.beginFromLobby(pid);
-          if (EC.PAT && EC.PAT.startPending) EC.PAT.startPending('TRANSCENDENCE');
+          if (pid) _patBeginFromLobby(pid);
+          _patStartPending('TRANSCENDENCE');
           _setInLobby(false);
           hide(els);
         });
