@@ -64,3 +64,4 @@ Pass A24: Render-only wells update — crisper bowl edge rim (two-pass definitio
 Pass A25: Render-only wells update — bevel-like 3-pass baseline rim, fixed spin=0 CW bias, ~5x visual spin read at spin=100, always-alive interior; any outside-edge shading gated to high spins only. No gameplay changes.
 Pass A26: Render-only wells update — removed baseline rim stroke lines (no solid outlines), disabled legacy wave-hand cue, reduced visual spin multiplier to ~2.5x, and tied water FX surface motion more directly to omega so the whole interior reads spin. No gameplay changes.
 Pass A27: Render-only wells update — +50% visual spin (2.5→3.75) and +50% water FX omega; added soft sprite mask for organic circular containment; edgeShade tinted toward hue for a broad color-driven border (no outline). No gameplay changes.
+Pass A27b: Hotfix — sprite mask must remain visible (maskSoft.visible=true) to participate in masking; restores well interiors rendering. No gameplay changes.

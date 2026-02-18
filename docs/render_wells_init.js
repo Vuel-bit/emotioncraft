@@ -692,8 +692,9 @@
         maskSoft.anchor.set(0.5);
         maskSoft.position.set(0, 0);
         maskSoft.eventMode = 'none';
-        // Hide from normal render; still usable as a mask.
-        maskSoft.visible = false;
+        // NOTE: Sprite masks must remain visible to participate in masking.
+        // Keeping it visible does NOT draw a ring in the scene; it is used only for the mask pass.
+        maskSoft.visible = true;
         maskSoft.alpha = 1;
         maskSoft.renderable = true;
         g.addChild(maskSoft);

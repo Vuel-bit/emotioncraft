@@ -172,3 +172,6 @@ Source: `docs/systems_patients.js`, `docs/ui_lobby.js`
   - `docs/render_wells_update.js`: sizes `maskSoft` so its feathered edge lands at the true radius (≈ `r * 2.18`).
 - Color-driven border (render-only):
   - `docs/render_wells_update.js`: re-tinted `edgeShade` toward the well hue (slight saturation + depth) and raised alpha slightly using the activity floor so the edge reads as a broad circular pigment band **without** a stroke/outline.
+
+### Pass A27b
+- Hotfix (render-only): `docs/render_wells_init.js` now keeps the soft sprite mask visible (`maskSoft.visible=true`) so SpriteMask masking works; restores well interiors rendering. (Sprite masks do not draw a visible ring in the scene.)
