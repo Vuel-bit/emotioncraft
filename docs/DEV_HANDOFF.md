@@ -155,3 +155,10 @@ Source: `docs/systems_patients.js`, `docs/ui_lobby.js`
 - Fixed spin neutrality (render-only):
   - `docs/render_wells_fx_nebula.js`: removed the forced CW direction at `dir===0` (no more `dir2=(dir===0)?1:dir`). At spin=0, motion remains "alive" via drift/oscillation only (no monotonic rotation accumulation).
   - Caustics/spec/rim sizing also gated so any beyond-edge shading is allowed only at high spins.
+
+### Pass A26
+- Well edge + motion cleanup (render-only):
+  - `docs/render_wells_update.js`: removed baseline rim stroke drawing (`rimG` now clears only) so wells have **no solid outline**; selection/tutorial remains `selG`.
+  - Disabled the legacy `waveHand` direction cue (hidden/non-renderable). Spin direction is now conveyed by the full interior motion.
+  - Reduced the render-only spin speed multiplier from ~5× to ~2.5×.
+- `docs/render_wells_fx_nebula.js` (water FX module): softened the fresnel rim texture/alpha so it reads as a natural band (not a ring), and tied displacement/caustics/spec rotation rates to `omega` so the entire interior participates in spin.

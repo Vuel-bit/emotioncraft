@@ -9,7 +9,8 @@
 
   // PASS A25 (visual-only): increase directional spin read + keep interior lively at rest.
   // Spin speed multiplier affects ONLY visuals (view._swirlAng accumulator).
-  const SPIN_VIS_SPEED_MULT = 5.0;
+  // PASS A26 (visual-only): reduce A25 spin speed boost by half.
+  const SPIN_VIS_SPEED_MULT = 2.5;
   // Outside-edge effects (any shading beyond the inner circle) are allowed only at high spins.
   const OUTER_FX_MIN = 0.75;
 
@@ -480,10 +481,9 @@
         swirlA.width = swirlA.height = Math.min(r * 2.10 * sizeA, maxInsideDia);
         swirlB.width = swirlB.height = Math.min(r * 2.20 * sizeB, maxInsideDia);
 
-        // Alpha increases with |spin| so motion reads at moderate values.
-        // Keep these as background turbulence (direction is primarily the wave hand).
-        swirlA.alpha = 0.06 + 0.20 * magEff;
-        swirlB.alpha = 0.04 + 0.14 * magEff;
+        // Alpha increases with |spin| so direction reads clearly now that the legacy wave cue is disabled.
+        swirlA.alpha = 0.08 + 0.22 * magEff;
+        swirlB.alpha = 0.06 + 0.16 * magEff;
 
         // Rotation conveys direction (spin sign) and speed conveys magnitude.
         const wob2 = 0.10 * Math.sin(ripT * 0.83 + i) + 0.06 * Math.sin(ripT * 1.37 + i * 1.9);
@@ -519,40 +519,22 @@
         inkLight.rotation = -view._swirlAng * 0.44 - wob * 0.7;
       }
 
-      // Wave-hand (dominant direction cue): a DARK ink-like crest line/band.
-      // Must remain fully inside the well and remain visible at low spin.
+      // Legacy wave-hand direction cue disabled (PASS A26):
+      // Spin should read via the full interior motion (water refraction + swirls/ink), not a single wave band.
       if (waveHand) {
-        // Dark crest (not white cloud). Keep it ink-like.
-        waveHand.tint = 0x06070a;
-
-        // Keep fully inside the circular well: never exceed the inner diameter.
-        // (No mask is used on some platforms; size/position must guarantee containment.)
-        const crestScale = (0.92 + 0.06 * bloom - 0.05 * contract);
-        waveHand.width = waveHand.height = r * 2.00 * crestScale;
-
-        // Visibility floor: do NOT disappear at low spin; at rest, present but non-rotating.
-        const baseVis = 0.42;
-        const vis = baseVis + (1 - baseVis) * Math.pow(spinNorm, 0.85);
-        waveHand.alpha = 0.10 + 0.55 * vis;
-
-        // Rotation conveys direction and speed.
-        // At spin=0, avoid directional rotation; allow only a tiny non-directional wobble.
-        const wob = 0.10 * Math.sin(ripT * 0.88 + i * 1.1) + 0.06 * Math.sin(ripT * 1.31 + i * 0.7);
-        if (spinRaw === 0) {
-          waveHand.rotation = wob * 0.12;
-        } else {
-          waveHand.rotation = view._swirlAng * 1.05 + wob * (0.9 + 0.4 * spinNorm);
-        }
-
-        // Keep drift tiny so it never escapes the circle.
-        waveHand.position.x = Math.sin(view._swirlAng * 0.55 + i) * (0.25 + 0.85 * spinNorm);
-        waveHand.position.y = Math.cos(view._swirlAng * 0.55 + i) * (0.20 + 0.75 * spinNorm);
+        waveHand.alpha = 0;
+        waveHand.visible = false;
+        waveHand.renderable = false;
       }
 
       // Pigment body subtle sign-aware size to enhance bloom vs contraction.
       const bodyScale = 1.00 + 0.10 * bloom - 0.08 * contract;
       const pDia2 = Math.min(r * 2.06 * bodyScale, maxInsideDia);
       pigment.width = pigment.height = pDia2;
+      // PASS A26: make spin read in the whole interior by letting the base pigment field participate.
+      // At rest, only a tiny oscillation (non-directional). When spinning, follow the shared swirl angle.
+      const pWob = 0.06 * Math.sin(ripT * 0.42 + i) + 0.03 * Math.sin(ripT * 0.77 + i * 0.7);
+      pigment.rotation = (spinRaw === 0) ? pWob : (view._swirlAng * 0.22 + pWob);
 
       // Marbling scale supports radial feel without darkening.
       const tight = 1.02 + 0.36 * (contract * contract);
@@ -627,56 +609,9 @@
       const tutOpp = (typeof SIM._tutFocusOpp === 'number') ? (SIM._tutFocusOpp|0) : -1;
       const isTutTarget = tutOn && (i === tutFocus || (tutStep === 5 && i === tutOpp));
 
-      if (rimG) {
-        rimG.clear();
-        // PASS A25: bevel-like 3-pass rim (baseline edge definition, not selection).
-        // Outer definition stroke (dark), main fresnel rim (bright), inner containment shadow.
-        // selG remains the strong ring.
-        const rimW = Math.max(1.2, r * 0.026);
-        let rimW2 = rimW;
-
-        // Baseline alphas (visible at rest) — boosted slightly for crispness.
-        let darkA = isSel ? 0.16 : 0.12;
-        let brightA = isSel ? 0.18 : 0.14;
-        let innerA = isSel ? 0.12 : 0.09;
-
-        if (isTutTarget) {
-          const p = 0.55 + 0.45 * Math.sin((tNow || 0) * 3.1 + i);
-          darkA = Math.max(darkA, 0.16 + 0.20 * p);
-          brightA = Math.max(brightA, 0.18 + 0.22 * p);
-          innerA = Math.max(innerA, 0.12 + 0.16 * p);
-          rimW2 = rimW + Math.max(1.6, r * 0.020);
-        }
-        if (breakPulse > 0.01) {
-          darkA = Math.min(1.0, darkA + 0.32 * breakPulse);
-          brightA = Math.min(1.0, brightA + 0.26 * breakPulse);
-          innerA = Math.min(1.0, innerA + 0.22 * breakPulse);
-          rimW2 = rimW2 + 1.0;
-        }
-
-        // Colors: hue-biased (never near-black) for definition across bright Yellow + dark Purple.
-        const darkCol = clampChannelFloor(mixToward(bodyCol, 0x000000, 0.22), 30);
-        const innerCol = clampChannelFloor(mixToward(bodyCol, 0x000000, 0.18), 34);
-        const brightK = isSel ? 0.66 : 0.60;
-        const brightCol = mixTowardWhite(bodyCol, brightK);
-
-        // Pass 1: outer definition under-stroke (slightly wider)
-        rimG.lineStyle(Math.max(1, rimW2 * 1.28), darkCol, clamp(darkA, 0, 1), 0.5);
-        rimG.drawCircle(0, 0, r + 0.88);
-
-        // Pass 2: main fresnel rim (thin + bright)
-        rimG.lineStyle(Math.max(1, rimW2 * 0.92), brightCol, clamp(brightA, 0, 1), 0.5);
-        rimG.drawCircle(0, 0, r + 0.30);
-
-        // Pass 3: inner containment shadow (very thin)
-        rimG.lineStyle(Math.max(1, rimW2 * 0.70), innerCol, clamp(innerA, 0, 1), 0.5);
-        rimG.drawCircle(0, 0, Math.max(1, r - 0.55));
-
-        // Tiny specular hint (subtle; avoids the "all selected" look)
-        const specA = (isSel ? 0.090 : 0.065) + 0.030 * Math.sin((tNow || 0) * 1.4 + i);
-        rimG.lineStyle(Math.max(1, rimW * 0.72), 0xffffff, clamp(specA, 0, 1), 0.5);
-        rimG.arc(0, 0, r + 0.34, -1.10, -0.45);
-      }
+      // Baseline rim strokes removed (PASS A26): user requested NO solid line border.
+      // Edge definition is handled via water FX rim sprite + subtle inner edge shading, while selG remains the strong ring.
+      if (rimG) rimG.clear();
       if (selG) {
         selG.clear();
         if (isSel || isTutTarget) {

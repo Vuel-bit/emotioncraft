@@ -39,8 +39,9 @@
       specAlphaBase: mob ? 0.020 : 0.022,
       specAlphaGain: mob ? 0.050 : 0.060,
       // Slight bump for crisper bowl edge contribution (still restrained vs selection).
-      rimAlphaBase: mob ? 0.054 : 0.058,
-      rimAlphaGain: mob ? 0.068 : 0.080,
+      // PASS A26: soften the rim so it reads as a natural fresnel/containment band (not a line).
+      rimAlphaBase: mob ? 0.034 : 0.038,
+      rimAlphaGain: mob ? 0.048 : 0.056,
       // Normal-map gradient scale
       gradK: mob ? 18 : 22,
     };
@@ -272,14 +273,14 @@
       const cx = size / 2,
         cy = size / 2;
       const r = size * 0.48;
-      const g = ctx.createRadialGradient(cx, cy, r * 0.78, cx, cy, r);
+      // PASS A26: broader/softer fresnel band (avoid a crisp ring that reads like an outline).
+      const g = ctx.createRadialGradient(cx, cy, r * 0.70, cx, cy, r);
       g.addColorStop(0, 'rgba(255,255,255,0)');
-      // Crisper/thinner rim band (water fresnel) — slightly stronger outer alpha for definition.
-      g.addColorStop(0.88, 'rgba(255,255,255,0)');
-      g.addColorStop(0.935, 'rgba(255,255,255,0.10)');
-      g.addColorStop(0.970, 'rgba(255,255,255,0.22)');
-      g.addColorStop(0.992, 'rgba(255,255,255,0.28)');
-      g.addColorStop(1, 'rgba(255,255,255,0.30)');
+      g.addColorStop(0.82, 'rgba(255,255,255,0.00)');
+      g.addColorStop(0.90, 'rgba(255,255,255,0.05)');
+      g.addColorStop(0.96, 'rgba(255,255,255,0.12)');
+      g.addColorStop(0.99, 'rgba(255,255,255,0.16)');
+      g.addColorStop(1, 'rgba(255,255,255,0.18)');
       ctx.fillStyle = g;
       ctx.beginPath();
       ctx.arc(cx, cy, r, 0, Math.PI * 2);
@@ -491,7 +492,8 @@
       const t = (tNow || 0) * 0.001;
       // NOTE (A25): no monotonic rotation accumulation when dir===0.
       if (n._dispAng == null) n._dispAng = 0;
-      if (dir !== 0) n._dispAng += dt * (0.05 + 0.22 * magEff) * dir;
+      // PASS A26: make the whole interior read spin by tying surface rotation rate to omega (visual-only).
+      if (dir !== 0) n._dispAng += (omega || 0) * dt * (0.38 + 0.22 * magEff);
       const act = 0.35 + 0.65 * magEff;
       const osc = (0.10 * act) * Math.sin(t * 0.62 + n.s1 + i) + (0.07 * act) * Math.sin(t * 0.46 + n.s2);
       n.dispSpr.rotation = n._dispAng + osc;
@@ -535,8 +537,9 @@
       if (n._caustAngA == null) n._caustAngA = 0;
       if (n._caustAngB == null) n._caustAngB = 0;
       if (dir !== 0) {
-        n._caustAngA += dt * (0.02 + 0.10 * magEff) * dir;
-        n._caustAngB += dt * (0.015 + 0.08 * magEff) * dir;
+        const om = (omega || 0);
+        n._caustAngA += om * dt * (0.12 + 0.08 * magEff);
+        n._caustAngB += om * dt * (0.09 + 0.06 * magEff);
       }
       const oscA = (0.08 * act) * Math.sin(t * 0.33 + n.s1 + i);
       const oscB = (0.07 * act) * Math.sin(t * 0.31 + n.s2 + i * 0.7);
@@ -545,10 +548,12 @@
 
       const ampA = 0.35 + (1.6 * act) * outer01;
       const ampB = 0.30 + (1.4 * act) * outer01;
-      n.caustA.position.x = Math.sin(t * 0.20 + i + n.s1) * ampA;
-      n.caustA.position.y = Math.cos(t * 0.18 + i * 0.7 + n.s2) * (ampA * 0.85);
-      n.caustB.position.x = Math.cos(t * 0.17 + i * 0.9 + n.s2) * ampB;
-      n.caustB.position.y = Math.sin(t * 0.19 + i * 0.6 + n.s1) * (ampB * 0.85);
+      // Add a slight directional phase term so shimmer "flows" with spin (neutral when spin=0).
+      const ph = (dir !== 0) ? (t * (0.12 + 0.30 * magEff) * dir) : 0;
+      n.caustA.position.x = Math.sin(t * 0.20 + i + n.s1 + ph) * ampA;
+      n.caustA.position.y = Math.cos(t * 0.18 + i * 0.7 + n.s2 + ph) * (ampA * 0.85);
+      n.caustB.position.x = Math.cos(t * 0.17 + i * 0.9 + n.s2 + ph) * ampB;
+      n.caustB.position.y = Math.sin(t * 0.19 + i * 0.6 + n.s1 + ph) * (ampB * 0.85);
     }
 
     // Specular highlight (surface gloss). Present at rest; stronger with |spin|.
@@ -562,12 +567,13 @@
       n.specSpr.alpha = a;
       // Gentle drift and slow rotation (do not read as a spinning stamp).
       if (n._specAng == null) n._specAng = 0;
-      if (dir !== 0) n._specAng += dt * (0.02 + 0.08 * magEff) * dir;
+      if (dir !== 0) n._specAng += (omega || 0) * dt * (0.10 + 0.07 * magEff);
       const osc = 0.25 * Math.sin(t * 0.22 + n.s1) + 0.08 * Math.sin(t * 0.41 + i);
       n.specSpr.rotation = n._specAng + osc;
       const amp = 0.35 + (1.3 * act) * outer01;
-      n.specSpr.position.x = Math.sin(t * 0.26 + n.s2 + i * 0.9) * amp;
-      n.specSpr.position.y = Math.cos(t * 0.21 + n.s1 + i * 0.6) * (amp * 0.85);
+      const ph = (dir !== 0) ? (t * (0.10 + 0.26 * magEff) * dir) : 0;
+      n.specSpr.position.x = Math.sin(t * 0.26 + n.s2 + i * 0.9 + ph) * amp;
+      n.specSpr.position.y = Math.cos(t * 0.21 + n.s1 + i * 0.6 + ph) * (amp * 0.85);
     }
 
     // Fresnel rim highlight (thin edge). Do not over-brighten.
@@ -576,7 +582,7 @@
       const outer01 = Math.max(0, Math.min(1, (spinNorm - 0.75) / 0.25));
       n.rimSpr.tint = mixTowardWhite(bodyCol, 0.92);
       n.rimSpr.width = n.rimSpr.height = r * (2.00 + 0.18 * outer01);
-      n.rimSpr.alpha = Q.rimAlphaBase + Q.rimAlphaGain * Math.pow(act, 0.90) * 0.55;
+      n.rimSpr.alpha = Q.rimAlphaBase + Q.rimAlphaGain * Math.pow(act, 0.90) * 0.50;
     }
   }
 

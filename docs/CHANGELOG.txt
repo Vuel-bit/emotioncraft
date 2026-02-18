@@ -135,3 +135,5 @@ Pass A23: Render-only wells update — converted interior FX to a water/fluid lo
 Pass A24: Render-only wells update — strengthened well boundary/edge definition (two-pass rim under-stroke + fresnel top rim) and slightly stronger FX fresnel rim sprite/texture. No gameplay changes.
 
 Pass A25: Render-only wells update — bevel-like 3-pass baseline rim (outer definition + fresnel + inner shadow), fixed spin=0 CW bias in water FX, increased visual spin read (~5x at spin=100), added always-on interior activity floor, and gated any outside-edge shading to high spins only. No gameplay changes.
+
+Pass A26: Render-only wells update — removed always-on rim stroke lines (no solid outlines around wells), disabled the legacy wave-hand direction cue, reduced the visual spin speed boost to ~2.5x, and updated water FX so surface layers rotate/flow with omega (spin reads in the whole interior). No gameplay changes.

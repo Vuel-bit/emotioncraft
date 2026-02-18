@@ -62,3 +62,4 @@ Pass A22: Render-only wells upgrade — nebula/energy interior FX (displacement 
 Pass A23: Render-only wells update — water/fluid interior FX (refraction + caustics + spec + fresnel rim). No gameplay changes.
 Pass A24: Render-only wells update — crisper bowl edge rim (two-pass definition rim + slightly stronger FX fresnel rim). No gameplay changes.
 Pass A25: Render-only wells update — bevel-like 3-pass baseline rim, fixed spin=0 CW bias, ~5x visual spin read at spin=100, always-alive interior; any outside-edge shading gated to high spins only. No gameplay changes.
+Pass A26: Render-only wells update — removed baseline rim stroke lines (no solid outlines), disabled legacy wave-hand cue, reduced visual spin multiplier to ~2.5x, and tied water FX surface motion more directly to omega so the whole interior reads spin. No gameplay changes.
