@@ -119,3 +119,5 @@ Pass A14: SIM write-guard HUD improvements — stats now always maintain byKey c
 Pass A15: Bracketed init/reset entry points — resetRun + initMVP are routed through ENGINE.dispatch/ACTIONS so simguard brackets startup/reset root writes (levelState/mvpWin/mvpLose/gameOver*).
 
 Pass A16: Patient session transitions dispatched — added ACTIONS wrappers for EC.PAT transitions and routed UI call sites (lobby + HUD) through ENGINE.dispatch/ACTIONS to prevent simguard flagging patient-session root writes.
+
+Pass A17: Hotfixes — Weekly reward overlay restored (ui_lobby showWeeklyReward now defines `qs` from patient quirks); plan template expander now supports swapped $LO_SET/$HI_SET markers so Weekly A Step 2 goals render and evaluate correctly.

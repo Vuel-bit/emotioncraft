@@ -328,6 +328,8 @@ function _expandStepsFromTemplate(stepsTmpl, repl, tokens) {
     // Replace marker fields
     if (st.highs === '$HI_SET' && repl && repl.hiSet) st.highs = repl.hiSet.slice();
     if (st.lows === '$LO_SET' && repl && repl.loSet) st.lows = repl.loSet.slice();
+    if (st.highs === '$LO_SET' && repl && repl.loSet) st.highs = repl.loSet.slice();
+    if (st.lows === '$HI_SET' && repl && repl.hiSet) st.lows = repl.hiSet.slice();
     if (st.highs === '$LOW_SET' && repl && repl.lowSet) st.highs = repl.lowSet.slice();
     if (st.lows === '$LOW_SET' && repl && repl.lowSet) st.lows = repl.lowSet.slice();
     if (st.highs === '$HIGH_SET' && repl && repl.highSet) st.highs = repl.highSet.slice();

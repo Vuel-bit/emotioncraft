@@ -51,3 +51,4 @@ Run root: open docs/index.html
 - Pass 41: Tranquility thresholds/bands updated (data-only). Spill/break info popups now persist once-per-player via Firestore ui.seenFirstPopups (still session-only when signed out).
 
 - Pass A1: Added core_engine.js (EC.ENGINE facade) and wired into index.html. Began enforcing boundary: presentation modules route SIM writes via EC.ENGINE.dispatch / EC.ACTIONS (selectWell migrated). Render-only layout state (mvpGeom, psycheRadius) moved to EC.RENDER_STATE.layout.
+- Pass A17: Hotfix — Weekly reward overlay restored; template expander supports swapped $LO_SET/$HI_SET markers (Weekly A Step 2 goals).

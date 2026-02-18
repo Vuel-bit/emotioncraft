@@ -384,6 +384,8 @@
     const p = (EC.PAT && EC.PAT.get) ? EC.PAT.get(pid) : null;
     if (!p) return;
 
+    const qs = Array.isArray(p.quirks) ? p.quirks : [];
+
     const title = document.getElementById('weeklyRewardTitle');
     const sub = document.getElementById('weeklyRewardSub');
     const body = document.getElementById('weeklyRewardBody');
