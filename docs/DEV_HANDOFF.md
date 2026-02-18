@@ -38,6 +38,9 @@ Build ID: **v0_2_103_passD (passA9)**
 - `wellsS[6]` Spin (-100..100)
 - `psyP[6]` Psyche per hue (0..500 cap)
 - `energy` float (HUD shows integer units via Math.round)
+
+## Recent passes (quick notes)
+- **Pass A28:** Added one-time “Back-Alley Psychiatry (BAP)” intro cutscene overlay (`docs/ui_intro_cutscene.js`). Wired in `docs/index.html` (before `ui_app.js`) and invoked from `EC.initUI()` in `docs/ui_app.js`. Persisted via Firestore save doc `ui.seenIntroBAP` (schema v2) in `docs/systems_firebase.js`, with `sessionStorage` fallback key `ec_seenIntroBAP` when signed out.
 - PLAN_CHAIN: `SIM.planStepIndex`, `SIM.planHoldSec`, `SIM._planHoldReqSec`, `SIM._planStepFlashT` (each step may define `holdSec`; default 10s)
 - Pause flags: `SIM._uiPaused` (Log overlay), `SIM._hitStopT` (break hit-stop)
 - Break FX: `SIM._breakFx`

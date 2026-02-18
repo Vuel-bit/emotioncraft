@@ -100,11 +100,18 @@
           try {
             SAVE.load().then((data) => {
               try {
+                // Mark that we've attempted to load the save doc (even if null) for UI gating.
+                SAVE._loadedOnce = true;
+                SAVE._lastLoadedDoc = data || null;
                 const hasV2 = SAVE._onLoadedDoc(data);
                 if (!hasV2) {
                   // No valid v2 save: write current runtime state as initial v2.
                   SAVE._writeCurrentPat('initV2');
                 }
+                // Optional hook to avoid intro autoplay racing before save doc apply.
+                try {
+                  if (EC.UI_INTRO && typeof EC.UI_INTRO.onSaveLoaded === 'function') EC.UI_INTRO.onSaveLoaded(data || null);
+                } catch (_) {}
               } catch (_) {
                 try { SAVE._writeCurrentPat('initV2'); } catch (_) {}
               }
@@ -235,6 +242,12 @@
       } catch (_) {}
     }
 
+    // One-time intro cutscene flag (Back-Alley Psychiatry)
+    if (v >= 2 && data.ui && typeof data.ui === 'object' && data.ui.seenIntroBAP === true) {
+      const UI = EC.UI_STATE || (EC.UI_STATE = {});
+      UI._seenIntroBAP = true;
+    }
+
     if (v >= 2 && data.pat && typeof data.pat === 'object') {
       SAVE._pendingDoc = data;
       // Try immediately; if patients system not ready yet, retry a few times.
@@ -261,14 +274,16 @@
       }
       const UI = EC.UI_STATE || {};
       const seenFirstPopups = Object.assign({}, (UI && UI._seenFirstPopups) || {});
-      return SAVE.debouncedWrite({ schemaVersion: 2, ui: { seenFirstPopups } }, { merge: true });
+      const seenIntroBAP = !!(UI && UI._seenIntroBAP);
+      return SAVE.debouncedWrite({ schemaVersion: 2, ui: { seenFirstPopups, seenIntroBAP } }, { merge: true });
     }
 
     SAVE._patWriteAttempts = 0;
     const pat = EC.PAT.getSaveBlob();
     const UI = EC.UI_STATE || {};
     const seenFirstPopups = Object.assign({}, (UI && UI._seenFirstPopups) || {});
-    return SAVE.debouncedWrite({ schemaVersion: 2, pat, ui: { seenFirstPopups } }, { merge: true });
+    const seenIntroBAP = !!(UI && UI._seenIntroBAP);
+    return SAVE.debouncedWrite({ schemaVersion: 2, pat, ui: { seenFirstPopups, seenIntroBAP } }, { merge: true });
   };
 
   SAVE._touchOnSignIn = SAVE._touchOnSignIn || function _touchOnSignIn() {

@@ -1,5 +1,5 @@
 Emotioncraft Psyche MVP
-Build: emotioncraft_v0_2_103_passD_passA25_edgesSpinAlive
+Build: emotioncraft_v0_2_103_passD_passA28_introBAP
 Date: 2026-02-18
 
 Highlights (current build)
@@ -65,3 +65,4 @@ Pass A25: Render-only wells update — bevel-like 3-pass baseline rim, fixed spi
 Pass A26: Render-only wells update — removed baseline rim stroke lines (no solid outlines), disabled legacy wave-hand cue, reduced visual spin multiplier to ~2.5x, and tied water FX surface motion more directly to omega so the whole interior reads spin. No gameplay changes.
 Pass A27: Render-only wells update — +50% visual spin (2.5→3.75) and +50% water FX omega; added soft sprite mask for organic circular containment; edgeShade tinted toward hue for a broad color-driven border (no outline). No gameplay changes.
 Pass A27b: Hotfix — sprite mask must remain visible (maskSoft.visible=true) to participate in masking; restores well interiors rendering. No gameplay changes.
+Pass A28: Added one-time “Back-Alley Psychiatry (BAP)” intro cutscene (10s) with Skip + tap-anywhere skip. Persisted via Firestore save doc ui.seenIntroBAP (schema v2) with sessionStorage fallback when signed out. No gameplay changes.

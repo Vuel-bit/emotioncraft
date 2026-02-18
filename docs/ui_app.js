@@ -105,6 +105,14 @@ if (EC.UI_HUD && typeof EC.UI_HUD.init === 'function') EC.UI_HUD.init(ctx);
 if (EC.UI_CONTROLS && typeof EC.UI_CONTROLS.init === 'function') EC.UI_CONTROLS.init(ctx);
 if (EC.UI_LOBBY && typeof EC.UI_LOBBY.init === 'function') EC.UI_LOBBY.init(ctx);
 
+// One-time intro cutscene (Back-Alley Psychiatry). Fail-safe if anything goes wrong.
+try {
+  if (EC.UI_INTRO && typeof EC.UI_INTRO.init === 'function') EC.UI_INTRO.init(ctx);
+  if (EC.UI_INTRO && typeof EC.UI_INTRO.maybeAutoPlay === 'function') EC.UI_INTRO.maybeAutoPlay(ctx);
+} catch (_) {
+  try { sessionStorage.setItem('ec_seenIntroBAP', '1'); } catch (_) {}
+}
+
 function updateUI(dt) {
   if (EC.UI_LOBBY && typeof EC.UI_LOBBY.render === 'function') EC.UI_LOBBY.render(dt, ctx);
   if (EC.UI_HUD && typeof EC.UI_HUD.render === 'function') EC.UI_HUD.render(dt, ctx);

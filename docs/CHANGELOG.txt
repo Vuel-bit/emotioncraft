@@ -141,3 +141,5 @@ Pass A26: Render-only wells update — removed always-on rim stroke lines (no so
 Pass A27: Render-only wells update — increased visual spin speed by +50% (2.5→3.75) and applied +50% omega to water FX layers; added a soft sprite mask (TEX.circle) to enforce an organic circular containment edge; re-tinted edge shading toward the well hue to form a broad color-driven border (no outline ring). No gameplay changes.
 
 Pass A27b: Hotfix — fixed soft sprite mask visibility (maskSoft.visible=true) so SpriteMask masking works; restores well interiors rendering. No gameplay changes.
+
+Pass A28: Added one-time “Back-Alley Psychiatry (BAP)” intro cutscene (10s) with obvious Skip + tap-anywhere skip. Persisted via Firestore save doc ui.seenIntroBAP (schema v2), with sessionStorage fallback when signed out. No gameplay changes.
