@@ -38,8 +38,9 @@
       caustAlphaGain: mob ? 0.040 : 0.048,
       specAlphaBase: mob ? 0.020 : 0.022,
       specAlphaGain: mob ? 0.050 : 0.060,
-      rimAlphaBase: mob ? 0.048 : 0.052,
-      rimAlphaGain: mob ? 0.060 : 0.070,
+      // Slight bump for crisper bowl edge contribution (still restrained vs selection).
+      rimAlphaBase: mob ? 0.054 : 0.058,
+      rimAlphaGain: mob ? 0.068 : 0.080,
       // Normal-map gradient scale
       gradK: mob ? 18 : 22,
     };
@@ -273,10 +274,12 @@
       const r = size * 0.48;
       const g = ctx.createRadialGradient(cx, cy, r * 0.78, cx, cy, r);
       g.addColorStop(0, 'rgba(255,255,255,0)');
-      g.addColorStop(0.86, 'rgba(255,255,255,0)');
-      g.addColorStop(0.94, 'rgba(255,255,255,0.09)');
-      g.addColorStop(0.985, 'rgba(255,255,255,0.16)');
-      g.addColorStop(1, 'rgba(255,255,255,0.24)');
+      // Crisper/thinner rim band (water fresnel) — slightly stronger outer alpha for definition.
+      g.addColorStop(0.88, 'rgba(255,255,255,0)');
+      g.addColorStop(0.935, 'rgba(255,255,255,0.10)');
+      g.addColorStop(0.970, 'rgba(255,255,255,0.22)');
+      g.addColorStop(0.992, 'rgba(255,255,255,0.28)');
+      g.addColorStop(1, 'rgba(255,255,255,0.30)');
       ctx.fillStyle = g;
       ctx.beginPath();
       ctx.arc(cx, cy, r, 0, Math.PI * 2);
@@ -475,7 +478,9 @@
 
     // Refraction strength (displacement). Present at rest; increases with |spin|.
     if (n.dispFilter) {
-      const sc = Q.dispScaleBase + Q.dispScaleGain * (0.20 + 0.80 * magEff);
+      // Activity floor: keep refraction alive at rest, but subtle.
+      const act = 0.35 + 0.65 * magEff;
+      const sc = Q.dispScaleBase + Q.dispScaleGain * (0.12 + 0.68 * act);
       n.dispFilter.scale.x = sc;
       n.dispFilter.scale.y = sc * 0.92;
     }
@@ -484,11 +489,19 @@
     // If spin=0, drift still runs but does not imply directionality.
     if (n.dispSpr) {
       const t = (tNow || 0) * 0.001;
-      const dir2 = (dir === 0) ? 1 : dir;
-      const drift = 7 + 18 * magEff;
-      n.dispSpr.rotation += dt * (0.05 + 0.22 * magEff) * dir2;
-      n.dispSpr.position.x += Math.sin(t * 0.85 + n.s1 + i) * drift * 0.10;
-      n.dispSpr.position.y += Math.cos(t * 0.78 + n.s2 + i * 0.7) * drift * 0.10;
+      // NOTE (A25): no monotonic rotation accumulation when dir===0.
+      if (n._dispAng == null) n._dispAng = 0;
+      if (dir !== 0) n._dispAng += dt * (0.05 + 0.22 * magEff) * dir;
+      const act = 0.35 + 0.65 * magEff;
+      const osc = (0.10 * act) * Math.sin(t * 0.62 + n.s1 + i) + (0.07 * act) * Math.sin(t * 0.46 + n.s2);
+      n.dispSpr.rotation = n._dispAng + osc;
+
+      // Coherent drift (non-directional). Use absolute offset (no accumulated wander).
+      const drift = 6 + 16 * act;
+      const bx = (g && g.position) ? g.position.x : 0;
+      const by = (g && g.position) ? g.position.y : 0;
+      n.dispSpr.position.x = bx + Math.sin(t * 0.85 + n.s1 + i) * drift * 0.10;
+      n.dispSpr.position.y = by + Math.cos(t * 0.78 + n.s2 + i * 0.7) * drift * 0.10;
 
       const cover = Math.max(1.9, 2.2 + 1.0 * magEff);
       const base = (_TEX._q && _TEX._q.texMain) ? _TEX._q.texMain : Q.texMain;
@@ -500,49 +513,70 @@
     // Caustics shimmer (very subtle). Tint near-white with a slight hue bias.
     if (n.caustA && n.caustB) {
       const t = (ripT || 0);
+      const act = 0.35 + 0.65 * magEff;
+      const outer01 = Math.max(0, Math.min(1, (spinNorm - 0.75) / 0.25));
       const tintA = mixTowardWhite(bodyCol, 0.88);
       const tintB = mixTowardWhite(bodyCol, 0.94);
 
       n.caustA.tint = tintA;
       n.caustB.tint = tintB;
 
-      n.caustA.width = n.caustA.height = r * 2.18;
-      n.caustB.width = n.caustB.height = r * 2.26;
+      // Keep within the bowl at low/mid spins; allow slight overshoot only at high spins.
+      n.caustA.width = n.caustA.height = r * (1.96 + 0.26 * outer01);
+      n.caustB.width = n.caustB.height = r * (1.98 + 0.28 * outer01);
 
-      const vis = Q.caustAlphaBase + Q.caustAlphaGain * Math.pow(spinNorm, 0.85);
+      // Activity floor: caustics present at rest, still subtle.
+      const vis = Q.caustAlphaBase + Q.caustAlphaGain * Math.pow(act, 1.15) * 0.65;
       n.caustA.alpha = vis;
       n.caustB.alpha = vis * 0.75;
 
       // Slow coherent scroll + slight rotation.
-      const dir2 = (dir === 0) ? 1 : dir;
-      n.caustA.rotation += dt * (0.02 + 0.10 * magEff) * dir2;
-      n.caustB.rotation -= dt * (0.015 + 0.08 * magEff) * dir2;
+      // NOTE (A25): no monotonic rotation accumulation when dir===0.
+      if (n._caustAngA == null) n._caustAngA = 0;
+      if (n._caustAngB == null) n._caustAngB = 0;
+      if (dir !== 0) {
+        n._caustAngA += dt * (0.02 + 0.10 * magEff) * dir;
+        n._caustAngB += dt * (0.015 + 0.08 * magEff) * dir;
+      }
+      const oscA = (0.08 * act) * Math.sin(t * 0.33 + n.s1 + i);
+      const oscB = (0.07 * act) * Math.sin(t * 0.31 + n.s2 + i * 0.7);
+      n.caustA.rotation = n._caustAngA + oscA;
+      n.caustB.rotation = -n._caustAngB + oscB;
 
-      n.caustA.position.x = Math.sin(t * 0.20 + i + n.s1) * (0.8 + 2.8 * magEff);
-      n.caustA.position.y = Math.cos(t * 0.18 + i * 0.7 + n.s2) * (0.7 + 2.2 * magEff);
-      n.caustB.position.x = Math.cos(t * 0.17 + i * 0.9 + n.s2) * (0.7 + 2.5 * magEff);
-      n.caustB.position.y = Math.sin(t * 0.19 + i * 0.6 + n.s1) * (0.6 + 2.1 * magEff);
+      const ampA = 0.35 + (1.6 * act) * outer01;
+      const ampB = 0.30 + (1.4 * act) * outer01;
+      n.caustA.position.x = Math.sin(t * 0.20 + i + n.s1) * ampA;
+      n.caustA.position.y = Math.cos(t * 0.18 + i * 0.7 + n.s2) * (ampA * 0.85);
+      n.caustB.position.x = Math.cos(t * 0.17 + i * 0.9 + n.s2) * ampB;
+      n.caustB.position.y = Math.sin(t * 0.19 + i * 0.6 + n.s1) * (ampB * 0.85);
     }
 
     // Specular highlight (surface gloss). Present at rest; stronger with |spin|.
     if (n.specSpr) {
       const t = (ripT || 0);
+      const act = 0.35 + 0.65 * magEff;
+      const outer01 = Math.max(0, Math.min(1, (spinNorm - 0.75) / 0.25));
       n.specSpr.tint = 0xffffff;
-      n.specSpr.width = n.specSpr.height = r * 2.12;
-      const a = Q.specAlphaBase + Q.specAlphaGain * Math.pow(spinNorm, 0.78);
+      n.specSpr.width = n.specSpr.height = r * (1.92 + 0.30 * outer01);
+      const a = Q.specAlphaBase + Q.specAlphaGain * Math.pow(act, 1.05) * 0.60;
       n.specSpr.alpha = a;
       // Gentle drift and slow rotation (do not read as a spinning stamp).
-      const dir2 = (dir === 0) ? 1 : dir;
-      n.specSpr.rotation = 0.25 * Math.sin(t * 0.22 + n.s1) + dt * (0.02 + 0.08 * magEff) * dir2 + 0.08 * Math.sin(t * 0.41 + i);
-      n.specSpr.position.x = Math.sin(t * 0.26 + n.s2 + i * 0.9) * (0.8 + 2.2 * magEff);
-      n.specSpr.position.y = Math.cos(t * 0.21 + n.s1 + i * 0.6) * (0.7 + 1.8 * magEff);
+      if (n._specAng == null) n._specAng = 0;
+      if (dir !== 0) n._specAng += dt * (0.02 + 0.08 * magEff) * dir;
+      const osc = 0.25 * Math.sin(t * 0.22 + n.s1) + 0.08 * Math.sin(t * 0.41 + i);
+      n.specSpr.rotation = n._specAng + osc;
+      const amp = 0.35 + (1.3 * act) * outer01;
+      n.specSpr.position.x = Math.sin(t * 0.26 + n.s2 + i * 0.9) * amp;
+      n.specSpr.position.y = Math.cos(t * 0.21 + n.s1 + i * 0.6) * (amp * 0.85);
     }
 
     // Fresnel rim highlight (thin edge). Do not over-brighten.
     if (n.rimSpr) {
+      const act = 0.35 + 0.65 * magEff;
+      const outer01 = Math.max(0, Math.min(1, (spinNorm - 0.75) / 0.25));
       n.rimSpr.tint = mixTowardWhite(bodyCol, 0.92);
-      n.rimSpr.width = n.rimSpr.height = r * 2.06;
-      n.rimSpr.alpha = Q.rimAlphaBase + Q.rimAlphaGain * Math.pow(spinNorm, 0.70);
+      n.rimSpr.width = n.rimSpr.height = r * (2.00 + 0.18 * outer01);
+      n.rimSpr.alpha = Q.rimAlphaBase + Q.rimAlphaGain * Math.pow(act, 0.90) * 0.55;
     }
   }
 

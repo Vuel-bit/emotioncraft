@@ -7,6 +7,12 @@
   const MVP_WELL_COLORS = R.MVP_WELL_COLORS;
   const MVP_WELL_NAME = R.MVP_WELL_NAME;
 
+  // PASS A25 (visual-only): increase directional spin read + keep interior lively at rest.
+  // Spin speed multiplier affects ONLY visuals (view._swirlAng accumulator).
+  const SPIN_VIS_SPEED_MULT = 5.0;
+  // Outside-edge effects (any shading beyond the inner circle) are allowed only at high spins.
+  const OUTER_FX_MIN = 0.75;
+
   function mixRgb(a, b, t) {
     t = Math.max(0, Math.min(1, t));
     const ar = (a >> 16) & 255, ag = (a >> 8) & 255, ab = a & 255;
@@ -386,6 +392,14 @@
       const magEff = sv.magEff;
       const omega = sv.omega;
 
+      // Visual-only activity floor: keep the interior lively even at spin=0.
+      // NOTE: directional motion must remain neutral when dir===0 (handled in FX + waveHand).
+      const act = 0.35 + 0.65 * magEff;
+      // Gate any outside-edge shading to high spins only.
+      const outer01 = clamp((spinNorm - OUTER_FX_MIN) / (1 - OUTER_FX_MIN), 0, 1);
+      // When masking is unavailable, keep low/mid-spin layers within the inner circle.
+      const maxInsideDia = r * (2.00 + 0.22 * outer01);
+
       // Visual-only: outward vs inward feel.
       // Positive spin (CW) should read as outward/blooming; negative (CCW) as inward/tightening.
       const bloom = (dir > 0) ? magEff : 0;
@@ -401,23 +415,26 @@
         rippleA.tint = mixTowardWhite(bodyCol, 0.10);
         rippleB.tint = mixTowardWhite(bodyCol, 0.16);
 
-        // Size: slightly larger than pigment to cover edge.
-        rippleA.width = rippleA.height = r * 2.18;
-        rippleB.width = rippleB.height = r * 2.18;
+        // Size: keep fully inside at low/mid spins; allow slight overshoot only at high spins.
+        const ripDiaA = Math.min(maxInsideDia, r * (1.96 + 0.26 * outer01));
+        const ripDiaB = Math.min(maxInsideDia, r * (1.92 + 0.28 * outer01));
+        rippleA.width = rippleA.height = ripDiaA;
+        rippleB.width = rippleB.height = ripDiaB;
 
-        // Always animate (never static). With circular sprites we use rotation + subtle offset drift.
-        const driftA = 2.0 + 7.0 * magEff;
-        const driftB = 1.6 + 5.5 * magEff;
-        rippleA.position.x = Math.sin(ripT * 0.37 + i) * (3.0 + 6.0 * magEff);
-        rippleA.position.y = Math.cos(ripT * 0.29 + i * 0.7) * (2.6 + 5.0 * magEff);
-        rippleB.position.x = Math.cos(ripT * 0.23 + i * 0.9) * (2.2 + 4.0 * magEff);
-        rippleB.position.y = Math.sin(ripT * 0.31 + i * 0.6) * (2.0 + 3.8 * magEff);
+        // Always animate (never static). At rest: small non-directional drift.
+        // High spins may push slightly past the edge (outer01 gated).
+        const ampA = 0.35 + (2.8 * act) * outer01;
+        const ampB = 0.30 + (2.2 * act) * outer01;
+        rippleA.position.x = Math.sin(ripT * 0.37 + i) * ampA;
+        rippleA.position.y = Math.cos(ripT * 0.29 + i * 0.7) * (ampA * 0.85);
+        rippleB.position.x = Math.cos(ripT * 0.23 + i * 0.9) * ampB;
+        rippleB.position.y = Math.sin(ripT * 0.31 + i * 0.6) * (ampB * 0.85);
 
         // Alpha: keep subtle. When water FX is enabled, allow a faint living surface.
         const _nebOn = !!view._nebulaFx;
-        // Water read: a touch more present than A22, still restrained for readability.
-        rippleA.alpha = _nebOn ? (0.020 + 0.060 * magEff) : 0;
-        rippleB.alpha = _nebOn ? (0.016 + 0.045 * magEff) : 0;
+        // Water read: always alive (activity floor), but restrained for readability.
+        rippleA.alpha = _nebOn ? (0.018 + 0.055 * act) : 0;
+        rippleB.alpha = _nebOn ? (0.014 + 0.042 * act) : 0;
 
         // Wobble rotation (organic, non-repeating)
         const wob = 0.08 * Math.sin(ripT * 0.55 + i) + 0.05 * Math.sin(ripT * 0.91 + i * 1.7);
@@ -440,7 +457,8 @@
       // Reduce the "hard rotation" feel when water FX is active by slightly dampening the
       // base angle accumulator (direction still follows spin sign).
       const _nebMul = view._nebulaFx ? (0.50 + 0.25 * magEff) : 1.0;
-      view._swirlAng = (view._swirlAng || 0) + omega * dt * _nebMul;
+      // PASS A25 (visual-only): increase directional spin read.
+      view._swirlAng = (view._swirlAng || 0) + omega * dt * _nebMul * SPIN_VIS_SPEED_MULT;
       view._sheenAng = (view._sheenAng || 0) + 0.4 * dt;
 
       // Swirl layers: unmistakable internal motion cue for direction + magnitude.
@@ -459,8 +477,8 @@
         //  -spin (CCW): tighten/inward
         const sizeA = (1.00 + 0.28 * bloom - 0.20 * contract);
         const sizeB = (1.00 + 0.34 * bloom - 0.14 * contract);
-        swirlA.width = swirlA.height = r * 2.10 * sizeA;
-        swirlB.width = swirlB.height = r * 2.20 * sizeB;
+        swirlA.width = swirlA.height = Math.min(r * 2.10 * sizeA, maxInsideDia);
+        swirlB.width = swirlB.height = Math.min(r * 2.20 * sizeB, maxInsideDia);
 
         // Alpha increases with |spin| so motion reads at moderate values.
         // Keep these as background turbulence (direction is primarily the wave hand).
@@ -482,8 +500,8 @@
 
         // Size slightly larger than pigment; scale responds to bloom/contract to imply outward vs inward.
         const sA = 1.04 + 0.22 * bloom - 0.18 * contract;
-        inkDark.width = inkDark.height = r * 2.24 * sA;
-        inkLight.width = inkLight.height = r * 2.30 * (1.02 + 0.18 * bloom - 0.12 * contract);
+        inkDark.width = inkDark.height = Math.min(r * 2.24 * sA, maxInsideDia);
+        inkLight.width = inkLight.height = Math.min(r * 2.30 * (1.02 + 0.18 * bloom - 0.12 * contract), maxInsideDia);
 
         // Stronger contrast when spinning; still visible at rest.
         // At spin=0 the black line/streak pattern should be readable (but not loud).
@@ -533,7 +551,8 @@
 
       // Pigment body subtle sign-aware size to enhance bloom vs contraction.
       const bodyScale = 1.00 + 0.10 * bloom - 0.08 * contract;
-      pigment.width = pigment.height = r * 2.06 * bodyScale;
+      const pDia2 = Math.min(r * 2.06 * bodyScale, maxInsideDia);
+      pigment.width = pigment.height = pDia2;
 
       // Marbling scale supports radial feel without darkening.
       const tight = 1.02 + 0.36 * (contract * contract);
@@ -543,18 +562,20 @@
       let veinCol = mixToward(bodyCol, 0x000000, 0.10 + 0.08 * magEff);
       veinCol = clampChannelFloor(veinCol, 40); // keep above near-black
       marbleA.tint = veinCol;
-      marbleA.width = marbleA.height = 256 * marbleScale * tight;
+      const mDiaA = Math.min(256 * marbleScale * tight, maxInsideDia);
+      marbleA.width = marbleA.height = mDiaA;
       marbleA.rotation = view._swirlAng;
       marbleA.alpha = 0.03 + 0.12 * magEff;
       if (DBG_LAY) marbleA.visible = !!DBG_LAY.marbleA;
 
       marbleB.tint = 0xffffff;
-      marbleB.width = marbleB.height = 256 * marbleScale * (1.0 + 0.08 * magEff);
+      const mDiaB = Math.min(256 * marbleScale * (1.0 + 0.08 * magEff), maxInsideDia);
+      marbleB.width = marbleB.height = mDiaB;
       marbleB.rotation = -view._swirlAng * 0.72;
       marbleB.alpha = 0.02 + 0.10 * magEff;
       if (DBG_LAY) marbleB.visible = !!DBG_LAY.marbleB;
 
-      highlight.width = highlight.height = r * 2.06;
+      highlight.width = highlight.height = Math.min(r * 2.06, maxInsideDia);
       highlight.rotation = view._sheenAng;
       // Tint highlights toward the hue (avoid grey/filtered look).
       highlight.tint = mixTowardWhite(bodyCol, 0.52);
@@ -572,7 +593,7 @@
       // Inner edge shading (lens depth) — keep subtle and non-black.
       if (edgeShade) {
         edgeShade.tint = mixToward(bodyCol, 0xffffff, 0.15);
-        edgeShade.width = edgeShade.height = r * 2.06;
+        edgeShade.width = edgeShade.height = Math.min(r * 2.06, maxInsideDia);
         // Keep rim/selection crisp; water-in-bowl depth cue (subtle, not black).
         edgeShade.alpha = view._nebulaFx ? (0.05 + 0.06 * magEff) : 0;
       }
@@ -608,41 +629,53 @@
 
       if (rimG) {
         rimG.clear();
-        // Baseline rim: two-pass (dark under-stroke + bright fresnel) for a crisper bowl edge.
-        // Must not read like a constant selection ring; selG remains the strong ring.
-        const rimW = Math.max(1, r * 0.022);
+        // PASS A25: bevel-like 3-pass rim (baseline edge definition, not selection).
+        // Outer definition stroke (dark), main fresnel rim (bright), inner containment shadow.
+        // selG remains the strong ring.
+        const rimW = Math.max(1.2, r * 0.026);
         let rimW2 = rimW;
 
-        let darkA = isSel ? 0.14 : 0.10;
-        let brightA = isSel ? 0.16 : 0.12;
+        // Baseline alphas (visible at rest) — boosted slightly for crispness.
+        let darkA = isSel ? 0.16 : 0.12;
+        let brightA = isSel ? 0.18 : 0.14;
+        let innerA = isSel ? 0.12 : 0.09;
 
         if (isTutTarget) {
           const p = 0.55 + 0.45 * Math.sin((tNow || 0) * 3.1 + i);
-          darkA = Math.max(darkA, 0.14 + 0.18 * p);
-          brightA = Math.max(brightA, 0.16 + 0.20 * p);
-          rimW2 = rimW + Math.max(1.5, r * 0.020);
+          darkA = Math.max(darkA, 0.16 + 0.20 * p);
+          brightA = Math.max(brightA, 0.18 + 0.22 * p);
+          innerA = Math.max(innerA, 0.12 + 0.16 * p);
+          rimW2 = rimW + Math.max(1.6, r * 0.020);
         }
         if (breakPulse > 0.01) {
-          darkA = Math.min(1.0, darkA + 0.35 * breakPulse);
-          brightA = Math.min(1.0, brightA + 0.28 * breakPulse);
+          darkA = Math.min(1.0, darkA + 0.32 * breakPulse);
+          brightA = Math.min(1.0, brightA + 0.26 * breakPulse);
+          innerA = Math.min(1.0, innerA + 0.22 * breakPulse);
           rimW2 = rimW2 + 1.0;
         }
 
-        // Pass 1: definition under-stroke (darker body hue, never near-black).
-        const darkCol = clampChannelFloor(mixToward(bodyCol, 0x000000, 0.22), 28);
-        rimG.lineStyle(Math.max(1, rimW2 * 1.15), darkCol, clamp(darkA, 0, 1), 0.5);
-        rimG.drawCircle(0, 0, r + 0.25);
-
-        // Pass 2: fresnel top rim (brighter body hue, not pure white).
-        const brightK = isSel ? 0.62 : 0.58;
+        // Colors: hue-biased (never near-black) for definition across bright Yellow + dark Purple.
+        const darkCol = clampChannelFloor(mixToward(bodyCol, 0x000000, 0.22), 30);
+        const innerCol = clampChannelFloor(mixToward(bodyCol, 0x000000, 0.18), 34);
+        const brightK = isSel ? 0.66 : 0.60;
         const brightCol = mixTowardWhite(bodyCol, brightK);
-        rimG.lineStyle(Math.max(1, rimW2 * 0.85), brightCol, clamp(brightA, 0, 1), 0.5);
-        rimG.drawCircle(0, 0, r + 0.25);
+
+        // Pass 1: outer definition under-stroke (slightly wider)
+        rimG.lineStyle(Math.max(1, rimW2 * 1.28), darkCol, clamp(darkA, 0, 1), 0.5);
+        rimG.drawCircle(0, 0, r + 0.88);
+
+        // Pass 2: main fresnel rim (thin + bright)
+        rimG.lineStyle(Math.max(1, rimW2 * 0.92), brightCol, clamp(brightA, 0, 1), 0.5);
+        rimG.drawCircle(0, 0, r + 0.30);
+
+        // Pass 3: inner containment shadow (very thin)
+        rimG.lineStyle(Math.max(1, rimW2 * 0.70), innerCol, clamp(innerA, 0, 1), 0.5);
+        rimG.drawCircle(0, 0, Math.max(1, r - 0.55));
 
         // Tiny specular hint (subtle; avoids the "all selected" look)
-        const specA = (isSel ? 0.085 : 0.060) + 0.030 * Math.sin((tNow || 0) * 1.4 + i);
-        rimG.lineStyle(Math.max(1, rimW * 0.80), 0xffffff, clamp(specA, 0, 1), 0.5);
-        rimG.arc(0, 0, r + 0.25, -1.10, -0.45);
+        const specA = (isSel ? 0.090 : 0.065) + 0.030 * Math.sin((tNow || 0) * 1.4 + i);
+        rimG.lineStyle(Math.max(1, rimW * 0.72), 0xffffff, clamp(specA, 0, 1), 0.5);
+        rimG.arc(0, 0, r + 0.34, -1.10, -0.45);
       }
       if (selG) {
         selG.clear();

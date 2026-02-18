@@ -146,3 +146,12 @@ Source: `docs/systems_patients.js`, `docs/ui_lobby.js`
   - `docs/render_wells_update.js`: upgraded the always-on rim to a two-pass stroke (dark under-stroke + bright fresnel top rim) so the circular boundary reads crisply at normal play size without looking "selected".
   - `docs/render_wells_fx_nebula.js`: slightly increased rimSpr contribution (alpha base/gain) and made the rim texture band thinner/crisper via adjusted radial gradient stops.
 - Selection/tutorial targeting rings remain distinct (selG still the strong outer ring).
+
+### Pass A25
+- Well edge definition + motion clarity (render-only):
+  - `docs/render_wells_update.js`: upgraded baseline rim to a bevel-like 3-pass edge (outer dark definition + main bright fresnel + inner shadow stroke) while keeping `selG` clearly stronger.
+  - Added a render-only spin speed multiplier for the swirl angle accumulator (≈5× visual speed at spin=100) to make direction cues more prominent.
+  - Added a small activity floor and gated any outside-edge shading to high spins only by clamping most interior layer diameters to ≤2r at low/mid spins.
+- Fixed spin neutrality (render-only):
+  - `docs/render_wells_fx_nebula.js`: removed the forced CW direction at `dir===0` (no more `dir2=(dir===0)?1:dir`). At spin=0, motion remains "alive" via drift/oscillation only (no monotonic rotation accumulation).
+  - Caustics/spec/rim sizing also gated so any beyond-edge shading is allowed only at high spins.
