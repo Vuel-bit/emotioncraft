@@ -605,29 +605,43 @@
       const tutFocus = (typeof SIM._tutFocusWell === 'number') ? (SIM._tutFocusWell|0) : -1;
       const tutOpp = (typeof SIM._tutFocusOpp === 'number') ? (SIM._tutFocusOpp|0) : -1;
       const isTutTarget = tutOn && (i === tutFocus || (tutStep === 5 && i === tutOpp));
+
       if (rimG) {
         rimG.clear();
-        // Rim must NOT read like a constant selection ring.
-        // Keep only a very subtle lens edge; selection/halo does the heavy lifting.
+        // Baseline rim: two-pass (dark under-stroke + bright fresnel) for a crisper bowl edge.
+        // Must not read like a constant selection ring; selG remains the strong ring.
         const rimW = Math.max(1, r * 0.022);
-        let rimA = isSel ? 0.18 : 0.08;
         let rimW2 = rimW;
+
+        let darkA = isSel ? 0.14 : 0.10;
+        let brightA = isSel ? 0.16 : 0.12;
+
         if (isTutTarget) {
           const p = 0.55 + 0.45 * Math.sin((tNow || 0) * 3.1 + i);
-          rimA = Math.max(rimA, 0.18 + 0.22 * p);
-          rimW2 = rimW + Math.max(1.5, r * 0.02);
+          darkA = Math.max(darkA, 0.14 + 0.18 * p);
+          brightA = Math.max(brightA, 0.16 + 0.20 * p);
+          rimW2 = rimW + Math.max(1.5, r * 0.020);
         }
         if (breakPulse > 0.01) {
-          rimA = Math.min(1.0, rimA + 0.60 * breakPulse);
-          rimW2 = rimW + 1.5;
+          darkA = Math.min(1.0, darkA + 0.35 * breakPulse);
+          brightA = Math.min(1.0, brightA + 0.28 * breakPulse);
+          rimW2 = rimW2 + 1.0;
         }
-        const rimCol = mixTowardWhite(bodyCol, 0.70);
-        rimG.lineStyle(rimW2, rimCol, rimA, 0.5);
+
+        // Pass 1: definition under-stroke (darker body hue, never near-black).
+        const darkCol = clampChannelFloor(mixToward(bodyCol, 0x000000, 0.22), 28);
+        rimG.lineStyle(Math.max(1, rimW2 * 1.15), darkCol, clamp(darkA, 0, 1), 0.5);
+        rimG.drawCircle(0, 0, r + 0.25);
+
+        // Pass 2: fresnel top rim (brighter body hue, not pure white).
+        const brightK = isSel ? 0.62 : 0.58;
+        const brightCol = mixTowardWhite(bodyCol, brightK);
+        rimG.lineStyle(Math.max(1, rimW2 * 0.85), brightCol, clamp(brightA, 0, 1), 0.5);
         rimG.drawCircle(0, 0, r + 0.25);
 
         // Tiny specular hint (subtle; avoids the "all selected" look)
-        const specA = (isSel ? 0.12 : 0.08) + 0.04 * Math.sin((tNow || 0) * 1.4 + i);
-        rimG.lineStyle(Math.max(1, rimW * 0.9), 0xffffff, specA, 0.5);
+        const specA = (isSel ? 0.085 : 0.060) + 0.030 * Math.sin((tNow || 0) * 1.4 + i);
+        rimG.lineStyle(Math.max(1, rimW * 0.80), 0xffffff, clamp(specA, 0, 1), 0.5);
         rimG.arc(0, 0, r + 0.25, -1.10, -0.45);
       }
       if (selG) {

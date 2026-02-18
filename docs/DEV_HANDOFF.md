@@ -140,3 +140,9 @@ Source: `docs/systems_patients.js`, `docs/ui_lobby.js`
   - A subtle specular gloss highlight (SCREEN blend) with gentle motion (no hard wheel rotation).
   - A thin fresnel rim highlight (SCREEN blend) kept restrained for readability.
 - `docs/render_wells_update.js` slightly increased ripple visibility and further dampened the base “hard rotation” feel when FX is active (visual-only).
+
+### Pass A24
+- Well edge definition pass (render-only):
+  - `docs/render_wells_update.js`: upgraded the always-on rim to a two-pass stroke (dark under-stroke + bright fresnel top rim) so the circular boundary reads crisply at normal play size without looking "selected".
+  - `docs/render_wells_fx_nebula.js`: slightly increased rimSpr contribution (alpha base/gain) and made the rim texture band thinner/crisper via adjusted radial gradient stops.
+- Selection/tutorial targeting rings remain distinct (selG still the strong outer ring).

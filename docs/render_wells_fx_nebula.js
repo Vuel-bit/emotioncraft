@@ -38,8 +38,8 @@
       caustAlphaGain: mob ? 0.040 : 0.048,
       specAlphaBase: mob ? 0.020 : 0.022,
       specAlphaGain: mob ? 0.050 : 0.060,
-      rimAlphaBase: mob ? 0.040 : 0.045,
-      rimAlphaGain: mob ? 0.050 : 0.060,
+      rimAlphaBase: mob ? 0.048 : 0.052,
+      rimAlphaGain: mob ? 0.060 : 0.070,
       // Normal-map gradient scale
       gradK: mob ? 18 : 22,
     };
@@ -271,11 +271,12 @@
       const cx = size / 2,
         cy = size / 2;
       const r = size * 0.48;
-      const g = ctx.createRadialGradient(cx, cy, r * 0.72, cx, cy, r);
+      const g = ctx.createRadialGradient(cx, cy, r * 0.78, cx, cy, r);
       g.addColorStop(0, 'rgba(255,255,255,0)');
-      g.addColorStop(0.82, 'rgba(255,255,255,0)');
-      g.addColorStop(0.92, 'rgba(255,255,255,0.07)');
-      g.addColorStop(1, 'rgba(255,255,255,0.18)');
+      g.addColorStop(0.86, 'rgba(255,255,255,0)');
+      g.addColorStop(0.94, 'rgba(255,255,255,0.09)');
+      g.addColorStop(0.985, 'rgba(255,255,255,0.16)');
+      g.addColorStop(1, 'rgba(255,255,255,0.24)');
       ctx.fillStyle = g;
       ctx.beginPath();
       ctx.arc(cx, cy, r, 0, Math.PI * 2);

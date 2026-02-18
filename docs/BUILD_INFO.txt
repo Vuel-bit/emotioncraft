@@ -60,3 +60,4 @@ Run root: open docs/index.html
 Pass A21: Extracted treatment plan runtime into patients_plans.js; systems_patients.js now delegates (no behavior change).
 Pass A22: Render-only wells upgrade — nebula/energy interior FX (displacement warp + wisps + subtle glow). No gameplay changes.
 Pass A23: Render-only wells update — water/fluid interior FX (refraction + caustics + spec + fresnel rim). No gameplay changes.
+Pass A24: Render-only wells update — crisper bowl edge rim (two-pass definition rim + slightly stronger FX fresnel rim). No gameplay changes.
