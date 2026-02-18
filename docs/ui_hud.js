@@ -799,11 +799,26 @@ let html = `<div class="hudLine1">${line1}</div><div class="hudLine2">${line2}</
         const SG = (UI_STATE && UI_STATE.simGuardStats) ? UI_STATE.simGuardStats : null;
         if (SG && typeof SG.count === 'number' && SG.count > 0) {
           parts.push('SIM WRITE-GUARD: ' + SG.count + ' suspicious root writes');
-          if (verbose && SG.byKey && typeof SG.byKey === 'object') {
+          if (SG.byKey && typeof SG.byKey === 'object') {
             const bk = SG.byKey;
             const keys = Object.keys(bk).sort((a, b) => (Number(bk[b] || 0) - Number(bk[a] || 0)));
-            const top = keys.slice(0, 5).map(k => k + ': ' + String(bk[k] || 0));
-            if (top.length) parts.push('Top keys: ' + top.join(', '));
+            const topK = keys.slice(0, 5);
+            if (topK.length) {
+              parts.push('Top keys:');
+              for (let i = 0; i < topK.length; i++) {
+                const k = topK[i];
+                parts.push('  ' + k + ': ' + String(bk[k] || 0));
+              }
+            }
+          }
+
+          // Samples are verbose-only to avoid clutter.
+          if (verbose && Array.isArray(SG.samples) && SG.samples.length) {
+            parts.push('Samples:');
+            for (let i = 0; i < SG.samples.length && i < 10; i++) {
+              const s = SG.samples[i] || {};
+              parts.push('  ' + String(s.key || '?') + (s.tag ? (' @ ' + String(s.tag)) : ''));
+            }
           }
           parts.push('');
         }

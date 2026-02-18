@@ -1,12 +1,9 @@
-PASS: A13 (runnability smoke pass)
-- Goal: restore confirmed runnability after A12 architecture migration
-- Changes: no functional code changes in this pass; metadata only
-
 Emotioncraft Psyche MVP
-Build: emotioncraft_v0_2_103_passD_passA12_engineFacade
+Build: emotioncraft_v0_2_103_passD_passA14_engineFacade
 Date: 2026-02-17
 
 Highlights (current build)
+- Pass A14: SIM write-guard now records up to 10 sample writes (key + tag chain) and the Debug panel always shows top 5 suspicious keys when ?simguard=1 is enabled (samples shown only in ?inputdebug=1).
 - Pass A12: Added EC.ACTIONS.setUiPaused and routed Log overlay pause toggling through ENGINE.dispatch/ACTIONS (ui_hud no longer writes SIM._uiPaused). ui_hud init handlers use snapshot locals; ui_app seeds ctx from snapshot. No behavior changes.
 - Pass A10: Begin read-surface migration. ENGINE.getSnapshot now guarantees {SIM, UI_STATE, RENDER_STATE}; HUD/Controls/Render-Wells read via snapshot locals.
 - Pass A11: Continue read-surface migration. render_wells/render_wells_init/systems_input/ui_lobby now read via EC.ENGINE.getSnapshot() locals (fallback _snap per file).

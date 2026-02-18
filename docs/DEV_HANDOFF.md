@@ -113,5 +113,6 @@ Source: `docs/systems_patients.js`, `docs/ui_lobby.js`
 - Added `EC.ACTIONS.setUiPaused(flag)`; Log overlay pause now uses `EC.ENGINE.dispatch('setUiPaused', ...)` (fallback to ACTIONS). HUD no longer writes `SIM._uiPaused` directly.
 - ui_app seeds SIM/UI pointers via `EC.ENGINE.getSnapshot()` (defensive fallback).
 
-**Pass A13 (runnability smoke pass)**
-- No functional changes; metadata-only pass to mark a clean baseline after A12 migration.
+**Pass A14 (SIM write-guard HUD improvements)**
+- When `?simguard=1` is enabled and suspicious root writes occur, the Debug panel always shows total count + top 5 keys (sorted).
+- The guard also records up to 10 `{key, tag}` samples (tag includes the chained context) that are shown only when `?inputdebug=1`.

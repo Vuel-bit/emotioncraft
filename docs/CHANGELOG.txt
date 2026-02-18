@@ -1,6 +1,3 @@
-Pass A13 (runnability smoke pass)
-- No functional changes; metadata-only pass to mark post-migration smoke-check baseline.
-
 ## v0_2_103_passD (2026-02-12)
 - passD Pass 1 — boot/start hardening (main.js).
 - Bootstrap: add EC._registerModule + EC.safe (debug-only warnings).
@@ -115,3 +112,5 @@ Pass A10: Phase 1 read-surface migration — ENGINE.getSnapshot standardized; ui
 Pass A11: Phase 2 read-surface migration — render_wells.js, render_wells_init.js, systems_input.js, ui_lobby.js now read SIM/UI/RENDER via EC.ENGINE.getSnapshot() locals (defensive _snap fallback inside each module). No behavior changes.
 
 Pass A12: Removed the last presentation→SIM write (SIM._uiPaused). Added `EC.ACTIONS.setUiPaused`; ui_hud Log overlay toggles pause via ENGINE.dispatch/ACTIONS. ui_hud init handlers use snapshot locals; ui_app seeds ctx from snapshot. No behavior changes.
+
+Pass A14: SIM write-guard HUD improvements — stats now always maintain byKey counts, record up to 10 samples (key + tag chain), and the Debug panel always shows top 5 suspicious keys when simguard is enabled (samples shown only with ?inputdebug=1).

@@ -58,7 +58,7 @@
       if (!target || typeof target !== 'object') return;
 
       U._simGuardWrapped = true;
-      U.simGuardStats = U.simGuardStats || { count: 0, byKey: {} };
+      U.simGuardStats = U.simGuardStats || { count: 0, byKey: {}, samples: [] };
       if (typeof U._simGuardWarnBudget !== 'number') U._simGuardWarnBudget = 50;
 
       EC.SIM = new Proxy(target, {
@@ -73,10 +73,17 @@
           if (!allowed) {
             try {
               const key = String(prop);
-              const stats = (U.simGuardStats = U.simGuardStats || { count: 0, byKey: {} });
+              const stats = (U.simGuardStats = U.simGuardStats || { count: 0, byKey: {}, samples: [] });
               stats.count = (stats.count || 0) + 1;
-              stats.byKey = stats.byKey || {};
+              if (!stats.byKey || typeof stats.byKey !== 'object') stats.byKey = {};
               stats.byKey[key] = (stats.byKey[key] || 0) + 1;
+
+              // Capture a few samples (key + current tag chain) for HUD display.
+              if (!Array.isArray(stats.samples)) stats.samples = [];
+              if (stats.samples.length < 10) {
+                const tag = (EC.ENGINE && EC.ENGINE._simWriteTag) ? EC.ENGINE._simWriteTag : '';
+                stats.samples.push({ key: key, tag: String(tag || '') });
+              }
 
               if ((U._simGuardWarnBudget || 0) > 0) {
                 U._simGuardWarnBudget = (U._simGuardWarnBudget || 0) - 1;
