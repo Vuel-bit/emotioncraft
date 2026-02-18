@@ -10,9 +10,12 @@
   // PASS A25 (visual-only): increase directional spin read + keep interior lively at rest.
   // Spin speed multiplier affects ONLY visuals (view._swirlAng accumulator).
   // PASS A26 (visual-only): reduce A25 spin speed boost by half.
-  const SPIN_VIS_SPEED_MULT = 2.5;
+  // PASS A27 (visual-only): +50% vs A26.
+  const SPIN_VIS_SPEED_MULT = 3.75;
   // Outside-edge effects (any shading beyond the inner circle) are allowed only at high spins.
   const OUTER_FX_MIN = 0.75;
+  // PASS A27 (visual-only): water FX motion also gets +50% (keeps spin=0 neutral).
+  const OMEGA_FX_MULT = 1.5;
 
   function mixRgb(a, b, t) {
     t = Math.max(0, Math.min(1, t));
@@ -449,7 +452,9 @@
       // Water / fluid FX (render-only): refraction warp + caustics/spec + subtle rim.
       try {
         if (EC.RENDER_WELLS_FX && EC.RENDER_WELLS_FX.updateNebulaFX) {
-          EC.RENDER_WELLS_FX.updateNebulaFX(view, dt, r, bodyCol, dir, magEff, spinNorm, omega, (tNow || 0), ripT, i);
+          // PASS A27: apply +50% visual spin speed to the FX motion too.
+          const omegaFx = omega * OMEGA_FX_MULT;
+          EC.RENDER_WELLS_FX.updateNebulaFX(view, dt, r, bodyCol, dir, magEff, spinNorm, omegaFx, (tNow || 0), ripT, i);
         }
       } catch (e) {}
 
@@ -574,13 +579,21 @@
 
       // Inner edge shading (lens depth) — keep subtle and non-black.
       if (edgeShade) {
-        edgeShade.tint = mixToward(bodyCol, 0xffffff, 0.15);
+        // PASS A27: color-driven containment band (tinted toward the well color, not white).
+        edgeShade.tint = saturateAndDeepen(bodyCol, 0.16, 0.10);
         edgeShade.width = edgeShade.height = Math.min(r * 2.06, maxInsideDia);
         // Keep rim/selection crisp; water-in-bowl depth cue (subtle, not black).
-        edgeShade.alpha = view._nebulaFx ? (0.05 + 0.06 * magEff) : 0;
+        edgeShade.alpha = view._nebulaFx ? (0.06 + 0.10 * act + 0.02 * magEff) : 0;
       }
 
       // Mask and rim keep the well a perfect circle at all times.
+      // PASS A27: soft circular sprite mask (feathered edge) to make the well read more round/contained.
+      const maskSoft = view.maskSoft;
+      if (maskSoft) {
+        // TEX.circle is authored at ~0.46 radius; scale so the soft edge lands at true radius.
+        maskSoft.width = maskSoft.height = r * 2.18;
+        maskSoft.position.set(0, 0);
+      }
       if (maskG) {
         maskG.clear();
         maskG.beginFill(0xffffff, 1);
@@ -595,7 +608,7 @@
         if (!wantMask) {
           if (interior.mask) interior.mask = null;
         } else {
-          if (!interior.mask && maskG) interior.mask = maskG;
+          if (!interior.mask) interior.mask = maskSoft || maskG || null;
         }
       }
 

@@ -162,3 +162,13 @@ Source: `docs/systems_patients.js`, `docs/ui_lobby.js`
   - Disabled the legacy `waveHand` direction cue (hidden/non-renderable). Spin direction is now conveyed by the full interior motion.
   - Reduced the render-only spin speed multiplier from ~5× to ~2.5×.
 - `docs/render_wells_fx_nebula.js` (water FX module): softened the fresnel rim texture/alpha so it reads as a natural band (not a ring), and tied displacement/caustics/spec rotation rates to `omega` so the entire interior participates in spin.
+
+### Pass A27
+- Spin (render-only):
+  - `docs/render_wells_update.js`: increased `SPIN_VIS_SPEED_MULT` from **2.5 → 3.75** (+50%).
+  - `docs/render_wells_update.js`: passed `omegaFx = omega * 1.5` into the water FX update so displacement/caustics/spec drift/rotation also runs +50% faster (visual-only; omega remains 0 when spin is 0).
+- Circular containment (render-only):
+  - `docs/render_wells_init.js`: added `maskSoft` per well using `TEX.circle` (soft-edge sprite mask) and set `interior.mask = maskSoft` by default; debug mask toggle still supported.
+  - `docs/render_wells_update.js`: sizes `maskSoft` so its feathered edge lands at the true radius (≈ `r * 2.18`).
+- Color-driven border (render-only):
+  - `docs/render_wells_update.js`: re-tinted `edgeShade` toward the well hue (slight saturation + depth) and raised alpha slightly using the activity floor so the edge reads as a broad circular pigment band **without** a stroke/outline.

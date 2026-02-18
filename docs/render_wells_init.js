@@ -685,6 +685,21 @@
         // A debug toggle can re-enable masking to diagnose platform-specific issues.
         // (See render_wells_update.js EC.DEBUG_LIQUID_LAYERS.mask)
 
+        // PASS A27: soft sprite mask (feathered) to improve circular containment without a hard outline.
+        // Uses TEX.circle (soft-edge alpha) so the boundary reads as an organic color border.
+        const maskSoft = new PIXI.Sprite(TEX.circle || PIXI.Texture.WHITE);
+        maskSoft.name = 'maskSoft';
+        maskSoft.anchor.set(0.5);
+        maskSoft.position.set(0, 0);
+        maskSoft.eventMode = 'none';
+        // Hide from normal render; still usable as a mask.
+        maskSoft.visible = false;
+        maskSoft.alpha = 1;
+        maskSoft.renderable = true;
+        g.addChild(maskSoft);
+        // Default mask ON (debug can disable via EC.DEBUG_LIQUID_LAYERS.mask).
+        try { interior.mask = maskSoft; } catch (_) {}
+
         // Pigment body (tinted liquid mass)
         const pigment = new PIXI.Sprite(TEX.body || TEX.circle);
         pigment.name = 'pigment';
@@ -901,6 +916,7 @@
           g,
           interior,
           maskG,
+          maskSoft,
           pigment,
           rippleA,
           rippleB,

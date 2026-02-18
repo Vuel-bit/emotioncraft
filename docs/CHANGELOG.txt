@@ -137,3 +137,5 @@ Pass A24: Render-only wells update — strengthened well boundary/edge definitio
 Pass A25: Render-only wells update — bevel-like 3-pass baseline rim (outer definition + fresnel + inner shadow), fixed spin=0 CW bias in water FX, increased visual spin read (~5x at spin=100), added always-on interior activity floor, and gated any outside-edge shading to high spins only. No gameplay changes.
 
 Pass A26: Render-only wells update — removed always-on rim stroke lines (no solid outlines around wells), disabled the legacy wave-hand direction cue, reduced the visual spin speed boost to ~2.5x, and updated water FX so surface layers rotate/flow with omega (spin reads in the whole interior). No gameplay changes.
+
+Pass A27: Render-only wells update — increased visual spin speed by +50% (2.5→3.75) and applied +50% omega to water FX layers; added a soft sprite mask (TEX.circle) to enforce an organic circular containment edge; re-tinted edge shading toward the well hue to form a broad color-driven border (no outline ring). No gameplay changes.
