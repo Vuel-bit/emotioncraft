@@ -425,6 +425,26 @@
 
       levelSelectEl.addEventListener('change', () => {
         const lvl = parseInt(levelSelectEl.value, 10) || 1;
+        // Route initMVP through ENGINE/ACTIONS so SIM init writes are bracketed.
+        try {
+          if (EC.ENGINE && typeof EC.ENGINE.dispatch === 'function') {
+            const r = EC.ENGINE.dispatch('initMVP', lvl);
+            if (r && r.ok) return;
+          }
+        } catch (_) {}
+        try {
+          if (EC.ACTIONS && typeof EC.ACTIONS.initMVP === 'function') { EC.ACTIONS.initMVP(lvl); return; }
+        } catch (_) {}
+        // Route initMVP through ENGINE/ACTIONS so SIM init writes are bracketed.
+        try {
+          if (EC.ENGINE && typeof EC.ENGINE.dispatch === 'function') {
+            const r = EC.ENGINE.dispatch('initMVP', lvl);
+            if (r && r.ok) return;
+          }
+        } catch (_) {}
+        try {
+          if (EC.ACTIONS && typeof EC.ACTIONS.initMVP === 'function') { EC.ACTIONS.initMVP(lvl); return; }
+        } catch (_) {}
         if (SIM && typeof SIM.initMVP === 'function') SIM.initMVP(lvl);
       });
     }

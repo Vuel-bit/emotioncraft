@@ -25,6 +25,28 @@
     return { ok: false, reason: 'missing_setInLobby' };
   }
 
+
+  // Route MVP init through ENGINE/ACTIONS so SIM init writes are bracketed (simguard-friendly).
+  function _initMVP(levelOrDef) {
+    try {
+      const eng = EC.ENGINE;
+      if (eng && typeof eng.dispatch === 'function') {
+        const r = eng.dispatch('initMVP', levelOrDef);
+        if (r && r.ok) return r;
+      }
+    } catch (_) {}
+    try {
+      if (EC.ACTIONS && typeof EC.ACTIONS.initMVP === 'function') {
+        const r2 = EC.ACTIONS.initMVP(levelOrDef);
+        if (r2 && r2.ok) return r2;
+      }
+    } catch (_) {}
+    try {
+      if (SIM && typeof SIM.initMVP === 'function') { _initMVP(levelOrDef); return { ok: true }; }
+    } catch (_) {}
+    return { ok: false, reason: 'missing_initMVP' };
+  }
+
   const hueName = (i) => (EC.hueLabel ? EC.hueLabel(i) : ((CONST.HUES && CONST.HUES[i]) ? CONST.HUES[i] : `Hue ${i}`));
   const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
   const rand = (a, b) => (a + Math.random() * (b - a));
@@ -1079,7 +1101,7 @@ function _uniq(arr) {
     STATE.activePatientId = p.id;
 
     if (SIM && typeof SIM.initMVP === 'function') {
-      SIM.initMVP(def);
+      _initMVP(def);
       // Ensure state flags are consistent.
       SIM.mvpWin = false;
       SIM.levelState = 'playing';
@@ -1231,7 +1253,7 @@ if (pk === 'INTAKE') {
     SIM._patientPortrait = '';
 
     if (SIM && typeof SIM.initMVP === 'function') {
-      SIM.initMVP(1);
+      _initMVP(1);
       _setInLobby(true);
     }
 

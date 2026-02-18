@@ -116,3 +116,7 @@ Source: `docs/systems_patients.js`, `docs/ui_lobby.js`
 **Pass A14 (SIM write-guard HUD improvements)**
 - When `?simguard=1` is enabled and suspicious root writes occur, the Debug panel always shows total count + top 5 keys (sorted).
 - The guard also records up to 10 `{key, tag}` samples (tag includes the chained context) that are shown only when `?inputdebug=1`.
+
+
+### Pass A15
+- Startup/reset + MVP init are routed through ENGINE.dispatch/ACTIONS (resetRun, initMVP) so simguard brackets levelState/mvpWin/mvpLose/gameOver* writes during init/reset.

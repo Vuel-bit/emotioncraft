@@ -193,6 +193,20 @@ MOD.setUiPaused = function setUiPaused(flag) {
     return { ok: true, inLobby: !!SIM.inLobby };
   };
 
+  MOD.initMVP = function initMVP(levelOrDef) {
+    const SIM = EC.SIM;
+    if (!SIM || typeof SIM.initMVP !== 'function') return { ok: false, reason: 'missing_initMVP' };
+    SIM.initMVP(levelOrDef);
+    return { ok: true };
+  };
+
+  MOD.resetRun = function resetRun() {
+    if (typeof EC.resetRun !== 'function') return { ok: false, reason: 'missing_resetRun' };
+    EC.resetRun();
+    return { ok: true };
+  };
+
+
 
   // Wrap all actions so direct EC.ACTIONS.* calls are considered "allowed" SIM writes
   // by the SIM write-guard (best-effort; idempotent).

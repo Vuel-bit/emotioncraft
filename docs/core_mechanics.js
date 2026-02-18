@@ -932,6 +932,16 @@ EC.tick = function tick(delta) {
 EC.init = function init() {
   // UI must initialize first so it can wire handlers and expose fail/win helpers.
   if (EC.initUI) EC.initUI();
+  // Prefer dispatched reset so SIM write-guard brackets init/reset writes.
+  try {
+    if (EC.ENGINE && typeof EC.ENGINE.dispatch === 'function') {
+      const r = EC.ENGINE.dispatch('resetRun');
+      if (r && r.ok) return;
+    }
+  } catch (_) {}
+  try {
+    if (EC.ACTIONS && typeof EC.ACTIONS.resetRun === 'function') { EC.ACTIONS.resetRun(); return; }
+  } catch (_) {}
   if (EC.resetRun) EC.resetRun();
 };
 

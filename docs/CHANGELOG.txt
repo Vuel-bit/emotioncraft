@@ -1,4 +1,5 @@
 ## v0_2_103_passD (2026-02-12)
+- passA15 — bracket init/reset writes via ACTIONS (resetRun + initMVP) to reduce simguard false positives.
 - passD Pass 1 — boot/start hardening (main.js).
 - Bootstrap: add EC._registerModule + EC.safe (debug-only warnings).
 - Bootstrap: fix BUILD_ID/BUILD metadata drift (v0_2_103_passD, 2026-02-12).
