@@ -413,10 +413,10 @@
         rippleB.position.x = Math.cos(ripT * 0.23 + i * 0.9) * (2.2 + 4.0 * magEff);
         rippleB.position.y = Math.sin(ripT * 0.31 + i * 0.6) * (2.0 + 3.8 * magEff);
 
-        // Alpha: subtle at rest, stronger under spin
-        // Remove remaining "mist/haze" around wells (visual noise)
-        rippleA.alpha = 0;
-        rippleB.alpha = 0;
+        // Alpha: keep subtle. When nebula FX is enabled, allow a faint living surface.
+        const _nebOn = !!view._nebulaFx;
+        rippleA.alpha = _nebOn ? (0.010 + 0.040 * magEff) : 0;
+        rippleB.alpha = _nebOn ? (0.008 + 0.030 * magEff) : 0;
 
         // Wobble rotation (organic, non-repeating)
         const wob = 0.08 * Math.sin(ripT * 0.55 + i) + 0.05 * Math.sin(ripT * 0.91 + i * 1.7);
@@ -427,9 +427,19 @@
         rippleB.rotation = -wob * 0.6 + dir * ripT * (0.08 + 0.26 * magEff);
       }
 
+      // Nebula / energy FX (render-only): domain warp + wisps + subtle halo.
+      try {
+        if (EC.RENDER_WELLS_FX && EC.RENDER_WELLS_FX.updateNebulaFX) {
+          EC.RENDER_WELLS_FX.updateNebulaFX(view, dt, r, bodyCol, dir, magEff, spinNorm, omega, (tNow || 0), ripT, i);
+        }
+      } catch (e) {}
+
       // Store per-well angles (no allocations)
       // Monotonic directional angle accumulator. If spin=0, this remains steady.
-      view._swirlAng = (view._swirlAng || 0) + omega * dt;
+      // Reduce the "hard rotation" feel when nebula FX is active by slightly dampening the
+      // base angle accumulator (direction still follows spin sign).
+      const _nebMul = view._nebulaFx ? (0.65 + 0.35 * magEff) : 1.0;
+      view._swirlAng = (view._swirlAng || 0) + omega * dt * _nebMul;
       view._sheenAng = (view._sheenAng || 0) + 0.4 * dt;
 
       // Swirl layers: unmistakable internal motion cue for direction + magnitude.
@@ -562,8 +572,8 @@
       if (edgeShade) {
         edgeShade.tint = mixToward(bodyCol, 0xffffff, 0.15);
         edgeShade.width = edgeShade.height = r * 2.06;
-        // Remove remaining "mist/haze" around wells (keep rim/selection crisp)
-        edgeShade.alpha = 0;
+        // Keep rim/selection crisp; allow a very subtle depth cue when nebula FX is active.
+        edgeShade.alpha = view._nebulaFx ? (0.02 + 0.05 * magEff) : 0;
       }
 
       // Mask and rim keep the well a perfect circle at all times.

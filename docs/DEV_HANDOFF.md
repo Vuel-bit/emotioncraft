@@ -123,3 +123,11 @@ Source: `docs/systems_patients.js`, `docs/ui_lobby.js`
 
 ### Pass A16
 - Patient session transitions are now routed through ENGINE.dispatch/ACTIONS wrappers (beginFromLobby/startPending/resumeFromLobby/openLobbyPause/backToLobby) so simguard does not flag patient-session root writes triggered from UI.
+
+### Pass A21
+- Treatment plan runtime moved into `docs/patients_plans.js` (systems_patients delegates; no behavior change).
+
+### Pass A22
+- Well rendering visual upgrade only: `docs/render_wells_fx_nebula.js` adds nebula/energy interior FX (displacement warp + wisps + subtle glow).
+- Wired in `docs/index.html` (loaded before `render_wells_init.js`).
+- `render_wells_init.js` applies the FX per well; `render_wells_update.js` drives it each frame using existing spin visuals.

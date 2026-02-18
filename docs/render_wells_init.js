@@ -40,6 +40,21 @@
   const TEX = (EC.RENDER_WELLS_INIT._TEX = EC.RENDER_WELLS_INIT._TEX || {});
   function ensureTextures() {
     if (TEX._ready) return;
+
+    // Quality heuristic (render-only): keep mobile stable, give desktop higher-res procedural textures.
+    const _mob = (() => {
+      try {
+        const w = Math.min(window.innerWidth || 0, window.innerHeight || 0);
+        const ua = (navigator && navigator.userAgent) ? navigator.userAgent : '';
+        if (w && w <= 760) return true;
+        return /Mobi|Android|iPhone|iPad|iPod/i.test(ua);
+      } catch (_) {
+        return false;
+      }
+    })();
+    const SIZE_MAIN = _mob ? 256 : 384;
+    const SIZE_TILE = _mob ? 128 : 256;
+    TEX._q = { mobile: _mob, sizeMain: SIZE_MAIN, sizeTile: SIZE_TILE };
     // Helper: clip the current canvas content to a circle (destination-in).
     function clipCircle(ctx, size, radiusFrac) {
       const cx = size / 2, cy = size / 2;
@@ -62,7 +77,7 @@
 
     // 1) Soft-edge circle texture (white circle with soft edge)
     {
-      const size = 256;
+      const size = SIZE_MAIN;
       const c = document.createElement('canvas');
       c.width = c.height = size;
       const ctx = c.getContext('2d');
@@ -84,7 +99,7 @@
     // 1b) Pigment body texture: vivid midtone body + soft edge.
     // This is the main interior "liquid" mass (tinted per hue).
     {
-      const size = 256;
+      const size = SIZE_MAIN;
       const c = document.createElement('canvas');
       c.width = c.height = size;
       const ctx = c.getContext('2d');
@@ -107,7 +122,7 @@
     // 1c) Swirl texture: spiral streaks + soft radial falloff (tinted per hue).
     // Designed to be obvious even at moderate spin.
     {
-      const size = 256;
+      const size = SIZE_MAIN;
       const c = document.createElement('canvas');
       c.width = c.height = size;
       const ctx = c.getContext('2d');
@@ -151,7 +166,7 @@
     // 1d) Tracer texture: 2–4 faint curved arcs to help CW/CCW readability at a glance.
     // Tint per hue; keep subtle. Circle-clipped so we remain maskless/mobile-safe.
     {
-      const size = 256;
+      const size = SIZE_MAIN;
       const c = document.createElement('canvas');
       c.width = c.height = size;
       const ctx = c.getContext('2d');
@@ -197,7 +212,7 @@
 
     // 1e) Inner edge shading (very subtle) for a "lens" feel. Not near-black.
     {
-      const size = 256;
+      const size = SIZE_MAIN;
       const c = document.createElement('canvas');
       c.width = c.height = size;
       const ctx = c.getContext('2d');
@@ -218,7 +233,7 @@
 
     // 2) Radial highlight texture (white -> transparent)
     {
-      const size = 256;
+      const size = SIZE_MAIN;
       const c = document.createElement('canvas');
       c.width = c.height = size;
       const ctx = c.getContext('2d');
@@ -237,7 +252,7 @@
 
     // 3) Marbling/noise texture (ink-in-water feel). Low-contrast by design.
     {
-      const size = 256;
+      const size = SIZE_MAIN;
       const c = document.createElement('canvas');
       c.width = c.height = size;
       const ctx = c.getContext('2d');
@@ -304,7 +319,7 @@
     // We generate a circular ripple texture and animate it via rotation/offset.
     // Keep it bright enough that it can never black-mute the pigment on mobile.
     {
-      const size = 128;
+      const size = SIZE_TILE;
       const c = document.createElement('canvas');
       c.width = c.height = size;
       const ctx = c.getContext('2d');
@@ -340,7 +355,7 @@
 
       // Also generate a circular version at a higher resolution so no square edges can appear.
       try {
-        const size2 = 256;
+        const size2 = SIZE_MAIN;
         const c2 = document.createElement('canvas');
         c2.width = c2.height = size2;
         const ctx2 = c2.getContext('2d');
@@ -356,7 +371,7 @@
     // 5) Ink streak tiles (dark + light) — sparse strokes that add depth and make direction obvious.
     // These are tiling textures; they must remain mostly transparent to avoid black-out.
     function makeStrokeTile(kind) {
-      const size = 256;
+      const size = SIZE_MAIN;
       const c = document.createElement('canvas');
       c.width = c.height = size;
       const ctx = c.getContext('2d');
@@ -419,7 +434,7 @@
 
     // Also pre-clip circular versions so no square boundaries can ever appear.
     try {
-      const size2 = 256;
+      const size2 = SIZE_MAIN;
       const mkCircleFromTex = (tex) => {
         const c = document.createElement('canvas');
         c.width = c.height = size2;
@@ -440,7 +455,7 @@
     // 6) Directional band texture (very obvious motion cue when spin != 0).
     // Not a clean geometric spiral: thick, imperfect sweeps with gaps.
     {
-      const size = 256;
+      const size = SIZE_MAIN;
       const c = document.createElement('canvas');
       c.width = c.height = size;
       const ctx = c.getContext('2d');
@@ -487,7 +502,7 @@
       // Wave-hand: an amorphous crest/band (NOT a cone/beam). This is an alpha mask
       // tinted in the renderer. We build a noisy partial-ring band with a clear
       // leading crest and trailing fade.
-      const size = 256;
+      const size = SIZE_MAIN;
       const c = document.createElement('canvas');
       c.width = c.height = size;
       const ctx = c.getContext('2d');
@@ -584,6 +599,13 @@
       TEX.waveHand = texFromCanvas(c);
     }
 
+    // Ensure all textures are LINEAR filtered (reduces pixelation/blockiness).
+    try {
+      for (const k in TEX) {
+        const tx = TEX[k];
+        if (tx && tx.baseTexture && PIXI.SCALE_MODES) tx.baseTexture.scaleMode = PIXI.SCALE_MODES.LINEAR;
+      }
+    } catch (e) {}
 
     TEX._ready = true;
   }
@@ -875,7 +897,7 @@
         EC.RENDER.mvpWellLayer.addChild(ghostG);
         EC.RENDER.mvpWellLayer.addChild(ghostSpinG);
   
-        EC.RENDER.mvpWells.push({
+        const vw = {
           g,
           interior,
           maskG,
@@ -905,7 +927,17 @@
           _swirlAng: 0,
           _sheenAng: 0,
           _ripT: 0,
-        });
+        };
+
+        // Render-only upgrade: apply nebula/energy FX to the interior stack.
+        // Safe no-op if the module is missing.
+        try {
+          if (EC.RENDER_WELLS_FX && EC.RENDER_WELLS_FX.applyNebulaFX) {
+            EC.RENDER_WELLS_FX.applyNebulaFX(vw, { alt: ((i & 1) === 1) });
+          }
+        } catch (e) {}
+
+        EC.RENDER.mvpWells.push(vw);
       }
 
       // Debug-only: confirm liquid stack is created and visible in the display tree.

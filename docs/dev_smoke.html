@@ -748,12 +748,46 @@
     @keyframes quirkTelePulse{ 0%,100%{ transform: translateY(0) scale(1.0); } 50%{ transform: translateY(-0.5px) scale(1.02);} }
     @keyframes quirkActivePulse{ 0%,100%{ transform: translateY(0) scale(1.02); } 50%{ transform: translateY(-1px) scale(1.05);} }
 
+    /* DEV ONLY: Smoke runner panel */
+    .smokePanel { position: fixed; left: 8px; top: 8px; width: 320px; max-width: calc(100vw - 16px); max-height: calc(100vh - 16px); overflow: hidden; z-index: 10000; pointer-events: auto; touch-action: manipulation; user-select: none; -webkit-user-select: none; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; }
+    .smokePanel .smokeCard { background: rgba(12,16,26,0.88); border: 1px solid rgba(255,255,255,0.14); border-radius: 14px; box-shadow: 0 10px 30px rgba(0,0,0,0.35); padding: 10px; }
+    .smokePanel .smokeTitle { font-weight: 800; font-size: 12px; color: rgba(232,238,252,0.92); margin: 0; letter-spacing: 0.6px; text-transform: uppercase; }
+    .smokePanel .smokeBtns { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0; }
+    .smokePanel .smokeBtn { font-size: 12px; line-height: 1; padding: 8px 10px; border-radius: 10px; border: 1px solid rgba(255,255,255,0.14); background: rgba(255,255,255,0.06); color: rgba(232,238,252,0.92); cursor: pointer; }
+    .smokePanel .smokeBtn:active { transform: translateY(1px); }
+    .smokePanel pre { margin: 0; height: 180px; overflow: auto; padding: 8px; border-radius: 10px; background: rgba(0,0,0,0.25); border: 1px solid rgba(255,255,255,0.10); color: rgba(232,238,252,0.86); font-size: 11px; white-space: pre-wrap; word-break: break-word; }
+    .smokePanel .smokeRow { display:flex; gap: 6px; align-items:center; justify-content: space-between; margin-bottom: 6px; }
+    .smokePanel .smokeStatus { font-size: 11px; font-weight: 800; color: rgba(232,238,252,0.82); }
+
   </style>
 </head>
 <body>
 <div id="app"></div>
 
-  <!-- Patient Lobby overlay (hidden until initialized) -->
+<!-- DEV ONLY: Smoke runner panel -->
+<div id="smokePanel" class="smokePanel" aria-hidden="false">
+  <div class="smokeCard">
+    <div class="smokeRow">
+      <div class="smokeTitle">Dev Smoke</div>
+      <div id="smokeStatus" class="smokeStatus">IDLE</div>
+    </div>
+    <div class="smokeBtns">
+      <button id="btnSmokeRun" class="smokeBtn">Run Smoke</button>
+      <button id="btnSmokeStart" class="smokeBtn">Start Run</button>
+      <button id="btnSmokeFF5" class="smokeBtn">Fast-forward 5s</button>
+      <button id="btnSmokeFF30" class="smokeBtn">Fast-forward 30s</button>
+      <button id="btnSmokeBreak" class="smokeBtn">Trigger Break</button>
+      <button id="btnSmokeAck" class="smokeBtn">Ack Break</button>
+      <button id="btnSmokeSwipeR" class="smokeBtn">Inject Swipe Right</button>
+      <button id="btnSmokeSwipeU" class="smokeBtn">Inject Swipe Up</button>
+      <button id="btnSmokeLobby" class="smokeBtn">Back to Lobby</button>
+      <button id="btnSmokeClear" class="smokeBtn">Clear Log</button>
+    </div>
+    <pre id="smokeLog"></pre>
+  </div>
+</div>
+
+<!-- Patient Lobby overlay (hidden until initialized) -->
   <div id="lobbyOverlay" class="lobbyOverlay" aria-hidden="true">
     <div class="lobbyCard">
       <div class="lobbyHeader">
@@ -900,7 +934,6 @@
 <script src="./systems_input.js"></script>
 <script src="./data_tutorial.js"></script>
 <script src="./systems_tutorial.js"></script>
-<script src="./render_wells_fx_nebula.js"></script>
 <script src="./render_wells_init.js"></script>
 <script src="./render_wells_update.js"></script>
 <script src="./render_wells.js"></script>
@@ -910,6 +943,7 @@
 <script src="./ui_controls.js"></script>
 <script src="./ui_app.js"></script>
 <script src="./main.js"></script>
+  <script src="./dev_smoke.js"></script>
 
 <!-- Log overlay (pauses gameplay while open) -->
 <div id="logOverlay" class="logOverlay" aria-hidden="true">

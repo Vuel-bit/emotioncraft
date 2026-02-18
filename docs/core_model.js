@@ -27,6 +27,80 @@
 
 
   // ---------------------------------------------------------------------------
+  // SIM boot hardening (Pass A19)
+  // Consolidate SIM "shape/init" into one idempotent ensure() (structural only).
+  // Safe to call repeatedly (including per tick) and near-zero work when valid.
+  // ---------------------------------------------------------------------------
+  EC.SIM_BOOT = EC.SIM_BOOT || {};
+  EC.SIM_BOOT.ensure = EC.SIM_BOOT.ensure || function ensure(tagOrOpts) {
+    // tagOrOpts is debug-only (ignored for behavior).
+    let sim = EC.SIM;
+
+    // Guarantee EC.SIM is an object.
+    if (!sim || typeof sim !== 'object') {
+      try { EC.SIM = {}; } catch (_) {}
+      sim = EC.SIM;
+    }
+    if (!sim || typeof sim !== 'object') {
+      // Last-resort best-effort; avoid throwing.
+      sim = {};
+      try { EC.SIM = sim; } catch (_) {}
+    }
+
+    const isNum = (v) => (typeof v === 'number' && isFinite(v));
+    const arrOk6 = (a) => (Array.isArray(a) && a.length === 6);
+
+    // Fast path: when everything we guarantee is already valid, do nothing.
+    if (
+      arrOk6(sim.wellsA) &&
+      arrOk6(sim.wellsS) &&
+      arrOk6(sim.psyP) &&
+      arrOk6(sim.targetW) &&
+      isNum(sim.tolerance) &&
+      isNum(sim.holdRequired) &&
+      isNum(sim.holdCurrent) &&
+      isNum(sim.energy)
+    ) {
+      return sim;
+    }
+
+    const zen = (EC.BOARDS && EC.BOARDS.ZEN) ? EC.BOARDS.ZEN : {
+      targetW: [1/6, 1/6, 1/6, 1/6, 1/6, 1/6],
+      tolerance: 0.04,
+      holdSeconds: 5,
+    };
+
+    const repairArr = (key, defVal) => {
+      const cur = sim[key];
+      if (arrOk6(cur)) return;
+      const next = new Array(6).fill(defVal);
+      if (Array.isArray(cur)) {
+        const n = Math.min(cur.length, 6);
+        for (let i = 0; i < n; i++) {
+          const v = cur[i];
+          if (isNum(v)) next[i] = v;
+        }
+      }
+      sim[key] = next;
+    };
+
+    // Required arrays
+    repairArr('wellsA', 50);
+    repairArr('wellsS', 0);
+    repairArr('psyP', 100);
+
+    // Always-expected primitives (do not overwrite valid values)
+    if (!arrOk6(sim.targetW)) sim.targetW = (zen.targetW && Array.isArray(zen.targetW)) ? zen.targetW.slice() : [1/6,1/6,1/6,1/6,1/6,1/6];
+    if (!isNum(sim.tolerance)) sim.tolerance = (typeof zen.tolerance === 'number') ? zen.tolerance : 0.04;
+    if (!isNum(sim.holdRequired)) sim.holdRequired = (typeof zen.holdSeconds === 'number') ? zen.holdSeconds : 5;
+    if (!isNum(sim.holdCurrent)) sim.holdCurrent = 0;
+    if (!isNum(sim.energy)) sim.energy = _ecStartEnergy();
+
+    return sim;
+  };
+
+
+  // ---------------------------------------------------------------------------
   // Redesign MVP model (Chunk 1)
   // Adds new state + board definition without disturbing legacy prototype state.
   // Canonical hue list lives in core_const.js (EC.CONST.HUES). Keep EC.HUES as alias.
@@ -108,16 +182,11 @@
     } catch (_) {}
   })();
 
-  SIM.wellsA = SIM.wellsA || new Array(6).fill(50);
-  SIM.wellsS = SIM.wellsS || new Array(6).fill(0);
-  SIM.psyP   = SIM.psyP   || new Array(6).fill(100);
+  // Consolidated SIM shape/init (structural only). Safe to call repeatedly.
+  try {
+    if (EC.SIM_BOOT && typeof EC.SIM_BOOT.ensure === 'function') EC.SIM_BOOT.ensure('core_model_boot');
+  } catch (_) {}
 
-  SIM.targetW = SIM.targetW || EC.BOARDS.ZEN.targetW.slice();
-  SIM.tolerance = (typeof SIM.tolerance === "number") ? SIM.tolerance : EC.BOARDS.ZEN.tolerance;
-  SIM.holdRequired = (typeof SIM.holdRequired === "number") ? SIM.holdRequired : EC.BOARDS.ZEN.holdSeconds;
-  SIM.holdCurrent = (typeof SIM.holdCurrent === "number") ? SIM.holdCurrent : 0;
-
-  SIM.energy = (typeof SIM.energy === "number") ? SIM.energy : _ecStartEnergy();
   // ---------------------------------------------------------------------------
   // MVP Level registry (data-driven skeleton)
   // Defines levels as data so adding levels is mostly data-only.

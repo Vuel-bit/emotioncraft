@@ -1,8 +1,10 @@
 Emotioncraft Psyche MVP
-Build: emotioncraft_v0_2_103_passD_passA16_patDispatch
+Build: emotioncraft_v0_2_103_passD_passA19_simBootEnsure
 Date: 2026-02-17
 
 Highlights (current build)
+- Pass A19: Added EC.SIM_BOOT.ensure() and replaced duplicate SIM array init in core_mechanics (structural only; no gameplay changes).
+- Pass A18: Added dev_smoke.html + dev_smoke.js smoke runner page (dev-only; index.html unaffected).
 - Pass A16: Patient session transitions (beginFromLobby/startPending/resume/openPause/backToLobby) are routed through ENGINE.dispatch/ACTIONS wrappers to keep patient-session root writes bracketed for simguard.
 - Pass A15: init/reset entry points (resetRun + initMVP) routed through ENGINE.dispatch/ACTIONS so SIM write-guard brackets startup/reset writes.
 - Pass A14: SIM write-guard now records up to 10 sample writes (key + tag chain) and the Debug panel always shows top 5 suspicious keys when ?simguard=1 is enabled (samples shown only in ?inputdebug=1).
@@ -52,3 +54,8 @@ Run root: open docs/index.html
 
 - Pass A1: Added core_engine.js (EC.ENGINE facade) and wired into index.html. Began enforcing boundary: presentation modules route SIM writes via EC.ENGINE.dispatch / EC.ACTIONS (selectWell migrated). Render-only layout state (mvpGeom, psycheRadius) moved to EC.RENDER_STATE.layout.
 - Pass A17: Hotfix — Weekly reward overlay restored; template expander supports swapped $LO_SET/$HI_SET markers (Weekly A Step 2 goals).
+- Pass A18: Added dev_smoke.html + dev_smoke.js smoke runner page (dev-only).
+- Pass A19: Added EC.SIM_BOOT.ensure() and replaced duplicate SIM array init in core_mechanics (structural only).
+- Pass A20: Added EC.require deferred init hooks + improved assertReady missing-path reporting (structural only).
+Pass A21: Extracted treatment plan runtime into patients_plans.js; systems_patients.js now delegates (no behavior change).
+Pass A22: Render-only wells upgrade — nebula/energy interior FX (displacement warp + wisps + subtle glow). No gameplay changes.

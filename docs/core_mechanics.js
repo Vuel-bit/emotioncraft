@@ -32,9 +32,14 @@ instability: 0,
 
   // MVP pipeline (inlined from pipeline module in Pass 31)
   function stepMvpPipeline(dt) {
-    const SIM = EC.SIM;
     const T = EC.TUNE || {};
     const clampV = EC.clamp || ((v, a, b) => Math.max(a, Math.min(b, v)));
+
+    // Structural SIM hardening (must run before any stage reads psyche/wells).
+    try {
+      if (EC.SIM_BOOT && typeof EC.SIM_BOOT.ensure === 'function') EC.SIM_BOOT.ensure('core_mechanics_tick');
+    } catch (_) {}
+    const SIM = EC.SIM;
 
     // 4.5) Mental Breaks (psyche-based) — may modify psyche and well spins
     (function stageBreaks(_dt) {
@@ -510,13 +515,6 @@ instability: 0,
         return;
       }
     }
-
-
-    // Ensure required arrays exist
-    if (!SIM.wellsA || SIM.wellsA.length !== 6) SIM.wellsA = new Array(6).fill(50);
-    if (!SIM.wellsS || SIM.wellsS.length !== 6) SIM.wellsS = new Array(6).fill(0);
-    if (!SIM.psyP || SIM.psyP.length !== 6) SIM.psyP = new Array(6).fill(100);
-
     // Debug-only invariants (warn-only; never crashes in normal mode)
     if (EC.assert) {
       EC.assert(Array.isArray(SIM.wellsA) && SIM.wellsA.length === 6, 'SIM.wellsA must be length 6');
@@ -896,6 +894,11 @@ instability: 0,
 // Sim-only tick (MECH step). Returns safeDt when active; null when inactive.
 // -----------------------------
 EC.tickEngine = function tickEngine(delta) {
+  // Structural SIM hardening: repair missing arrays so the sim can't brick on tick.
+  try {
+    if (EC.SIM_BOOT && typeof EC.SIM_BOOT.ensure === 'function') EC.SIM_BOOT.ensure('core_mechanics_tickEngine');
+  } catch (_) {}
+
   const SIM = EC.SIM;
   const dt = (delta || 0) / 60;
 

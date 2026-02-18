@@ -52,6 +52,14 @@ Emotioncraft — bootstrap + hardening helpers (no gameplay behavior changes)
       if (EC.UI_STATE && EC.UI_STATE.debugOn) {
         console.log('[EC] module registered:', rec.name);
       }
+
+      // Dependency queue pump hook (structural only): allow deferred init hooks to resolve
+      // as modules register. Safe no-op when EC.require is unused.
+      try {
+        if (typeof EC._flushRequireQueue === 'function') EC._flushRequireQueue('module:' + rec.name);
+      } catch (_) {
+        /* never throw */
+      }
     } catch (_) {
       /* never throw */
     }
@@ -102,29 +110,140 @@ Emotioncraft — bootstrap + hardening helpers (no gameplay behavior changes)
     } catch (e) {}
   }
 
-  // Internal helper: require presence of expected symbols
-  EC._require = EC._require || function _require(stage, paths) {
-    const missing = [];
-    for (let i = 0; i < (paths || []).length; i++) {
-      const p = paths[i];
+  // Internal helper: safe nested path resolver
+  // Supports dot paths like "EC.DATA.ROSTER".
+  // (Optional trivial bracket support: foo[0], foo['bar'])
+  EC._getPath = EC._getPath || function _getPath(pathString) {
+    try {
+      if (pathString == null) return undefined;
+      let s = String(pathString).trim();
+      if (!s) return undefined;
+
+      // Trivial bracket support: a[0] -> a.0, a['b'] -> a.b
+      s = s
+        .replace(/\[(\d+)\]/g, '.$1')
+        .replace(/\[['\"]([^'\"]+)['\"]\]/g, '.$1');
+
+      const parts = s.split('.').filter(Boolean);
       let cur = window;
-      const parts = String(p).split('.');
-      for (let j = 0; j < parts.length; j++) {
-        cur = cur ? cur[parts[j]] : undefined;
+      for (let i = 0; i < parts.length; i++) {
+        const k = parts[i];
+        cur = (cur != null) ? cur[k] : undefined;
       }
-      if (cur === undefined || cur === null) missing.push(p);
-    }
-    if (missing.length) {
-      const msg = '[Emotioncraft] Startup check failed at ' + stage + '. Missing: ' + missing.join(', ');
-      console.error(msg);
-      throw new Error(msg);
+      return cur;
+    } catch (_) {
+      return undefined;
     }
   };
 
-  // Public: call this after scripts load to ensure expected surface exists
-  EC.assertReady = EC.assertReady || function assertReady(stage, paths) {
-    EC._require(stage, paths);
-    return true;
+  EC._missingPaths = EC._missingPaths || function _missingPaths(paths) {
+    const list = [];
+    const arr = Array.isArray(paths) ? paths : (paths != null ? [paths] : []);
+    for (let i = 0; i < arr.length; i++) {
+      const p = arr[i];
+      const v = EC._getPath(p);
+      if (v === undefined || v === null) list.push(String(p));
+    }
+    return list;
+  };
+
+  // Internal helper: require presence of expected symbols
+  EC._require = function _require(stage, paths) {
+    const missing = EC._missingPaths(paths);
+    if (missing.length) {
+      const msg = '[Emotioncraft] Startup check failed at ' + stage + '. Missing: ' + missing.join(', ');
+      throw new Error(msg);
+    }
+    return missing;
+  };
+
+  // Public: call this after scripts load to ensure expected surface exists.
+  // Returns [] when satisfied; throws with a detailed missing list when not.
+  EC.assertReady = function assertReady(stage, paths) {
+    return EC._require(stage, paths);
+  };
+
+  // Deferred init helper (structural only): queue a callback until deps exist.
+  // - Runs synchronously if deps already present.
+  // - Otherwise retries until deps appear or a timeout triggers a fatal throw.
+  EC._requireQueue = EC._requireQueue || [];
+  EC._requirePumpOn = EC._requirePumpOn || false;
+
+  EC._flushRequireQueue = EC._flushRequireQueue || function _flushRequireQueue(_reason) {
+    const q = EC._requireQueue;
+    if (!q || !q.length) return 0;
+
+    let ran = 0;
+    for (let i = q.length - 1; i >= 0; i--) {
+      const it = q[i];
+      if (!it || it._done) { q.splice(i, 1); continue; }
+
+      const missing = EC._missingPaths(it.paths);
+      if (!missing.length) {
+        q.splice(i, 1);
+        it._done = 1;
+        ran++;
+        it.fn();
+        continue;
+      }
+
+      const age = Date.now() - (it.t0 || Date.now());
+      const timeoutMs = (typeof it.timeoutMs === 'number' && isFinite(it.timeoutMs) && it.timeoutMs > 0) ? it.timeoutMs : 2500;
+      if (age > timeoutMs) {
+        const stage = it.stage || 'require';
+        const msg = '[Emotioncraft] Require timed out at ' + stage + '. Missing: ' + missing.join(', ');
+        throw new Error(msg);
+      }
+    }
+    return ran;
+  };
+
+  EC._startRequirePump = EC._startRequirePump || function _startRequirePump() {
+    if (EC._requirePumpOn) return;
+    const q = EC._requireQueue;
+    if (!q || !q.length) return;
+    EC._requirePumpOn = true;
+
+    const step = () => {
+      EC._requirePumpOn = false;
+      // Note: _flushRequireQueue may throw (fatal) on timeout.
+      EC._flushRequireQueue('pump');
+      if (EC._requireQueue && EC._requireQueue.length) EC._startRequirePump();
+    };
+
+    try {
+      if (typeof requestAnimationFrame === 'function') requestAnimationFrame(step);
+      else setTimeout(step, 0);
+    } catch (_) {
+      setTimeout(step, 0);
+    }
+  };
+
+  EC.require = EC.require || function require(paths, fn, opts) {
+    const pArr = Array.isArray(paths) ? paths : (paths != null ? [paths] : []);
+    const stage = (opts && opts.stage) ? String(opts.stage) : 'require';
+    const timeoutMs = (opts && typeof opts.timeoutMs === 'number') ? opts.timeoutMs : 2500;
+
+    // Run immediately when ready (synchronous when deps already exist).
+    const missing = EC._missingPaths(pArr);
+    if (!missing.length) {
+      if (typeof fn === 'function') fn();
+      return true;
+    }
+
+    // Otherwise queue for later.
+    if (typeof fn === 'function') {
+      EC._requireQueue.push({
+        paths: pArr.slice(),
+        fn,
+        stage,
+        timeoutMs,
+        t0: Date.now(),
+        _done: 0,
+      });
+      EC._startRequirePump();
+    }
+    return false;
   };
 
   // Unified debug-only assertion helper.

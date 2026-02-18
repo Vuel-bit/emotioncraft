@@ -1,4 +1,5 @@
 ## v0_2_103_passD (2026-02-12)
+- passA19 — Added EC.SIM_BOOT.ensure() and replaced duplicate SIM array init in core_mechanics (structural only).
 - passA15 — bracket init/reset writes via ACTIONS (resetRun + initMVP) to reduce simguard false positives.
 - passD Pass 1 — boot/start hardening (main.js).
 - Bootstrap: add EC._registerModule + EC.safe (debug-only warnings).
@@ -121,3 +122,11 @@ Pass A15: Bracketed init/reset entry points — resetRun + initMVP are routed th
 Pass A16: Patient session transitions dispatched — added ACTIONS wrappers for EC.PAT transitions and routed UI call sites (lobby + HUD) through ENGINE.dispatch/ACTIONS to prevent simguard flagging patient-session root writes.
 
 Pass A17: Hotfixes — Weekly reward overlay restored (ui_lobby showWeeklyReward now defines `qs` from patient quirks); plan template expander now supports swapped $LO_SET/$HI_SET markers so Weekly A Step 2 goals render and evaluate correctly.
+
+Pass A18: Added dev_smoke.html + dev_smoke.js smoke runner page (dev-only). (Index.html unchanged.)
+
+Pass A19: Added EC.SIM_BOOT.ensure() and replaced duplicate SIM array init in core_mechanics (structural only).
+
+Pass A20: Added EC.require deferred init hooks + improved assertReady missing-path reporting (structural only).
+Pass A21: Extracted treatment plan runtime into patients_plans.js; systems_patients.js now delegates (no behavior change).
+Pass A22: Render-only wells upgrade — added nebula/energy interior FX (displacement warp + wisps + subtle glow) + higher-res/LINEAR-filtered procedural textures. No gameplay changes.

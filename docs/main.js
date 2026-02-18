@@ -208,14 +208,36 @@
   // -----------------------------
   // Start
   // -----------------------------
-  if (EC.assertReady) {
-    EC.assertReady('boot', ["EC.TUNING", "EC.layout", "EC.initUI", "EC.SIM"]);
+  const _bootStart = () => {
+    if (EC.assertReady) {
+      EC.assertReady('boot', ["EC.TUNING", "EC.layout", "EC.initUI", "EC.SIM"]);
+    }
+
+    // Ensure debug buffer exists early when enabled (for HUD "Copy Input Log")
+    try { if (EC.INPUT && typeof EC.INPUT.isInputDebugEnabled === 'function' && EC.INPUT.isInputDebugEnabled()) EC.INPUT.ensureInputDbg && EC.INPUT.ensureInputDbg(); } catch (_) {}
+
+    if (typeof EC.init === 'function') EC.init();
+  };
+
+  // Prefer dependency-aware boot (should run immediately in current load order).
+  // Defensive fallback: if EC.require is absent for any reason, run legacy path.
+  try {
+    if (typeof EC.require === 'function') {
+      EC.require([
+        "EC.TUNING",
+        "EC.layout",
+        "EC.initUI",
+        "EC.SIM",
+        "EC.ENGINE",
+        "EC.init",
+      ], _bootStart, { stage: 'boot', timeoutMs: 2000 });
+    } else {
+      _bootStart();
+    }
+  } catch (_) {
+    // Last-ditch: never block boot due to require wrapper
+    _bootStart();
   }
-
-  // Ensure debug buffer exists early when enabled (for HUD "Copy Input Log")
-  try { if (EC.INPUT && typeof EC.INPUT.isInputDebugEnabled === 'function' && EC.INPUT.isInputDebugEnabled()) EC.INPUT.ensureInputDbg && EC.INPUT.ensureInputDbg(); } catch (_) {}
-
-  if (typeof EC.init === 'function') EC.init();
 
   // Post-load layout reliability on mobile: deterministic double rAF after initial paint.
   try {
