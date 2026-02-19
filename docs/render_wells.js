@@ -126,6 +126,9 @@ function ensurePsycheView() {
     const views = [];
     const fxLayer = EC.RENDER.psycheFxLayer;
 
+    // Hue order must match wells/psyche rendering.
+    const hues = (EC.CONST && EC.CONST.HUES) || EC.HUES || ['red', 'purple', 'blue', 'green', 'yellow', 'orange'];
+
     // Clear any legacy plasma wedges from previous passes.
     try { fxLayer.removeChildren(); } catch (e) {}
 
@@ -134,9 +137,10 @@ function ensurePsycheView() {
       wrap.eventMode = 'none';
       wrap.interactiveChildren = false;
       wrap.visible = false;
-      wrap.position.set(cx, cy);
+      // Psyche layer is positioned in layout(); keep FX in local (0,0) space.
+      wrap.position.set(0, 0);
 
-      const col = PSY_COLORS[hues[i]];
+      const col = (PSYCHE_COLORS && PSYCHE_COLORS[hues[i]] != null) ? PSYCHE_COLORS[hues[i]] : 0xffffff;
       let vw = null;
       try {
         if (EC.RENDER_WELLS_INIT && EC.RENDER_WELLS_INIT.makeWellInteriorStack) {
@@ -161,7 +165,8 @@ function ensurePsycheView() {
       const m = new Graphics();
       m.eventMode = 'none';
       m.interactiveChildren = false;
-      m.position.set(cx, cy);
+      // Mask is drawn in local psyche space (0,0) in renderPsyche().
+      m.position.set(0, 0);
       wrap.mask = m;
 
       fxLayer.addChild(m);

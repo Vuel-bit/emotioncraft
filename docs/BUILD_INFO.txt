@@ -1,3 +1,3 @@
-Build: emotioncraft_v0_2_103_passD_passA40_psycheMiniWells_planTextFix
+Build: emotioncraft_v0_2_103_passD_passA40b_hotfix_psycheCxFix
 Date: 2026-02-19
-Notes: PASS A40 — UI/visual only: psyche wedges now reuse the true well interior stack (textures + nebula/water FX) with crisp wedge masks; Treatment Plan step text rendering fixed for ALL_OVER / ALL_BAND / SET_BOUNDS / PER_HUE_BOUNDS / SPIN_ZERO (grouped, readable, no inequality symbols).
+Notes: PASS A40b — Hotfix: fixed a boot crash in render_wells.js where psyche FX creation referenced undefined cx/cy + PSY_COLORS + hues. Psyche FX now uses local (0,0) psyche space and the correct PSYCHE_COLORS palette.

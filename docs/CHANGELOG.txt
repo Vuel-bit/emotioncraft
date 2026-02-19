@@ -181,3 +181,7 @@ Pass A31: BAP intro cutscene polish — fixed framing so shots start in full fit
 === PASS A40 (2026-02-19) — Psyche mini-wells + plan text fix ===
 - Render: Psyche center wedges now reuse the true well interior stack (same textures + nebula/water FX) clipped by crisp wedge masks; avoids hue muting and feels like "mini wells".
 - UI: Treatment Plan step text rendering now correctly interprets ALL_OVER / ALL_BAND / SET_BOUNDS / PER_HUE_BOUNDS / SPIN_ZERO; groups hues when possible (e.g., "All Hues under 100"), uses plain-language thresholds (no symbols), and falls back to step.text when unknown.
+
+=== PASS A40b (2026-02-19) — Hotfix: psyche FX boot crash ===
+- Render: Fixed a boot crash in `docs/render_wells.js` where psyche FX creation referenced undefined `cx`/`cy`, an undefined palette name (`PSY_COLORS`), and an out-of-scope `hues` variable.
+- Render: Psyche FX elements now stay in local psyche space (0,0) and use the correct `PSYCHE_COLORS` palette.
