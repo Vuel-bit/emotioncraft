@@ -20,31 +20,37 @@
   const ASSETS = {
     A: './assets/intro_bap/plate_a.png',
     B: './assets/intro_bap/plate_b.png',
-    C: './assets/intro_bap/plate_c.png',
+    C0: './assets/intro_bap/plate_c_blank.png',
     D: './assets/intro_bap/plate_d.png',
+    C: './assets/intro_bap/plate_c.png',
     E: './assets/intro_bap/plate_e.png',
   };
 
-  const DUR_MS = 30000;
+  const DUR_MS = 31000;
 
-  // Scene marks (ms)
+  // Shot marks (ms)
   const T = {
-    s1: 0,
-    s2: 11000,
-    s3d: 20000,
-    s3c: 23800,
-    s4: 26500,
-    end: 30000,
+    A: 0,
+    B: 6000,
+    C0: 12000,
+    D: 17000,
+    C1: 21000,
+    E: 26000,
+    end: 31000,
   };
 
-  // Text timings (ms)
+  // Caption timings (ms)
   const TXT = {
-    l1: [600, 5000],
-    l2: [3500, 10000],
-    l3: [11300, 17500],
-    l4: [17500, 20000],
-    l5: [20300, 23000],
-    l6: [24000, 26400],
+    l1: [200, 2650],
+    l2: [2800, 5850],
+
+    l3: [6200, 9450],
+    l4: [9600, 11850],
+
+    l5: [12200, 16800],
+    l6: [17200, 20800],
+    l7: [21200, 25800],
+    l8: [26200, 30800],
   };
 
   function _safeSSGet() {
@@ -96,13 +102,12 @@
       .ecIntroV3.show{ display:block; }
       .ecIntroV3 *{ box-sizing:border-box; }
 
-      .ecIntroStageV3{ position:absolute; inset:0; width:100%; height:100%; overflow:hidden; }
+      .ecIntroStageV3{position:absolute; inset:0; width:100%; height:100%; overflow:hidden; background: radial-gradient(circle at 50% 40%, rgba(18,20,30,0.95) 0%, rgba(5,6,8,1) 62%, rgba(0,0,0,1) 100%); }
 
-      .ecPlate{ position:absolute; inset:-2vh -2vw; width:calc(100% + 4vw); height:calc(100% + 4vh);
+      .ecPlate{ position:absolute; inset:0; width:100%; height:100%;
         opacity:0; will-change: transform, opacity; transform-origin: 50% 50%;
-        filter:none;
-      }
-      .ecPlate img{ position:absolute; inset:0; width:100%; height:100%; object-fit:cover; user-select:none; -webkit-user-drag:none; }
+        filter:none; }
+      .ecPlate img{ position:absolute; inset:0; width:100%; height:100%; object-fit:contain; user-select:none; -webkit-user-drag:none; }
       .ecPlate.photor{ filter: contrast(1.06) saturate(1.05) brightness(0.98); }
 
       .ecFX{ position:absolute; inset:0; pointer-events:none; }
@@ -196,8 +201,9 @@
     const plates = {
       A: mkPlate('A'),
       B: mkPlate('B'),
-      C: mkPlate('C', 'photor'),
+      C0: mkPlate('C0', 'photor'),
       D: mkPlate('D', 'photor'),
+      C: mkPlate('C', 'photor'),
       E: mkPlate('E'),
     };
 
@@ -233,12 +239,16 @@
     }
 
     const lines = {
-      l1: mkLine('center top', `<span class="scrim"><span class="t1">We’ve done it, Princess!</span></span>`),
-      l2: mkLine('helmetTitle', `<span class="scrim"><span class="t2">The Noodler 2000</span></span>`),
-      l3: mkLine('center bot', `<span class="scrim"><span class="tBody">With this helmet and our skilled hands, mental health problems vanish.</span></span>`),
-      l4: mkLine('center bot', `<span class="scrim"><span class="tBody">Transcendence is guaranteed — mostly. Probably. We’ll see.</span></span>`),
-      l5: mkLine('center bot', `<span class="scrim"><span class="tBody">We already have an office.</span></span>`),
-      l6: mkLine('center bot', `<span class="scrim"><span class="tBody">Now we just need our first patient to cure.</span></span>`),
+      l1: mkLine('center bot', `<span class="scrim"><span class="tBody">We’ve done it, Princess!</span></span>`),
+      l2: mkLine('center bot', `<span class="scrim"><span class="tBody">The Noodler 2000 is finally ready.</span></span>`),
+
+      l3: mkLine('center bot', `<span class="scrim"><span class="tBody">In just a few sessions under the helmet, every one of our patients can reach true enlightenment.</span></span>`),
+      l4: mkLine('center bot', `<span class="scrim"><span class="tBody">Or something close. Maybe. Hopefully.</span></span>`),
+
+      l5: mkLine('center bot', `<span class="scrim"><span class="tBody">We already have the office space.</span></span>`),
+      l6: mkLine('center bot', `<span class="scrim"><span class="tBody">We just need some quick changes.</span></span>`),
+      l7: mkLine('center bot', `<span class="scrim"><span class="tBody">Now we just need our first patient. Princess...</span></span>`),
+      l8: mkLine('center bot', `<span class="scrim"><span class="tBody">Let’s get to work.</span></span>`),
     };
     stage.appendChild(textLayer);
 
@@ -320,7 +330,7 @@
 
   function _preloadAll() {
     if (MOD._preloadPromise) return MOD._preloadPromise;
-    const urls = [ASSETS.A, ASSETS.B, ASSETS.C, ASSETS.D, ASSETS.E];
+    const urls = [ASSETS.A, ASSETS.B, ASSETS.C0, ASSETS.D, ASSETS.C, ASSETS.E];
     MOD._preloadPromise = Promise.all(urls.map(_loadImage));
     return MOD._preloadPromise;
   }
@@ -399,66 +409,77 @@
     if (MOD._overlayEl) MOD._overlayEl.style.opacity = String(endFade);
 
     // Micro bonk shake at Scene 4 start
-    const shBonk = _shake(t, T.s4, 120, 10);
+    const shBonk = _shake(t, T.E, 120, 10);
     if (MOD._stageEl) MOD._stageEl.style.transform = `translate3d(${shBonk.x}px, ${shBonk.y}px, 0)`;
 
     // Plate opacities + transforms
-    const op = { A: 0, B: 0, C: 0, D: 0, E: 0 };
+    const op = { A: 0, B: 0, C0: 0, D: 0, C: 0, E: 0 };
 
     // Crossfades
-    if (t < T.s2) {
+    if (t < T.B) {
       op.A = 1;
-    } else if (t < T.s3d) {
-      const c = _plateCross(t, T.s2, 320);
+    } else if (t < T.C0) {
+      const c = _plateCross(t, T.B, 310);
       op.A = c.aFrom;
       op.B = c.aTo;
-    } else if (t < T.s3c) {
-      const c = _plateCross(t, T.s3d, 320);
+    } else if (t < T.D) {
+      const c = _plateCross(t, T.C0, 310);
       op.B = c.aFrom;
+      op.C0 = c.aTo;
+    } else if (t < T.C1) {
+      const c = _plateCross(t, T.D, 310);
+      op.C0 = c.aFrom;
       op.D = c.aTo;
-    } else if (t < T.s4) {
-      const c = _plateCross(t, T.s3c, 130);
+    } else if (t < T.E) {
+      const c = _plateCross(t, T.C1, 130);
       op.D = c.aFrom;
       op.C = c.aTo;
     } else {
-      const c = _plateCross(t, T.s4, 320);
+      const c = _plateCross(t, T.E, 310);
       op.C = c.aFrom;
       op.E = c.aTo;
     }
 
     // Scene motion params
-    // Scene 1 (A): slow push-in + slight pan toward helmet
-    const pA = clamp01(t / (T.s2 - T.s1));
-    const A_sc = lerp(1.01, 1.12, pA);
-    const A_tx = lerp(-18, -6, pA);
-    const A_ty = lerp(16, -12, pA);
+    // Shot A (0–6s): start full/fit, then push in toward helmet in the second half
+    const pA = clamp01((t - T.A) / (T.B - T.A));
+    const pA2 = clamp01((pA - 0.5) * 2);
+    const A_sc = lerp(1.00, 1.10, pA2);
+    const A_tx = lerp(0, -26, pA2);
+    const A_ty = lerp(0, -14, pA2);
 
-    // Scene 2 (B): start lower (bulbs/streams) drift up toward inventor face
-    const pB = clamp01((t - T.s2) / (T.s3d - T.s2));
-    const B_sc = lerp(1.02, 1.16, pB);
+    // Shot B (6–12s): subtle push + slight upward drift
+    const pB = clamp01((t - T.B) / (T.C0 - T.B));
+    const B_sc = lerp(1.00, 1.05, pB);
     const B_tx = lerp(0, -10, pB);
-    const B_ty = lerp(46, -12, pB);
+    const B_ty = lerp(0, -14, pB);
 
-    // Scene 3a (D): gentle push toward sign; keep gag readable
-    const pD = clamp01((t - T.s3d) / (T.s3c - T.s3d));
-    const D_sc = lerp(1.04, 1.12, pD);
-    const D_tx = lerp(10, 4, pD);
-    const D_ty = lerp(18, 6, pD);
+    // Shot C0 (12–17s): basically static; ensure sign frame is fully visible
+    const pC0 = clamp01((t - T.C0) / (T.D - T.C0));
+    const C0_sc = lerp(1.00, 1.02, pC0);
+    const C0_tx = 0;
+    const C0_ty = 0;
 
-    // Scene 3b (C): deliberate zoom to frame initials / sign
-    const pC = clamp01((t - T.s3c) / (T.s4 - T.s3c));
-    const C_sc = lerp(1.10, 1.36, pC);
-    const C_tx = lerp(0, 0, pC);
-    const C_ty = lerp(10, -62, pC);
+    // Shot D (17–21s): tiny push
+    const pD = clamp01((t - T.D) / (T.C1 - T.D));
+    const D_sc = lerp(1.00, 1.03, pD);
+    const D_tx = lerp(0, 4, pD);
+    const D_ty = lerp(0, 2, pD);
 
-    // Scene 4 (E): start slightly wider -> slow push-in on dog face + tiny bonk bounce
-    const pE = clamp01((t - T.s4) / (T.end - T.s4));
-    let E_sc = lerp(1.01, 1.18, pE);
-    let E_tx = lerp(0, 0, pE);
-    let E_ty = lerp(12, -22, pE);
+    // Shot C1 (21–26s): mild zoom toward the sign
+    const pC1 = clamp01((t - T.C1) / (T.E - T.C1));
+    const C_sc = lerp(1.00, 1.06, pC1);
+    const C_tx = 0;
+    const C_ty = lerp(0, -18, pC1);
 
-    if (t >= T.s4 && t < T.s4 + 90) {
-      const bb = 1 + 0.045 * (1 - (t - T.s4) / 90);
+    // Shot E (26–31s): gentle push-in on dog face + micro bonk at start
+    const pE = clamp01((t - T.E) / (T.end - T.E));
+    let E_sc = lerp(1.00, 1.06, pE);
+    let E_tx = 0;
+    let E_ty = lerp(0, -20, pE);
+
+    if (t >= T.E && t < T.E + 90) {
+      const bb = 1 + 0.035 * (1 - (t - T.E) / 90);
       E_sc *= bb;
       E_tx += (shBonk.x * 0.35);
       E_ty += (shBonk.y * 0.35);
@@ -467,17 +488,20 @@
     // Apply transforms
     _applyPlate('A', op.A, A_tx, A_ty, A_sc);
     _applyPlate('B', op.B, B_tx, B_ty, B_sc);
+    _applyPlate('C0', op.C0, C0_tx, C0_ty, C0_sc);
     _applyPlate('D', op.D, D_tx, D_ty, D_sc);
     _applyPlate('C', op.C, C_tx, C_ty, C_sc);
     _applyPlate('E', op.E, E_tx, E_ty, E_sc);
 
     // Text overlays
-    const a1 = _fade(t, TXT.l1[0], TXT.l1[1], 240, 240);
-    const a2 = _fade(t, TXT.l2[0], TXT.l2[1], 240, 260);
-    const a3 = _fade(t, TXT.l3[0], TXT.l3[1], 240, 240);
-    const a4 = _fade(t, TXT.l4[0], TXT.l4[1], 240, 240);
-    const a5 = _fade(t, TXT.l5[0], TXT.l5[1], 220, 240);
-    const a6 = _fade(t, TXT.l6[0], TXT.l6[1], 220, 240);
+    const a1 = _fade(t, TXT.l1[0], TXT.l1[1], 250, 250);
+    const a2 = _fade(t, TXT.l2[0], TXT.l2[1], 250, 250);
+    const a3 = _fade(t, TXT.l3[0], TXT.l3[1], 250, 250);
+    const a4 = _fade(t, TXT.l4[0], TXT.l4[1], 250, 250);
+    const a5 = _fade(t, TXT.l5[0], TXT.l5[1], 250, 250);
+    const a6 = _fade(t, TXT.l6[0], TXT.l6[1], 250, 250);
+    const a7 = _fade(t, TXT.l7[0], TXT.l7[1], 250, 250);
+    const a8 = _fade(t, TXT.l8[0], TXT.l8[1], 250, 250);
 
     _applyLine(MOD._lines && MOD._lines.l1, a1);
     _applyLine(MOD._lines && MOD._lines.l2, a2);
@@ -485,13 +509,15 @@
     _applyLine(MOD._lines && MOD._lines.l4, a4);
     _applyLine(MOD._lines && MOD._lines.l5, a5);
     _applyLine(MOD._lines && MOD._lines.l6, a6);
+    _applyLine(MOD._lines && MOD._lines.l7, a7);
+    _applyLine(MOD._lines && MOD._lines.l8, a8);
 
     // Glow pulses
     const G = MOD._glow;
     if (G && G.layer) {
-      if (t >= T.s2 && t < T.s3d) {
+      if (t >= T.B && t < T.C0) {
         // Plate B energy pulse
-        const p = (t - T.s2) / 420;
+        const p = (t - T.B) / 420;
         const glowOn = 0.55 + 0.25 * Math.sin(p * Math.PI * 2);
         G.layer.style.opacity = String(0.75);
         G.r.style.opacity = String(0.55 * glowOn);
@@ -500,9 +526,9 @@
         G.hr.style.opacity = '0';
         G.hg.style.opacity = '0';
         G.hy.style.opacity = '0';
-      } else if (t >= T.s4 && t < T.end) {
+      } else if (t >= T.E && t < T.end) {
         // Plate E bulb pulse
-        const p = (t - T.s4) / 520;
+        const p = (t - T.E) / 520;
         const glowOn = 0.55 + 0.25 * Math.sin(p * Math.PI * 2);
         G.layer.style.opacity = String(0.65);
         G.r.style.opacity = '0';

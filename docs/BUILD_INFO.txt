@@ -1,8 +1,8 @@
-Build: emotioncraft_v0_2_103_passD_passA30_introBAP_cinematic30s_bakedArt_tutorialHandoff
-Date: 2026-02-18
+Build: emotioncraft_v0_2_103_passD_passA31_introBAP_framingCaptions_plateCblank
+Date: 2026-02-19
 Notes:
-- Updated BAP intro cutscene to a cinematic 30.0s timeline (plates A–E) with slower, readable dialogue pacing.
-- Removed ALL DOM neon sign + Princess nametag lettering; storefront sign and dog tag text are now baked into plate art.
-- Intro now hands off directly into the Tutorial when it ends naturally OR is skipped (only for first-time viewers).
-- Updated intro_bap plates: new plate_c (Psychiatry sign), plate_d (PAWN + inventor), plate_e (Princess tag).
-- Persistence unchanged: ui.seenIntroBAP_v3 (schema v2) + sessionStorage ec_seenIntroBAP_v3 fallback.
+- BAP intro cutscene reframed so each shot starts in full “fit” view (removed negative inset enlargement; switched plates to object-fit: contain; added dark stage gradient for intentional letterboxing).
+- Re-timed cutscene to a 6-shot, 31.0s timeline: A(6s) → B(6s) → C0(blank)(5s) → D(4s) → C1(changed)(5s) → E(5s), with snappier D→C1 reveal crossfade.
+- Rewrote all captions per A31 spec; removed the special “label” styling/placement for “The Noodler 2000”.
+- Added Plate C original as a separate asset: docs/assets/intro_bap/plate_c_blank.png, and preloaded/played both C variants.
+- Persistence + tutorial handoff unchanged: ui.seenIntroBAP_v3 (schema v2) + sessionStorage ec_seenIntroBAP_v3; tutorial auto-start only when cutscene actually played.

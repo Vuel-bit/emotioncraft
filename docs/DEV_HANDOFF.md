@@ -195,11 +195,14 @@ Source: `docs/systems_patients.js`, `docs/ui_lobby.js`
 ### Pass A30
 - Updated BAP intro cutscene to a cinematic **30.0s** timeline (plates A–E), with slower readable dialogue beats and refined scene dwell times.
 - Removed all DOM neon sign + PRINCESS nametag overlays; storefront sign text and Princess dog tag are now baked into the plate art (no DOM lettering for sign/tag).
-- Intro now launches the Tutorial immediately when it ends naturally OR is skipped (only when the cutscene actually played); ensures lobby is hidden () before starting tutorial.
-- Updated intro plate assets: replaced  (Psychiatry sign),  (PAWN + inventor), and  (Princess tag) in .
-
-### Pass A30
-- Updated BAP intro cutscene to a cinematic **30.0s** timeline (plates A–E), with slower readable dialogue beats and refined scene dwell times.
-- Removed all DOM neon sign + PRINCESS nametag overlays; storefront sign text and Princess dog tag are now baked into the plate art (no DOM lettering for sign/tag).
 - Intro now launches the Tutorial immediately when it ends naturally OR is skipped (only when the cutscene actually played); ensures lobby is hidden (setInLobby(false)) before starting tutorial.
 - Updated intro plate assets: replaced `plate_c.png` (Psychiatry sign), `plate_d.png` (PAWN + inventor), and `plate_e.png` (Princess tag) in `docs/assets/intro_bap/`.
+
+### Pass A31
+- Cutscene framing + pacing polish (intro BAP):
+  - `docs/ui_intro_cutscene.js`: updated to a **31.0s** 6-shot timeline A→B→C0(blank)→D→C1(changed)→E, with standard ~310ms crossfades and a snappier ~130ms D→C1 reveal.
+  - Captions rewritten per spec; removed the special helmet/label styling and made all captions consistent scrim text.
+  - Fixed the ‘starts zoomed-in’ issue by removing the negative plate inset enlargement and switching plate images to `object-fit: contain` (full fit view at shot start); added a dark stage gradient so letterboxing looks intentional on tall phones.
+  - Motion retuned so every shot starts at scale 1.00 and only some shots push in (A pushes in only in the second half).
+  - Added the original Plate C as `docs/assets/intro_bap/plate_c_blank.png` and preloaded/played both C variants.
+- Persistence + tutorial handoff unchanged (`ui.seenIntroBAP_v3` schema v2 + `sessionStorage['ec_seenIntroBAP_v3']`; tutorial auto-start only when cutscene actually played).

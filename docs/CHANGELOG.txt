@@ -149,3 +149,5 @@ Pass A29: Replaced the initial BAP intro with a cinematic 15.0s fullscreen cutsc
 Pass A29b: Hotfix — intro overlay opacity now stays visible for the full cutscene duration (was incorrectly invisible until the final ~250ms). No gameplay changes.
 
 Pass A30: BAP intro cutscene update — extended to ~30s with re-timed dialogue beats; removed DOM neon sign + Princess nametag overlays (sign/tag lettering is baked into new plate art); intro now launches the Tutorial immediately on natural end or skip (only when the cutscene actually played). Updated intro_bap plate_c/plate_d/plate_e assets. No gameplay changes.
+
+Pass A31: BAP intro cutscene polish — fixed framing so shots start in full fit view (no negative inset; object-fit: contain); updated to a 31.0s 6-shot timeline with both Plate C variants (added plate_c_blank.png); rewrote captions + reduced constant Ken Burns (selective, smaller pushes; A pushes in only in second half). Tutorial handoff + seenIntroBAP_v3 persistence unchanged. No gameplay changes.
