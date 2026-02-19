@@ -110,7 +110,7 @@ try {
   if (EC.UI_INTRO && typeof EC.UI_INTRO.init === 'function') EC.UI_INTRO.init(ctx);
   if (EC.UI_INTRO && typeof EC.UI_INTRO.maybeAutoPlay === 'function') EC.UI_INTRO.maybeAutoPlay(ctx);
 } catch (_) {
-  try { sessionStorage.setItem('ec_seenIntroBAP', '1'); } catch (_) {}
+  try { sessionStorage.setItem('ec_seenIntroBAP_v3', '1'); } catch (_) {}
 }
 
 function updateUI(dt) {

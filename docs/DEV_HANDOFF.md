@@ -178,3 +178,16 @@ Source: `docs/systems_patients.js`, `docs/ui_lobby.js`
 
 ### Pass A27b
 - Hotfix (render-only): `docs/render_wells_init.js` now keeps the soft sprite mask visible (`maskSoft.visible=true`) so SpriteMask masking works; restores well interiors rendering. (Sprite masks do not draw a visible ring in the scene.)
+
+### Pass A28
+- Added an initial one-time “Back-Alley Psychiatry (BAP)” intro cutscene module (`docs/ui_intro_cutscene.js`) with Skip + tap-anywhere skip.
+- Wired in `docs/ui_app.js` (init calls `EC.UI_INTRO.maybeAutoPlay(ctx)`) and persisted via Firestore `ui.seenIntroBAP` with sessionStorage fallback when signed out.
+
+### Pass A29
+- Replaced the A28 intro with a cinematic **15.0s** fullscreen plate timeline using 5 provided plates in `docs/assets/intro_bap/`.
+- All words are DOM/CSS overlays (no baked text): scene captions + neon sign gag + PRINCESS name tag.
+- New persistence key: `ui.seenIntroBAP_v3` (schema v2) + sessionStorage `ec_seenIntroBAP_v3` so the new cutscene plays once even if the legacy intro was seen.
+- Overlay blocks all input while visible; Skip button + tap/click anywhere to skip; no pop-in (preload gate).
+
+### Pass A29b
+- Hotfix: corrected intro overlay opacity so it stays visible for the full cutscene duration and only fades out in the final ~250ms.

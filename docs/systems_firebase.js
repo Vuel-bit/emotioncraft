@@ -248,6 +248,12 @@
       UI._seenIntroBAP = true;
     }
 
+    // One-time intro cutscene flag (Back-Alley Psychiatry) v3
+    if (v >= 2 && data.ui && typeof data.ui === 'object' && data.ui.seenIntroBAP_v3 === true) {
+      const UI = EC.UI_STATE || (EC.UI_STATE = {});
+      UI._seenIntroBAP_v3 = true;
+    }
+
     if (v >= 2 && data.pat && typeof data.pat === 'object') {
       SAVE._pendingDoc = data;
       // Try immediately; if patients system not ready yet, retry a few times.
@@ -260,6 +266,7 @@
       }
       return true;
     }
+
     return false;
   };
 
@@ -275,7 +282,8 @@
       const UI = EC.UI_STATE || {};
       const seenFirstPopups = Object.assign({}, (UI && UI._seenFirstPopups) || {});
       const seenIntroBAP = !!(UI && UI._seenIntroBAP);
-      return SAVE.debouncedWrite({ schemaVersion: 2, ui: { seenFirstPopups, seenIntroBAP } }, { merge: true });
+      const seenIntroBAP_v3 = !!(UI && UI._seenIntroBAP_v3);
+      return SAVE.debouncedWrite({ schemaVersion: 2, ui: { seenFirstPopups, seenIntroBAP, seenIntroBAP_v3 } }, { merge: true });
     }
 
     SAVE._patWriteAttempts = 0;
@@ -283,7 +291,8 @@
     const UI = EC.UI_STATE || {};
     const seenFirstPopups = Object.assign({}, (UI && UI._seenFirstPopups) || {});
     const seenIntroBAP = !!(UI && UI._seenIntroBAP);
-    return SAVE.debouncedWrite({ schemaVersion: 2, pat, ui: { seenFirstPopups, seenIntroBAP } }, { merge: true });
+    const seenIntroBAP_v3 = !!(UI && UI._seenIntroBAP_v3);
+    return SAVE.debouncedWrite({ schemaVersion: 2, pat, ui: { seenFirstPopups, seenIntroBAP, seenIntroBAP_v3 } }, { merge: true });
   };
 
   SAVE._touchOnSignIn = SAVE._touchOnSignIn || function _touchOnSignIn() {
