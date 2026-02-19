@@ -663,27 +663,11 @@
   #costSpinZero, #costZeroPair{ display: none; }
 
 
-  /* PASS A38: collapse old bottom ctrl bar (buttons are overlay-fixed) */
-  #ctrlPanel{
-    background:none !important;
-    border:none !important;
-    box-shadow:none !important;
-    backdrop-filter:none !important;
-    -webkit-backdrop-filter:none !important;
-    padding:0 !important;
-    margin:0 !important;
-    height:0 !important;
-    min-height:0 !important;
-    overflow:visible !important;
-  }
-  #ctrlPanel #ctrlRow{
-    padding:0 !important;
-    margin:0 !important;
-    gap:0 !important;
-    height:0 !important;
-    min-height:0 !important;
-  }
-  /* PASS A37: two-line spin buttons overlaid on the board */
+  /* PASS A38/A39: fully hide old bottom ctrl bar (buttons are overlay-fixed) */
+  #ctrlPanel{ display:none !important; }
+  #ctrlPanel #ctrlRow{ display:none !important; }
+
+/* PASS A37: two-line spin buttons overlaid on the board */
   .spinOverlayBtn{ z-index: 26; }
   .spinOverlayBtn .btnLine1{ font-size: 12px; font-weight: 900; line-height: 1.05; }
   .spinOverlayBtn .btnLine2{ font-size: 11px; font-weight: 800; opacity: 0.92; line-height: 1.05; margin-top: 2px; }

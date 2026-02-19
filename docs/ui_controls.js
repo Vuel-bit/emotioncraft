@@ -828,8 +828,10 @@ if (btnZeroPairEl) {
         if (eEl && vw && vh) {
           // Force fixed positioning in viewport space.
           eEl.style.position = 'fixed';
-          eEl.style.bottom = '';
-          eEl.style.right = '';
+          eEl.style.bottom = 'auto';
+          eEl.style.right = 'auto';
+          eEl.style.height = 'auto';
+          eEl.style.width = 'auto';
 
           // Center above purple well, top aligned to red top edge.
           // (Top-right of graphics square in the default well layout.)
@@ -847,8 +849,8 @@ if (btnZeroPairEl) {
         const zEl = dom.zenTimerHudEl || document.getElementById('zenTimerHud');
         if (zEl && zEl.style.display !== 'none' && vw && vh) {
           zEl.style.position = 'fixed';
-          zEl.style.right = '';
-          zEl.style.bottom = '';
+          zEl.style.right = 'auto';
+          zEl.style.bottom = 'auto';
 
           const eRect = eEl ? eEl.getBoundingClientRect() : null;
           const zRect0 = zEl.getBoundingClientRect();
@@ -886,8 +888,8 @@ if (btnZeroPairEl) {
           el.classList.add('spinOverlayBtn','btnTwoLine');
           el.style.position = 'fixed';
           el.style.transform = 'translate(-50%, -100%)';
-          el.style.bottom = '';
-          el.style.right = '';
+          el.style.bottom = 'auto';
+          el.style.right = 'auto';
           el.style.left = centerX.toFixed(1) + 'px';
           el.style.top = bottomY.toFixed(1) + 'px';
 
@@ -923,40 +925,51 @@ if (btnZeroPairEl) {
 
     const btnSpinZeroEl2 = dom.btnSpinZeroEl || document.getElementById('btnSpinZero');
     const btnZeroPairEl2 = dom.btnZeroPairEl || document.getElementById('btnZeroPair');
-    if (btnSpinZeroEl2) btnSpinZeroEl2.disabled = !hasSel;
-    
-    if (!hasSel) {
-      const costSpinZeroEl2 = dom.costSpinZeroEl || document.getElementById('costSpinZero');
-      const costZeroPairEl2 = dom.costZeroPairEl || document.getElementById('costZeroPair');
 
-      // PASS A37: two-line labels with cost inside the buttons (spans kept but hidden via CSS).
-      if (btnSpinZeroEl2) btnSpinZeroEl2.innerHTML = `
-            <div class=\"l1\">0 Spin</div>
-            <div class=\"l2\">Cost ${cSpin0}</div>
+    // Ensure strict two-line templates (defensive: avoid any legacy fragments).
+    try {
+      if (btnSpinZeroEl2) btnSpinZeroEl2.classList.add('btnTwoLine');
+      if (btnZeroPairEl2) btnZeroPairEl2.classList.add('btnTwoLine');
+    } catch (_) {}
+
+    if (!hasSel) {
+      // No selection: both buttons disabled, placeholder costs.
+      if (btnSpinZeroEl2) {
+        btnSpinZeroEl2.disabled = true;
+        btnSpinZeroEl2.style.opacity = '0.55';
+        btnSpinZeroEl2.innerHTML = `
+            <div class="l1">0 Spin</div>
+            <div class="l2">Cost —</div>
           `;
-      if (btnZeroPairEl2) btnZeroPairEl2.innerHTML = `
-            <div class=\"l1\">0 Pair Spin</div>
-            <div class=\"l2\">Cost ${cPair}</div>
+      }
+      if (btnZeroPairEl2) {
+        btnZeroPairEl2.disabled = true;
+        btnZeroPairEl2.style.opacity = '0.55';
+        btnZeroPairEl2.innerHTML = `
+            <div class="l1">0 Pair Spin</div>
+            <div class="l2">Cost —</div>
           `;
+      }
     } else {
       const mult = _getEnergyCostMult(SIM);
       const eU = energyToUnits(SIM.energy || 0);
+
+      // --- Spin-0 ---
       const A0 = (SIM.wellsA[sel] || 0);
       const c1 = computeApplyPreview(sel, A0, 0);
-      const cost1Raw = (c1 && c1.changed) ? (c1.cost || 0) : 0;
+      const changedSpin = (c1 && c1.changed);
+      const cost1Raw = changedSpin ? (c1.cost || 0) : 0;
       const cost1FloatFinal = cost1Raw * mult;
       const cost1Units = costToUnits(cost1FloatFinal);
-      const costSpinZeroEl2 = dom.costSpinZeroEl || document.getElementById('costSpinZero');
-      const costZeroPairEl2 = dom.costZeroPairEl || document.getElementById('costZeroPair');
+      const spinUnits = changedSpin ? cost1Units : 0;
+      const cSpin0Disp = spinUnits;
 
       if (btnSpinZeroEl2) btnSpinZeroEl2.innerHTML = `
-            <div class=\"l1\">0 Spin</div>
-            <div class=\"l2\">Cost ${cSpin0}</div>
+            <div class="l1">0 Spin</div>
+            <div class="l2">Cost ${cSpin0Disp}</div>
           `;
 
       if (btnSpinZeroEl2) {
-        const changedSpin = (c1 && c1.changed);
-        const spinUnits = changedSpin ? cost1Units : 0;
         let canSpin = hasSel && changedSpin && (eU >= spinUnits);
         // Tutorial gating: use SIM._tutCanSpin0 if present (source of truth = tutorial step machine)
         if (SIM && SIM.tutorialActive && (typeof SIM._tutCanSpin0 === 'boolean')) {
@@ -976,17 +989,19 @@ if (btnZeroPairEl) {
         } catch (_) {}
       }
 
-
+      // --- Pair-0 ---
       const c2 = computeZeroPairCostCanonical(sel);
       const j = _oppIndex(sel);
-      const changedPair = (j != null && j >= 0 && j < 6) && ((Math.abs(SIM.wellsS[sel] || 0) > 1e-9) || (Math.abs(SIM.wellsS[j] || 0) > 1e-9));
+      const changedPair = (j != null && j >= 0 && j < 6) &&
+        ((Math.abs(SIM.wellsS[sel] || 0) > 1e-9) || (Math.abs(SIM.wellsS[j] || 0) > 1e-9));
       const pairCostRaw = changedPair ? (c2.cost || 0) : 0;
       const pairCostFloatFinal = pairCostRaw * mult;
       const pairUnits = costToUnits(pairCostFloatFinal);
+      const cPairDisp = pairUnits;
 
       if (btnZeroPairEl2) btnZeroPairEl2.innerHTML = `
-            <div class=\"l1\">0 Pair Spin</div>
-            <div class=\"l2\">Cost ${cPair}</div>
+            <div class="l1">0 Pair Spin</div>
+            <div class="l2">Cost ${cPairDisp}</div>
           `;
 
       // Gating must match displayed cost exactly.

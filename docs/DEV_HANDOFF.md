@@ -1,6 +1,6 @@
 # Emotioncraft — Current Build Handoff (2026-02-19)
 
-Build ID: **emotioncraft_v0_2_103_passD_passA37_psychePlasma_hudSwap_layout**
+Build ID: **emotioncraft_v0_2_103_passD_passA39_hotfix_crashFix_anchorFix_ctrlPanelHide**
 
 ## Non-negotiables (project guardrails)
 - **docs/** is the runnable web root (GitHub Pages).
@@ -40,6 +40,7 @@ Build ID: **emotioncraft_v0_2_103_passD_passA37_psychePlasma_hudSwap_layout**
 - `energy` float (HUD shows integer units via Math.round)
 
 ## Recent passes (quick notes)
+- **Pass A39:** Hotfix (UI/visual only): fixed ui_controls spin button cost label crash; forced energy/timer HUD anchors to auto (prevents stretched right-side shading); fully hid legacy ctrlPanel strip. No mechanics changes.
 - **Pass A37:** Visual-only/UI-only: Psyche wedges upgraded to vivid, clearly animated "plasma depth" (adds a new animated layer + stronger motion; crisp wedge masks; hue identity preserved). HUD presentation swapped: traits are neutral pills; quirks are colored text by default and switch to colored pills when ACTIVE. Board UI layout repositioned using live well geometry (Energy + timer top-right of graphics square; portrait centered above orange; Spin-0 buttons moved onto the board with two-line labels + cost inside). Drawer text capacity increased.
 - **Pass A36:** Visual-only: spill magnitude now shown via discrete traveling pulses (one per ~1 unit transferred) using per-tick Abs deltas + `spillFx.seq` to avoid double-count. Base stream widths are stable (not the main magnitude cue). Spin stream upgraded to a stronger corkscrew/helix; spin pulses are diamond/rotating and ride the helix. Psyche depth FX revised to preserve hue identity (no mute) and animate more visibly while keeping crisp wedge masks.
 - **Pass A35:** Visual-only: spill FX triggers earlier + is stable (adds abs-activity telemetry alongside signed nets; renderer uses abs for intensity/thickness + adds hold timers to avoid flicker). Spill thickness scaling is more obvious. Psyche wedges gain subtle “well depth at rest” interior FX with crisp wedge masks.
@@ -251,4 +252,3 @@ Source: `docs/systems_patients.js`, `docs/ui_lobby.js`
 **Non-changes (guardrails honored)**
 - No mechanics/balance changes.
 - No new files; no ES modules; load order unchanged.
-
