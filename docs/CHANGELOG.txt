@@ -147,3 +147,5 @@ Pass A28: Added one-time “Back-Alley Psychiatry (BAP)” intro cutscene (10s) 
 Pass A29: Replaced the initial BAP intro with a cinematic 15.0s fullscreen cutscene driven by 5 plates (A–E) + DOM/CSS text/neon overlays (no baked text). Added new persistence key ui.seenIntroBAP_v3 + sessionStorage ec_seenIntroBAP_v3 so the new cutscene plays once even if the legacy intro was seen. No gameplay changes.
 
 Pass A29b: Hotfix — intro overlay opacity now stays visible for the full cutscene duration (was incorrectly invisible until the final ~250ms). No gameplay changes.
+
+Pass A30: BAP intro cutscene update — extended to ~30s with re-timed dialogue beats; removed DOM neon sign + Princess nametag overlays (sign/tag lettering is baked into new plate art); intro now launches the Tutorial immediately on natural end or skip (only when the cutscene actually played). Updated intro_bap plate_c/plate_d/plate_e assets. No gameplay changes.

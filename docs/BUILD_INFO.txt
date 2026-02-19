@@ -1,6 +1,8 @@
-Build: emotioncraft_v0_2_103_passD_passA29b_introBAP_cinematic15s_v3_opacityHotfix
+Build: emotioncraft_v0_2_103_passD_passA30_introBAP_cinematic30s_bakedArt_tutorialHandoff
 Date: 2026-02-18
 Notes:
-- Replaced BAP intro with cinematic 15.0s fullscreen plate timeline (5 plates + DOM text/neon overlays).
-- New one-time seen flag: ui.seenIntroBAP_v3 (schema v2) + sessionStorage fallback.
-- Hotfix: intro overlay opacity now stays visible until final 250ms fade-out.
+- Updated BAP intro cutscene to a cinematic 30.0s timeline (plates A–E) with slower, readable dialogue pacing.
+- Removed ALL DOM neon sign + Princess nametag lettering; storefront sign and dog tag text are now baked into plate art.
+- Intro now hands off directly into the Tutorial when it ends naturally OR is skipped (only for first-time viewers).
+- Updated intro_bap plates: new plate_c (Psychiatry sign), plate_d (PAWN + inventor), plate_e (Princess tag).
+- Persistence unchanged: ui.seenIntroBAP_v3 (schema v2) + sessionStorage ec_seenIntroBAP_v3 fallback.

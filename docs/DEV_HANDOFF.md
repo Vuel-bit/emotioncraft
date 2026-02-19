@@ -191,3 +191,15 @@ Source: `docs/systems_patients.js`, `docs/ui_lobby.js`
 
 ### Pass A29b
 - Hotfix: corrected intro overlay opacity so it stays visible for the full cutscene duration and only fades out in the final ~250ms.
+
+### Pass A30
+- Updated BAP intro cutscene to a cinematic **30.0s** timeline (plates A–E), with slower readable dialogue beats and refined scene dwell times.
+- Removed all DOM neon sign + PRINCESS nametag overlays; storefront sign text and Princess dog tag are now baked into the plate art (no DOM lettering for sign/tag).
+- Intro now launches the Tutorial immediately when it ends naturally OR is skipped (only when the cutscene actually played); ensures lobby is hidden () before starting tutorial.
+- Updated intro plate assets: replaced  (Psychiatry sign),  (PAWN + inventor), and  (Princess tag) in .
+
+### Pass A30
+- Updated BAP intro cutscene to a cinematic **30.0s** timeline (plates A–E), with slower readable dialogue beats and refined scene dwell times.
+- Removed all DOM neon sign + PRINCESS nametag overlays; storefront sign text and Princess dog tag are now baked into the plate art (no DOM lettering for sign/tag).
+- Intro now launches the Tutorial immediately when it ends naturally OR is skipped (only when the cutscene actually played); ensures lobby is hidden (setInLobby(false)) before starting tutorial.
+- Updated intro plate assets: replaced `plate_c.png` (Psychiatry sign), `plate_d.png` (PAWN + inventor), and `plate_e.png` (Princess tag) in `docs/assets/intro_bap/`.
