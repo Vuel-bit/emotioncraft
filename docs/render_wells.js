@@ -23,6 +23,15 @@
     return (rr << 16) | (gg << 8) | bb;
   }
 
+  function _mixTowardBlack(col, t) {
+    t = Math.max(0, Math.min(1, t));
+    const r = (col >> 16) & 255;
+    const g = (col >> 8) & 255;
+    const b = col & 255;
+    const k = 1 - t;
+    return ((Math.round(r * k) & 255) << 16) | ((Math.round(g * k) & 255) << 8) | (Math.round(b * k) & 255);
+  }
+
   function drawBackground() {
     // IMPORTANT: Use EC.RENDER.app.screen (logical units) for layout/draw coordinates.
     // With autoDensity + resolution, renderer.width/height are in device pixels,
@@ -128,32 +137,32 @@ function ensurePsycheView() {
       wc.interactiveChildren = false;
       wc.visible = false;
 
-      // Base pigment body (subtle)
-      const sprBody = new PIXI.Sprite((TEX && (TEX.body || TEX.circle)) ? (TEX.body || TEX.circle) : PIXI.Texture.WHITE);
+      // PASS A36: base pigment body (preserve hue)
+      const sprBody = new PIXI.Sprite((TEX && (TEX.body || TEX.rippleCircle || TEX.circle)) ? (TEX.body || TEX.rippleCircle || TEX.circle) : PIXI.Texture.WHITE);
       sprBody.anchor && sprBody.anchor.set(0.5);
-      sprBody.alpha = 0.10;
+      sprBody.alpha = 0.20;
       sprBody.blendMode = BM_NORMAL;
       wc.addChild(sprBody);
 
-      // Subtle internal variation (marble/swirl) — slow drift only
-      const sprVar = new PIXI.Sprite((TEX && (TEX.marble || TEX.swirl || TEX.body || TEX.circle)) ? (TEX.marble || TEX.swirl || TEX.body || TEX.circle) : PIXI.Texture.WHITE);
+      // Internal variation (tracers/swirl/marble) — animated parallax
+      const sprVar = new PIXI.Sprite((TEX && (TEX.tracers || TEX.swirl || TEX.marble || TEX.rippleCircle || TEX.body || TEX.circle)) ? (TEX.tracers || TEX.swirl || TEX.marble || TEX.rippleCircle || TEX.body || TEX.circle) : PIXI.Texture.WHITE);
       sprVar.anchor && sprVar.anchor.set(0.5);
-      sprVar.alpha = 0.08;
+      sprVar.alpha = 0.14;
       sprVar.blendMode = BM_SCREEN;
       wc.addChild(sprVar);
 
-      // Inner shading (edge)
-      const sprEdge = new PIXI.Sprite((TEX && (TEX.edge || TEX.circle)) ? (TEX.edge || TEX.circle) : PIXI.Texture.WHITE);
+      // Inner shading (edge) — keep subtle; avoid black multiply that mutes/desaturates.
+      const sprEdge = new PIXI.Sprite((TEX && (TEX.edge || TEX.rippleCircle || TEX.circle)) ? (TEX.edge || TEX.rippleCircle || TEX.circle) : PIXI.Texture.WHITE);
       sprEdge.anchor && sprEdge.anchor.set(0.5);
-      sprEdge.alpha = 0.12;
-      sprEdge.tint = 0x000000;
-      sprEdge.blendMode = BM_MULT;
+      sprEdge.alpha = 0.06;
+      sprEdge.tint = 0xffffff; // actual tint applied per-frame from hue
+      sprEdge.blendMode = BM_NORMAL;
       wc.addChild(sprEdge);
 
-      // Soft spec highlight
-      const sprHi = new PIXI.Sprite((TEX && (TEX.highlight || TEX.body || TEX.circle)) ? (TEX.highlight || TEX.body || TEX.circle) : PIXI.Texture.WHITE);
+      // Soft spec highlight (tinted to hue, not white-wash)
+      const sprHi = new PIXI.Sprite((TEX && (TEX.highlight || TEX.tracers || TEX.rippleCircle || TEX.body || TEX.circle)) ? (TEX.highlight || TEX.tracers || TEX.rippleCircle || TEX.body || TEX.circle) : PIXI.Texture.WHITE);
       sprHi.anchor && sprHi.anchor.set(0.5);
-      sprHi.alpha = 0.07;
+      sprHi.alpha = 0.16;
       sprHi.blendMode = BM_SCREEN;
       wc.addChild(sprHi);
 
@@ -397,28 +406,31 @@ function renderPsyche() {
           const fx = wc._fx;
           if (fx) {
             const size = r1 * 2.10;
-            // Tint to hue (slightly varied per sprite)
+            // PASS A36: preserve hue identity — avoid black multiply + white wash.
             fx.body.tint = color;
-            fx.vari.tint = _mixTowardWhite(color, 0.38);
-            fx.edge.tint = 0x000000;
-            fx.hi.tint = 0xffffff;
+            fx.vari.tint = _mixTowardWhite(color, 0.08);
+            fx.edge.tint = _mixTowardBlack(color, 0.28);
+            fx.hi.tint = _mixTowardWhite(color, 0.10);
 
             fx.body.width = fx.body.height = size;
             fx.vari.width = fx.vari.height = size;
             fx.edge.width = fx.edge.height = size;
             fx.hi.width = fx.hi.height = size;
 
-            // Very slow drift/rotation (no edge wobble; mask keeps edges crisp)
+            // Clear, subtle "liquid depth" motion (mask keeps wedge edges crisp)
             const s0 = (i % 2 === 0) ? 1 : -1;
-            fx.vari.rotation = s0 * (tSec * 0.08) + i * 0.35;
-            fx.vari.position.set(Math.cos(tSec * 0.35 + i * 0.9) * 2.0, Math.sin(tSec * 0.28 + i * 1.1) * 2.0);
 
-            fx.hi.rotation = tSec * 0.11 + i * 0.20;
-            fx.hi.position.set(Math.cos(tSec * 0.48 + i * 0.7) * 4.0, -Math.sin(tSec * 0.42 + i * 0.5) * 4.0);
+            fx.body.rotation = tSec * 0.22 + i * 0.28;
+            fx.body.position.set(Math.cos(tSec * 0.55 + i * 0.9) * 2.0, Math.sin(tSec * 0.50 + i * 0.8) * 2.0);
 
-            fx.edge.rotation = -tSec * 0.03;
-            fx.edge.position.set(0, 0);
-            fx.body.position.set(0, 0);
+            fx.vari.rotation = s0 * (tSec * 0.36) + i * 0.22;
+            fx.vari.position.set(Math.cos(tSec * 0.78 + i * 0.7) * 6.0, Math.sin(tSec * 0.70 + i * 0.6) * 6.0);
+
+            fx.hi.rotation = tSec * 0.28 + i * 0.18;
+            fx.hi.position.set(Math.cos(tSec * 0.92 + i * 0.6) * 10.0, -Math.sin(tSec * 0.84 + i * 0.6) * 10.0);
+
+            fx.edge.rotation = tSec * 0.10;
+            fx.edge.position.set(Math.cos(tSec * 0.42 + i * 0.5) * 3.0, Math.sin(tSec * 0.46 + i * 0.4) * 3.0);
           }
         } else {
           wc.visible = false;

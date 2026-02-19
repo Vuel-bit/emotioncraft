@@ -23,6 +23,24 @@
     dropletsA: [],
     dropletsS: [],
 
+    // PASS A36: pulse-per-integer-transfer (pooled sprites)
+    pulsesA: [],
+    pulsesS: [],
+    pulseA_next: 0,
+    pulseS_next: 0,
+    // Per-seam accumulators (Abs deltas) for pulse emission
+    aOverPulseAcc: new Float32Array(6),
+    aUnderPulseAcc: new Float32Array(6),
+    sOverPulseAcc: new Float32Array(6),
+    sUnderPulseAcc: new Float32Array(6),
+    lastSeq: 0,
+
+    // scratch (avoid per-frame allocations)
+    _tmpP: { x: 0, y: 0 },
+    _tmpD: { x: 0, y: 0 },
+    _tmp0: { x: 0, y: 0 },
+    _tmp1: { x: 0, y: 0 },
+
     // Smoothed intensities (0..1)
     overA_sm: new Float32Array(6),
     underA_sm: new Float32Array(6),
@@ -246,6 +264,52 @@
       layer.addChild(spr);
     }
 
+    // PASS A36: Pulses (primary magnitude signal) — pooled sprites so we avoid per-frame allocations.
+    // Pulses are emitted based on per-tick Abs deltas crossing integer units.
+    const pulsesA = [];
+    const pulsesS = [];
+    const PULSE_A_COUNT = 120;
+    const PULSE_S_COUNT = 120;
+
+    for (let k = 0; k < PULSE_A_COUNT; k++) {
+      const p = new PIXI.Sprite(texA);
+      p.anchor && p.anchor.set(0.5);
+      p.eventMode = 'none';
+      p.visible = false;
+      p.alpha = 0;
+      // pooled fields
+      p._pActive = 0;
+      p._t = 0;
+      p._spd = 1.4;
+      p._seam = 0;
+      p._lane = 'over';
+      p._dir = 1;
+      p._kind = 'A';
+      p._base = 0.18;
+      pulsesA.push(p);
+      layer.addChild(p);
+    }
+
+    for (let k = 0; k < PULSE_S_COUNT; k++) {
+      const p = new PIXI.Sprite(texS);
+      p.anchor && p.anchor.set(0.5);
+      p.eventMode = 'none';
+      p.visible = false;
+      p.alpha = 0;
+      p._pActive = 0;
+      p._t = 0;
+      p._spd = 1.6;
+      p._seam = 0;
+      p._lane = 'over';
+      p._dir = 1;
+      p._kind = 'S';
+      p._base = 0.16;
+      p._rotSpd = 3.0;
+      p._rotDir = 1;
+      pulsesS.push(p);
+      layer.addChild(p);
+    }
+
     // Insert ABOVE mvpWellLayer (streams must be visible, not hidden under wells)
     try {
       const wl = EC.RENDER.mvpWellLayer;
@@ -271,6 +335,8 @@
 
     STATE.dropletsA = dropletsA;
     STATE.dropletsS = dropletsS;
+    STATE.pulsesA = pulsesA;
+    STATE.pulsesS = pulsesS;
 
     // Pre-create curve param objects (avoid per-frame allocations)
     for (let i = 0; i < 6; i++) {
@@ -349,11 +415,12 @@
     const col = curve.col;
     const colCore = _mixTowardWhite(col, 0.28);
 
-    // Tasteful but clearly readable: width uses BOTH intensity + magnitude so thickness scaling is obvious.
-    const wBase = 6.0 + 9.0 * inten01 + 16.0 * mag01;
-    const wCore = 2.2 + 3.8 * inten01 + 6.5 * mag01;
-    const aBase = 0.16 + 0.30 * inten01;
-    const aCore = 0.34 + 0.52 * inten01;
+    // PASS A36: base stream is secondary; magnitude is communicated via discrete pulses.
+    // Keep width mostly stable (small intensity modulation is OK).
+    const wBase = 7.0 + 3.2 * inten01;
+    const wCore = 3.0 + 1.6 * inten01;
+    const aBase = 0.14 + 0.22 * inten01;
+    const aCore = 0.30 + 0.46 * inten01;
 
     g.lineStyle({ width: wBase, color: col, alpha: aBase, cap: STATE.capRound, join: STATE.joinRound });
     g.moveTo(curve.p0x, curve.p0y);
@@ -371,17 +438,19 @@
     const colBase = _mixTowardWhite(curve.col, 0.38);
     const colCore = _mixTowardWhite(curve.col, 0.72);
 
-    const wBase = 2.8 + 2.6 * inten01 + 4.4 * mag01;
-    const wCore = 1.2 + 1.4 * inten01 + 2.0 * mag01;
-    const aBase = 0.14 + 0.30 * inten01;
-    const aCore = 0.40 + 0.54 * inten01;
+    // PASS A36: make spin unmistakably a corkscrew/helix.
+    // Width stays stable; magnitude is communicated via discrete pulses.
+    const wBase = 3.4 + 1.6 * inten01;
+    const wCore = 1.5 + 0.9 * inten01;
+    const aBase = 0.16 + 0.26 * inten01;
+    const aCore = 0.42 + 0.48 * inten01;
 
-    const N = 20; // segments
-    const cycles = 2.2;
+    const N = 22; // segments
+    const cycles = 3.6;
     const freq = cycles * Math.PI * 2;
-    const amp = (1.4 + 2.8 * inten01 + 1.8 * mag01);
-    const baseOff = ((lane === 'over') ? 1 : -1) * 2.6; // small lateral offset so it doesn't perfectly overlap
-    const phase = (phaseSign >= 0 ? 1 : -1) * STATE.spinPhase + seamIdx * 0.55;
+    const amp = (4.2 + 6.0 * inten01);
+    const baseOff = ((lane === 'over') ? 1 : -1) * 3.2; // tiny lateral offset so it doesn't perfectly overlap
+    const phase = (phaseSign >= 0 ? 1 : -1) * STATE.spinPhase + seamIdx * 0.65;
 
     function sample(t, outObj) {
       const it = 1 - t;
@@ -408,26 +477,206 @@
       outObj.y = y + ny * off;
     }
 
-    // Base stroke
-    g.lineStyle({ width: wBase, color: colBase, alpha: aBase, cap: STATE.capRound, join: STATE.joinRound });
-    const p = { x: 0, y: 0 };
-    sample(0, p);
-    g.moveTo(p.x, p.y);
-    for (let i = 1; i <= N; i++) {
-      const t = i / N;
-      sample(t, p);
-      g.lineTo(p.x, p.y);
+    // Helix illusion: modulate alpha along the curve so it appears to pass "behind" and "in front".
+    const p0 = STATE._tmp0;
+    const p1 = STATE._tmp1;
+
+    for (let i = 0; i < N; i++) {
+      const t0 = i / N;
+      const t1 = (i + 1) / N;
+      const tm = (t0 + t1) * 0.5;
+      const bright = 0.35 + 0.65 * (0.5 + 0.5 * Math.cos(phase + tm * freq));
+      const aSegB = aBase * bright;
+      const aSegC = aCore * (0.55 + 0.45 * bright);
+
+      sample(t0, p0);
+      sample(t1, p1);
+
+      g.lineStyle({ width: wBase, color: colBase, alpha: aSegB, cap: STATE.capRound, join: STATE.joinRound });
+      g.moveTo(p0.x, p0.y);
+      g.lineTo(p1.x, p1.y);
+
+      g.lineStyle({ width: wCore, color: colCore, alpha: aSegC, cap: STATE.capRound, join: STATE.joinRound });
+      g.moveTo(p0.x, p0.y);
+      g.lineTo(p1.x, p1.y);
+    }
+  }
+
+  // --- PASS A36: pulse helpers (pooled sprites) ---
+
+  function _bezierPoint(curve, t, out) {
+    const it = 1 - t;
+    const a = it * it;
+    const b = 2 * it * t;
+    const c = t * t;
+    out.x = a * curve.p0x + b * curve.cpx + c * curve.p1x;
+    out.y = a * curve.p0y + b * curve.cpy + c * curve.p1y;
+    return out;
+  }
+
+  function _bezierDeriv(curve, t, out) {
+    const it = 1 - t;
+    out.x = 2 * it * (curve.cpx - curve.p0x) + 2 * t * (curve.p1x - curve.cpx);
+    out.y = 2 * it * (curve.cpy - curve.p0y) + 2 * t * (curve.p1y - curve.cpy);
+    return out;
+  }
+
+  function _spawnPulse(kindChar, seam, lane, dir, inten01) {
+    const j = (seam + 1) % 6;
+    const donor = (dir > 0) ? seam : j;
+    const col = _getWellColor(donor);
+
+    const BM = (PIXI && PIXI.BLEND_MODES) ? PIXI.BLEND_MODES : null;
+    const BM_ADD = BM ? (BM.ADD != null ? BM.ADD : BM.SCREEN) : 0;
+
+    if (kindChar === 'A') {
+      const pool = STATE.pulsesA;
+      if (!pool || pool.length === 0) return;
+      const idx = (STATE.pulseA_next++ % pool.length) | 0;
+      const p = pool[idx];
+      p._pActive = 1;
+      p._t = 0;
+      p._spd = 1.25 + 0.55 * inten01;
+      p._seam = seam;
+      p._lane = lane;
+      p._dir = dir || 1;
+      p._kind = 'A';
+      p._base = 0.18 + 0.10 * inten01;
+      p.tint = _mixTowardWhite(col, 0.10);
+      p.alpha = 0.88;
+      p.rotation = 0;
+      p.blendMode = BM_ADD;
+      p.visible = true;
+      return;
     }
 
-    // Core stroke
-    g.lineStyle({ width: wCore, color: colCore, alpha: aCore, cap: STATE.capRound, join: STATE.joinRound });
-    sample(0, p);
-    g.moveTo(p.x, p.y);
-    for (let i = 1; i <= N; i++) {
-      const t = i / N;
-      sample(t, p);
-      g.lineTo(p.x, p.y);
+    // Spin
+    const pool = STATE.pulsesS;
+    if (!pool || pool.length === 0) return;
+    const idx = (STATE.pulseS_next++ % pool.length) | 0;
+    const p = pool[idx];
+    p._pActive = 1;
+    p._t = 0;
+    p._spd = 1.35 + 0.70 * inten01;
+    p._seam = seam;
+    p._lane = lane;
+    p._dir = dir || 1;
+    p._kind = 'S';
+    p._base = 0.16 + 0.10 * inten01;
+    p._rotSpd = 2.8 + 3.2 * inten01;
+    p._rotDir = (Math.random() < 0.5) ? -1 : 1;
+    p.tint = _mixTowardWhite(col, 0.55);
+    p.alpha = 0.92;
+    p.rotation = 0;
+    p.blendMode = BM_ADD;
+    p.visible = true;
+  }
+
+  function _curveForPulse(kindChar, lane, seam, dir, cx, cy, ringR, mvpWellGeom) {
+    const signed = (dir >= 0) ? 1 : -1;
+    if (kindChar === 'A') {
+      const c = (lane === 'over') ? STATE.curvesAOver[seam] : STATE.curvesAUnder[seam];
+      if (!c.active) _buildCurve(c, seam, signed, lane, cx, cy, ringR, mvpWellGeom, 0);
+      return c;
     }
+    const extra = 6;
+    const c = (lane === 'over') ? STATE.curvesSOver[seam] : STATE.curvesSUnder[seam];
+    if (!c.active) _buildCurve(c, seam, signed, lane, cx, cy, ringR, mvpWellGeom, extra);
+    return c;
+  }
+
+  function _updatePulses(dt, cx, cy, ringR, mvpWellGeom) {
+    const tmpP = STATE._tmpP;
+    const tmpD = STATE._tmpD;
+
+    let any = false;
+
+    // Amount pulses
+    const pA = STATE.pulsesA;
+    for (let k = 0; k < pA.length; k++) {
+      const p = pA[k];
+      if (!p._pActive) { p.visible = false; continue; }
+      any = true;
+
+      p._t += (p._spd || 1.4) * dt;
+      if (p._t >= 1) {
+        p._pActive = 0;
+        p.visible = false;
+        continue;
+      }
+
+      const seam = p._seam | 0;
+      const lane = p._lane;
+      const dir = p._dir || 1;
+      const curve = _curveForPulse('A', lane, seam, dir, cx, cy, ringR, mvpWellGeom);
+      if (!curve || !curve.active) { p.visible = false; continue; }
+
+      const t0 = p._t;
+      _bezierPoint(curve, t0, tmpP);
+      _bezierDeriv(curve, t0, tmpD);
+      const ang = Math.atan2(tmpD.y, tmpD.x);
+      p.position.set(tmpP.x, tmpP.y);
+      p.rotation = ang;
+
+      const base = p._base || 0.18;
+      const breathe = 1 + 0.22 * Math.sin((t0 * 7.0) + STATE.t * 6.0);
+      p.scale.set(base * 1.9 * breathe, base * 1.10 * breathe);
+      p.alpha = 0.86 * (1 - 0.35 * t0);
+      p.visible = true;
+    }
+
+    // Spin pulses (diamond + rotation + helix offset)
+    const pS = STATE.pulsesS;
+    for (let k = 0; k < pS.length; k++) {
+      const p = pS[k];
+      if (!p._pActive) { p.visible = false; continue; }
+      any = true;
+
+      p._t += (p._spd || 1.6) * dt;
+      if (p._t >= 1) {
+        p._pActive = 0;
+        p.visible = false;
+        continue;
+      }
+
+      const seam = p._seam | 0;
+      const lane = p._lane;
+      const dir = p._dir || 1;
+      const curve = _curveForPulse('S', lane, seam, dir, cx, cy, ringR, mvpWellGeom);
+      if (!curve || !curve.active) { p.visible = false; continue; }
+
+      const t0 = p._t;
+      _bezierPoint(curve, t0, tmpP);
+      _bezierDeriv(curve, t0, tmpD);
+      const dlen = Math.sqrt(tmpD.x * tmpD.x + tmpD.y * tmpD.y) || 1;
+      const tx = tmpD.x / dlen;
+      const ty = tmpD.y / dlen;
+      const nx = -ty;
+      const ny = tx;
+
+      // Match stream corkscrew parameters
+      const cycles = 3.6;
+      const freq = cycles * Math.PI * 2;
+      const amp = 4.6; // fixed for pulses (stream amp already scales with intensity)
+      const baseOff = ((lane === 'over') ? 1 : -1) * 3.2;
+      const phaseSign = (lane === 'over') ? 1 : -1;
+      const phase = phaseSign * STATE.spinPhase + seam * 0.65;
+      const off = baseOff + Math.sin(phase + t0 * freq) * amp;
+
+      p.position.set(tmpP.x + nx * off, tmpP.y + ny * off);
+      const ang = Math.atan2(ty, tx);
+      const rotSpd = p._rotSpd || 4.0;
+      const rotDir = p._rotDir || 1;
+      p.rotation = ang + rotDir * STATE.t * rotSpd;
+
+      const base = p._base || 0.16;
+      const breathe = 1 + 0.18 * Math.sin((t0 * 8.0) + STATE.t * 7.0);
+      p.scale.set(base * 1.25 * breathe, base * 1.25 * breathe);
+      p.alpha = 0.90 * (1 - 0.35 * t0);
+      p.visible = true;
+    }
+
+    return any;
   }
 
   MOD.update = function update(snap, geom, dt, mvpWellGeom) {
@@ -473,6 +722,12 @@
       const aUnderAbs = fx.aUnderAbs;
       const sOverAbs = fx.sOverAbs;
       const sUnderAbs = fx.sUnderAbs;
+
+      // PASS A36: treat Abs arrays as per-sim-tick deltas using the telemetry sequence counter.
+      // This prevents pulses from double-counting when render runs multiple times per sim tick.
+      const seq = (fx.seq | 0);
+      const seqChanged = (seq !== 0) && (seq !== (STATE.lastSeq | 0));
+      if (seqChanged) STATE.lastSeq = seq;
 
       // Targets: keep channels separate (Amount vs Spin)
       for (let i = 0; i < 6; i++) {
@@ -586,6 +841,75 @@
         if (STATE.overS_sm[i] > 0.01 || STATE.underS_sm[i] > 0.01) anyS = true;
       }
 
+      // PASS A36: pulse-per-integer-transfer emission.
+      // Emit one traveling pulse per ~1 unit transferred (matches HUD integer formatting).
+      // Uses Abs deltas for this sim tick; direction from signed net (fallback to cached dir).
+      if (seqChanged) {
+        const PULSE_UNIT_A = 1.0;
+        const PULSE_UNIT_S = 1.0;
+        const MAX_SPAWN = 3;
+
+        for (let i = 0; i < 6; i++) {
+          const dirOA = (Math.abs(STATE.overA_val[i]) > DIR_EPS) ? ((STATE.overA_val[i] > 0) ? 1 : -1) : (STATE.overA_dir[i] || 1);
+          const dirUA = (Math.abs(STATE.underA_val[i]) > DIR_EPS) ? ((STATE.underA_val[i] > 0) ? 1 : -1) : (STATE.underA_dir[i] || 1);
+          const dirOS = (Math.abs(STATE.overS_val[i]) > DIR_EPS) ? ((STATE.overS_val[i] > 0) ? 1 : -1) : (STATE.overS_dir[i] || 1);
+          const dirUS = (Math.abs(STATE.underS_val[i]) > DIR_EPS) ? ((STATE.underS_val[i] > 0) ? 1 : -1) : (STATE.underS_dir[i] || 1);
+
+          const dOA = STATE.overA_abs[i];
+          const dUA = STATE.underA_abs[i];
+          const dOS = STATE.overS_abs[i];
+          const dUS = STATE.underS_abs[i];
+
+          if (dOA > 0) {
+            STATE.aOverPulseAcc[i] += dOA;
+            let n = Math.floor(STATE.aOverPulseAcc[i] / PULSE_UNIT_A) | 0;
+            if (n > 0) {
+              const spawn = (n > MAX_SPAWN) ? MAX_SPAWN : n;
+              let inten = Math.sqrt(dOA / REF_A_ABS);
+              inten = Math.max(0.18, Math.min(1, inten));
+              for (let k = 0; k < spawn; k++) _spawnPulse('A', i, 'over', dirOA, inten);
+              STATE.aOverPulseAcc[i] -= spawn * PULSE_UNIT_A;
+            }
+          }
+
+          if (dUA > 0) {
+            STATE.aUnderPulseAcc[i] += dUA;
+            let n = Math.floor(STATE.aUnderPulseAcc[i] / PULSE_UNIT_A) | 0;
+            if (n > 0) {
+              const spawn = (n > MAX_SPAWN) ? MAX_SPAWN : n;
+              let inten = Math.sqrt(dUA / REF_A_ABS);
+              inten = Math.max(0.18, Math.min(1, inten));
+              for (let k = 0; k < spawn; k++) _spawnPulse('A', i, 'under', dirUA, inten);
+              STATE.aUnderPulseAcc[i] -= spawn * PULSE_UNIT_A;
+            }
+          }
+
+          if (dOS > 0) {
+            STATE.sOverPulseAcc[i] += dOS;
+            let n = Math.floor(STATE.sOverPulseAcc[i] / PULSE_UNIT_S) | 0;
+            if (n > 0) {
+              const spawn = (n > MAX_SPAWN) ? MAX_SPAWN : n;
+              let inten = Math.sqrt(dOS / REF_S_ABS);
+              inten = Math.max(0.20, Math.min(1, inten));
+              for (let k = 0; k < spawn; k++) _spawnPulse('S', i, 'over', dirOS, inten);
+              STATE.sOverPulseAcc[i] -= spawn * PULSE_UNIT_S;
+            }
+          }
+
+          if (dUS > 0) {
+            STATE.sUnderPulseAcc[i] += dUS;
+            let n = Math.floor(STATE.sUnderPulseAcc[i] / PULSE_UNIT_S) | 0;
+            if (n > 0) {
+              const spawn = (n > MAX_SPAWN) ? MAX_SPAWN : n;
+              let inten = Math.sqrt(dUS / REF_S_ABS);
+              inten = Math.max(0.20, Math.min(1, inten));
+              for (let k = 0; k < spawn; k++) _spawnPulse('S', i, 'under', dirUS, inten);
+              STATE.sUnderPulseAcc[i] -= spawn * PULSE_UNIT_S;
+            }
+          }
+        }
+      }
+
       // Clear and redraw graphics
       const gAOver = STATE.gAOver;
       const gAUnder = STATE.gAUnder;
@@ -678,8 +1002,8 @@
 
         spr.visible = true;
         spr.tint = curve.col;
-        spr.alpha = 0.14 + 0.60 * inten01;
-        const size = 2.0 + 4.2 * inten01 + 3.2 * mag01;
+        spr.alpha = 0.08 + 0.34 * inten01;
+        const size = 1.8 + 3.6 * inten01 + 1.8 * mag01;
         spr.width = spr.height = size;
       }
 
@@ -718,8 +1042,8 @@
         spr.visible = true;
         // Slightly whiter tint for spin droplets
         spr.tint = _mixTowardWhite(curve.col, 0.55);
-        spr.alpha = 0.18 + 0.65 * inten01;
-        const size = 1.8 + 3.5 * inten01 + 2.2 * mag01;
+        spr.alpha = 0.10 + 0.38 * inten01;
+        const size = 1.6 + 3.0 * inten01 + 1.4 * mag01;
         spr.width = spr.height = size;
 
         const rotSpd = spr._rotSpd || 3.0;
@@ -727,8 +1051,11 @@
         spr.rotation = (spr.rotation || 0) + rotDir * rotSpd * dt;
       }
 
+      // Update traveling pulses (primary magnitude signal)
+      const anyP = _updatePulses(dt, cx, cy, ringR, mvpWellGeom);
+
       // If nothing active, hide quickly.
-      if (!anyA && !anyS) {
+      if (!anyA && !anyS && !anyP) {
         for (let k = 0; k < dropletsA.length; k++) dropletsA[k].visible = false;
         for (let k = 0; k < dropletsS.length; k++) dropletsS[k].visible = false;
       }

@@ -1,6 +1,6 @@
 # Emotioncraft — Current Build Handoff (2026-02-19)
 
-Build ID: **emotioncraft_v0_2_103_passD_passA35_spillFx_earlyStable_psycheDepth**
+Build ID: **emotioncraft_v0_2_103_passD_passA36_spillPulses_spinCorkscrew_psycheDepthFix**
 
 ## Non-negotiables (project guardrails)
 - **docs/** is the runnable web root (GitHub Pages).
@@ -40,6 +40,7 @@ Build ID: **emotioncraft_v0_2_103_passD_passA35_spillFx_earlyStable_psycheDepth*
 - `energy` float (HUD shows integer units via Math.round)
 
 ## Recent passes (quick notes)
+- **Pass A36:** Visual-only: spill magnitude now shown via discrete traveling pulses (one per ~1 unit transferred) using per-tick Abs deltas + `spillFx.seq` to avoid double-count. Base stream widths are stable (not the main magnitude cue). Spin stream upgraded to a stronger corkscrew/helix; spin pulses are diamond/rotating and ride the helix. Psyche depth FX revised to preserve hue identity (no mute) and animate more visibly while keeping crisp wedge masks.
 - **Pass A35:** Visual-only: spill FX triggers earlier + is stable (adds abs-activity telemetry alongside signed nets; renderer uses abs for intensity/thickness + adds hold timers to avoid flicker). Spill thickness scaling is more obvious. Psyche wedges gain subtle “well depth at rest” interior FX with crisp wedge masks.
 - **Pass A34:** Visual-only: spin ~2× faster than A33; spill FX now visible (layer above wells); amount vs spin spill streams differentiated (spin corkscrew + diamond droplets; supports +/− spin).
 - **Pass A33:** Visual-only: spin reads 3× faster; spill stream FX (ribbon + droplets) with overflow on outer lane and underflow on inner lane. Added runtime-only spill edge telemetry bucket (`SIM._spillFx`) for the renderer (no mechanics changes).

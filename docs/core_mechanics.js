@@ -640,6 +640,15 @@ instability: 0,
         }
       }
 
+      // PASS A36 (visual-only): sequence counter so the renderer can treat Abs arrays as per-sim-tick deltas
+      // and avoid double-counting across multiple render frames.
+      // IMPORTANT: telemetry only; does not affect mechanics.
+      try {
+        spillFx.seq = ((spillFx.seq | 0) + 1) | 0;
+      } catch (_) {
+        spillFx.seq = 1;
+      }
+
       // -------------------------------------------------------------------
       // Spillover routing (v0.2.2): guaranteed outward propagation
       // - Compute PURE overflow vs clamps (no flux/psy adjustments).

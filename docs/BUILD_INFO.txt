@@ -1,7 +1,8 @@
-Build: emotioncraft_v0_2_103_passD_passA35_spillFx_earlyStable_psycheDepth
+Build: emotioncraft_v0_2_103_passD_passA36_spillPulses_spinCorkscrew_psycheDepthFix
 Date: 2026-02-19
 Notes:
-- Visual-only: spill FX now uses absolute-activity telemetry to trigger earlier + resist net-cancel flicker; adds per-channel hold timers and more obvious thickness scaling.
-- Visual-only: spill telemetry bucket extended with abs arrays (aOverAbs/aUnderAbs/sOverAbs/sUnderAbs) for rendering only; signed nets preserved for direction.
-- Visual-only: psyche hue wedges gain subtle “well depth at rest” interior FX (masked per wedge for crisp edges). No gameplay/UI text changes.
+- Visual-only: spill streams now communicate magnitude via discrete traveling pulses (one per ~1 unit transferred), with stable base stream widths.
+- Visual-only: spin spill stream upgraded to a stronger corkscrew/helix look; spin pulses are diamond/rotating and ride the helix.
+- Render telemetry: spillFx now includes a per-sim-tick sequence counter (spillFx.seq) so render can treat abs arrays as deltas without double-counting.
+- Visual-only: psyche wedge depth FX revised to preserve hue identity (no mute), and animate more noticeably while keeping crisp wedge boundaries.
 
