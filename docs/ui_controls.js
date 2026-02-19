@@ -253,6 +253,18 @@ function computeZeroPairCostCanonical(i) {
     const costZeroPairEl = dom.costZeroPairEl || document.getElementById('costZeroPair');
     const energyHudEl = dom.energyHudEl || document.getElementById('energyHud');
 
+    // PASS A38: Lift spin buttons out of the bottom drawer so the bottom panel can reclaim space (UI only).
+    try {
+      const b = document.body;
+      function lift(el){
+        if (!el || !b) return;
+        if (el.parentElement === b) return;
+        b.appendChild(el);
+      }
+      lift(btnSpinZeroEl);
+      lift(btnZeroPairEl);
+    } catch (_) {}
+
 
     // Persistent caches (hardening)
     UI.targetA = (typeof UI.targetA === 'number') ? UI.targetA : 0;
@@ -602,29 +614,139 @@ if (btnZeroPairEl) {
       if (win && win.type === 'PLAN_CHAIN' && Array.isArray(win.steps)) {
         const steps = win.steps;
         const total = steps.length || 1;
-        const step = (typeof SIM.planStep === 'number') ? SIM.planStep : 0;
-        const curIdx = Math.max(0, Math.min(total - 1, step));
-        const st = steps[curIdx] || {};
-        const raw = String(st.text || '').replace(/^\s*Step\s*\d+\s*:\s*/i, '').trim();
-        const parts = raw.split(';').map(s => String(s || '').trim()).filter(Boolean);
-        const line1 = `Treatment step ${curIdx + 1}/${total}`;
-        const line2 = parts[0] || '';
-        const line3 = parts[1] || '';
+        const stepIdx = (typeof SIM.planStep === 'number') ? SIM.planStep : 0;
+        const curIdx = Math.max(0, Math.min(total - 1, stepIdx));
 
-        if (goalLineEl) goalLineEl.textContent = [line1, line2, line3].join('\n');
+        const NAMES = (EC.CONST && Array.isArray(EC.CONST.WELL_DISPLAY_NAMES)) ? EC.CONST.WELL_DISPLAY_NAMES : ['Grit','Awe','Dread','Flow','Ego','Drive'];
+        const CLS = ['goalRed','goalPurple','goalBlue','goalGreen','goalYellow','goalOrange'];
 
+        function esc(s){
+          return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+        }
+        function hueSpan(i){
+          const nm = (i>=0 && i<6) ? NAMES[i] : String(i);
+          const cl = (i>=0 && i<6) ? CLS[i] : '';
+          return `<span class=\"goalHue ${cl}\">${esc(nm)}</span>`;
+        }
+        function fmtInt(v){
+          const n = Number(v);
+          if (!Number.isFinite(n)) return '0';
+          return String(Math.round(n));
+        }
+        function condRange(lo, i, hi){
+          const a = fmtInt(lo);
+          const b = fmtInt(hi);
+          const h = hueSpan(i);
+          return `${a} \u2264 ${h} \u2264 ${b}`;
+        }
+        function condLo(lo, i){
+          const a = fmtInt(lo);
+          const h = hueSpan(i);
+          return `${a} \u2264 ${h}`;
+        }
+        function condHi(i, hi){
+          const b = fmtInt(hi);
+          const h = hueSpan(i);
+          return `${h} \u2264 ${b}`;
+        }
+        function plainLen(html){
+          return String(html || '').replace(/<[^>]*>/g,'').length;
+        }
+        function packRows(conds){
+          const rows = [];
+          const gap = '&nbsp;&nbsp;&nbsp;';
+          for (let k=0;k<conds.length;k++){
+            const c = conds[k];
+            if (!c) continue;
+            if (rows.length && rows[rows.length-1].indexOf(gap) === -1) {
+              const prev = rows[rows.length-1];
+              const lp = plainLen(prev);
+              const lc = plainLen(c);
+              if (lp <= 22 && lc <= 22 && rows.length < 3) {
+                rows[rows.length-1] = prev + gap + c;
+                continue;
+              }
+            }
+            rows.push(c);
+            if (rows.length >= 3) {
+              const rest = conds.slice(k+1).filter(Boolean);
+              if (rest.length) rows[rows.length-1] = rows[rows.length-1] + gap + rest.join(gap);
+              break;
+            }
+          }
+          return rows.slice(0,3);
+        }
+        function constraintsForStep(st){
+          const out = [];
+          const kind = String(st && st.kind || '');
+          if (kind === 'ALL_OVER') {
+            const thr = (st && st.thr != null) ? st.thr : 0;
+            for (let i=0;i<6;i++) out.push(condLo(thr, i));
+            return out;
+          }
+          if (kind === 'ALL_BAND') {
+            const lo = (st && st.lo != null) ? st.lo : 0;
+            const hi = (st && st.hi != null) ? st.hi : lo;
+            for (let i=0;i<6;i++) out.push(condRange(lo, i, hi));
+            return out;
+          }
+          if (kind === 'SET_BOUNDS') {
+            const hiMin = (st && st.hiMin != null) ? st.hiMin : 0;
+            const loMax = (st && st.loMax != null) ? st.loMax : 0;
+            const highs = Array.isArray(st.highs) ? st.highs : [];
+            const lows = Array.isArray(st.lows) ? st.lows : [];
+            for (let j=0;j<highs.length;j++){
+              const i = highs[j]|0;
+              if (i>=0 && i<6) out.push(condLo(hiMin, i));
+            }
+            for (let j=0;j<lows.length;j++){
+              const i = lows[j]|0;
+              if (i>=0 && i<6) out.push(condHi(i, loMax));
+            }
+            return out;
+          }
+          if (kind === 'PER_HUE_BOUNDS') {
+            const bounds = Array.isArray(st.bounds) ? st.bounds : [];
+            for (let i=0;i<6;i++){
+              const b = bounds[i] || null;
+              if (!b) continue;
+              const hasLo = (b.lo != null && Number.isFinite(Number(b.lo)));
+              const hasHi = (b.hi != null && Number.isFinite(Number(b.hi)));
+              if (hasLo && hasHi) out.push(condRange(b.lo, i, b.hi));
+              else if (hasLo) out.push(condLo(b.lo, i));
+              else if (hasHi) out.push(condHi(i, b.hi));
+            }
+            return out;
+          }
+          if (kind === 'SPIN_ZERO') {
+            out.push(`|Spin| \u2264 0`);
+            return out;
+          }
+          // Fallback: sanitize existing text (still visual-only).
+          const raw = String(st && st.text || '');
+          if (raw.trim()) {
+            const safe = esc(raw.trim()).replace(/\u2265/g, '\u2264').replace(/&gt;/g, '\u2264');
+            out.push(safe);
+          }
+          return out;
+        }
+        function renderStep(el, idx){
+          if (!el) return;
+          const st = steps[idx] || {};
+          const hdr = `<span class=\"tpHdr\">Treatment Step ${idx+1}/${total}:</span>`;
+          const conds = constraintsForStep(st);
+          const rows = packRows(conds);
+          const body = rows.map(r => `<span class=\"tpRow\">${r}</span>`).join('<br>');
+          el.innerHTML = hdr + (body ? ('<br>' + body) : '');
+        }
+
+        renderStep(goalLineEl, curIdx);
         if (objectiveSummaryEl) {
           const nextIdx = curIdx + 1;
           if (nextIdx >= total) {
-            objectiveSummaryEl.textContent = ['Treatment complete', '', ''].join('\n');
+            objectiveSummaryEl.innerHTML = `<span class=\"tpHdr\">Treatment complete</span>`;
           } else {
-            const nst = steps[nextIdx] || {};
-            const nraw = String(nst.text || '').replace(/^\s*Step\s*\d+\s*:\s*/i, '').trim();
-            const nparts = nraw.split(';').map(s => String(s || '').trim()).filter(Boolean);
-            const n1 = `Treatment step ${nextIdx + 1}/${total}`;
-            const n2 = nparts[0] || '';
-            const n3 = nparts[1] || '';
-            objectiveSummaryEl.textContent = [n1, n2, n3].join('\n');
+            renderStep(objectiveSummaryEl, nextIdx);
           }
         }
       } else {
@@ -698,7 +820,8 @@ if (btnZeroPairEl) {
         const M = 6;
 
         const redTopY = cy[0] - wellR;
-        const greenBotY = cy[3] + wellR;
+        const greenR = (WG.r && Number.isFinite(WG.r[3])) ? WG.r[3] : wellR;
+        const greenBotY = cy[3] + greenR;
 
         // --- Energy HUD ---
         const eEl = energyHudEl2;
@@ -720,7 +843,7 @@ if (btnZeroPairEl) {
           eEl.style.top = top.toFixed(1) + 'px';
         }
 
-        // --- Timer HUD (below energy, left-aligned) ---
+        // --- Timer HUD (below energy with fallback alignment) ---
         const zEl = dom.zenTimerHudEl || document.getElementById('zenTimerHud');
         if (zEl && zEl.style.display !== 'none' && vw && vh) {
           zEl.style.position = 'fixed';
@@ -728,23 +851,39 @@ if (btnZeroPairEl) {
           zEl.style.bottom = '';
 
           const eRect = eEl ? eEl.getBoundingClientRect() : null;
-          const zRect = zEl.getBoundingClientRect();
+          const zRect0 = zEl.getBoundingClientRect();
           const gap = 6;
-          let left = eRect ? eRect.left : (cx[1] - zRect.width * 0.5);
-          let top = (eRect ? (eRect.top + eRect.height + gap) : (redTopY + 28));
-          left = Math.max(M, Math.min(vw - zRect.width - M, left));
-          top = Math.max(M, Math.min(vh - zRect.height - M, top));
+          const tW = zRect0.width || 0;
+          const tH = zRect0.height || 0;
+
+          const top = Math.max(M, Math.min(vh - tH - M, (eRect ? (eRect.top + eRect.height + gap) : (redTopY + 28))));
+
+          const candLeft = eRect ? eRect.left : (cx[1] - tW * 0.5);
+          const candRight = eRect ? (eRect.right - tW) : candLeft;
+          const candCenter = eRect ? (eRect.left + (eRect.width - tW) * 0.5) : candLeft;
+
+          function fits(x){
+            return (x >= M) && (x <= (vw - tW - M));
+          }
+
+          let left = candCenter;
+          if (fits(candLeft)) left = candLeft;
+          else if (fits(candRight)) left = candRight;
+          else left = candCenter;
+
+          left = Math.max(M, Math.min(vw - tW - M, left));
+
           zEl.style.left = left.toFixed(1) + 'px';
           zEl.style.top = top.toFixed(1) + 'px';
         }
 
-        // --- Spin buttons inside graphics square ---
+        // --- Spin buttons inside graphics square --- inside graphics square ---
         const btnSpin = dom.btnSpinZeroEl || document.getElementById('btnSpinZero');
         const btnPair = dom.btnZeroPairEl || document.getElementById('btnZeroPair');
 
         const placeBottomCentered = (el, centerX, bottomY) => {
           if (!el || !vw || !vh) return;
-          el.classList.add('spinOverlayBtn');
+          el.classList.add('spinOverlayBtn','btnTwoLine');
           el.style.position = 'fixed';
           el.style.transform = 'translate(-50%, -100%)';
           el.style.bottom = '';
@@ -789,12 +928,16 @@ if (btnZeroPairEl) {
     if (!hasSel) {
       const costSpinZeroEl2 = dom.costSpinZeroEl || document.getElementById('costSpinZero');
       const costZeroPairEl2 = dom.costZeroPairEl || document.getElementById('costZeroPair');
-      if (costSpinZeroEl2) costSpinZeroEl2.textContent = '—';
-      if (costZeroPairEl2) costZeroPairEl2.textContent = '—';
 
       // PASS A37: two-line labels with cost inside the buttons (spans kept but hidden via CSS).
-      if (btnSpinZeroEl2) btnSpinZeroEl2.innerHTML = `<div class="btnLine1">0 Spin</div><div class="btnLine2">Cost —</div>`;
-      if (btnZeroPairEl2) btnZeroPairEl2.innerHTML = `<div class="btnLine1">0 Pair Spin</div><div class="btnLine2">Cost —</div>`;
+      if (btnSpinZeroEl2) btnSpinZeroEl2.innerHTML = `
+            <div class=\"l1\">0 Spin</div>
+            <div class=\"l2\">Cost ${cSpin0}</div>
+          `;
+      if (btnZeroPairEl2) btnZeroPairEl2.innerHTML = `
+            <div class=\"l1\">0 Pair Spin</div>
+            <div class=\"l2\">Cost ${cPair}</div>
+          `;
     } else {
       const mult = _getEnergyCostMult(SIM);
       const eU = energyToUnits(SIM.energy || 0);
@@ -805,9 +948,11 @@ if (btnZeroPairEl) {
       const cost1Units = costToUnits(cost1FloatFinal);
       const costSpinZeroEl2 = dom.costSpinZeroEl || document.getElementById('costSpinZero');
       const costZeroPairEl2 = dom.costZeroPairEl || document.getElementById('costZeroPair');
-      if (costSpinZeroEl2) costSpinZeroEl2.textContent = `Cost ${cost1Units}`;
 
-      if (btnSpinZeroEl2) btnSpinZeroEl2.innerHTML = `<div class="btnLine1">0 Spin</div><div class="btnLine2">Cost ${cost1Units}</div>`;
+      if (btnSpinZeroEl2) btnSpinZeroEl2.innerHTML = `
+            <div class=\"l1\">0 Spin</div>
+            <div class=\"l2\">Cost ${cSpin0}</div>
+          `;
 
       if (btnSpinZeroEl2) {
         const changedSpin = (c1 && c1.changed);
@@ -838,9 +983,11 @@ if (btnZeroPairEl) {
       const pairCostRaw = changedPair ? (c2.cost || 0) : 0;
       const pairCostFloatFinal = pairCostRaw * mult;
       const pairUnits = costToUnits(pairCostFloatFinal);
-      if (costZeroPairEl2) costZeroPairEl2.textContent = `Cost ${pairUnits}`;
 
-      if (btnZeroPairEl2) btnZeroPairEl2.innerHTML = `<div class="btnLine1">0 Pair Spin</div><div class="btnLine2">Cost ${pairUnits}</div>`;
+      if (btnZeroPairEl2) btnZeroPairEl2.innerHTML = `
+            <div class=\"l1\">0 Pair Spin</div>
+            <div class=\"l2\">Cost ${cPair}</div>
+          `;
 
       // Gating must match displayed cost exactly.
       if (btnZeroPairEl2) {

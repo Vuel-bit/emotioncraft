@@ -163,3 +163,10 @@ Pass A31: BAP intro cutscene polish — fixed framing so shots start in full fit
 - Plate B: no-zoom camera; multi-beat caption sequence: Guaranteed → Probably → Most likely → Hopefully with specified hold times.
 - Durations increased: C0 7s, D 6s, C1 7s, E 7s; C1 uses a stronger focus move to the upper-right sign.
 - Persistence + tutorial handoff unchanged (seenIntroBAP_v3).
+
+=== PASS A38 (2026-02-19) — UI polish: timer fit + 2-line buttons + plan text ===
+- UI: Zen timer now positions below Energy with fallback alignment (left-align under Energy if fits, else right-align, else center).
+- UI: Spin overlay buttons are strict 2-line labels (action + Cost), no extra lines; legacy cost spans remain hidden and no longer updated.
+- UI: Spin overlay buttons align to the true green well bottom radius (no drift).
+- UI: Collapsed the old bottom ctrl bar visuals so the bottom panel no longer reserves an empty strip and Treatment Plan text can use the space.
+- UI: Treatment Plan goal text now renders as "Treatment Step x/y:" + 2–4 lines of constraints using ≤ only, with colored well names; current step on left, next step on right (or "Treatment complete").

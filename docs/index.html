@@ -621,10 +621,10 @@
     max-width: 44vw;
     text-align: right;
     /* Allow next-step text to wrap/clamp instead of truncating to uselessness. */
-    white-space: pre-line;
+    white-space: normal;
     overflow: hidden;
     display: -webkit-box;
-    -webkit-line-clamp: 6;
+    -webkit-line-clamp: 4;
     -webkit-box-orient: vertical;
   }
 
@@ -633,20 +633,84 @@
     /* Left block flexes and is allowed to shrink (min-width:0 prevents overflow) */
     flex: 1 1 auto;
     min-width: 0;
-    white-space: pre-line;
+    white-space: normal;
     overflow: hidden;
     display: -webkit-box;
-    -webkit-line-clamp: 6;
+    -webkit-line-clamp: 4;
     -webkit-box-orient: vertical;
   }
+
+  /* PASS A38: treatment plan text formatting (≤-only) */
+  .tpHdr{
+    font-size:12px;
+    font-weight:900;
+    letter-spacing:0.2px;
+    opacity:0.95;
+  }
+  .tpRow{
+    font-size:14px;
+    font-weight:800;
+    line-height:1.12;
+  }
+  .goalHue{ font-weight:900; }
+  .goalRed{ color:#ff5a5f; }
+  .goalPurple{ color:#c77dff; }
+  .goalBlue{ color:#4dabff; }
+  .goalGreen{ color:#54d18d; }
+  .goalYellow{ color:#ffd166; }
+  .goalOrange{ color:#ff9f1c; }
   /* PASS A37: costs move into the buttons (two-line labels); hide old spans to free drawer space. */
   #costSpinZero, #costZeroPair{ display: none; }
 
+
+  /* PASS A38: collapse old bottom ctrl bar (buttons are overlay-fixed) */
+  #ctrlPanel{
+    background:none !important;
+    border:none !important;
+    box-shadow:none !important;
+    backdrop-filter:none !important;
+    -webkit-backdrop-filter:none !important;
+    padding:0 !important;
+    margin:0 !important;
+    height:0 !important;
+    min-height:0 !important;
+    overflow:visible !important;
+  }
+  #ctrlPanel #ctrlRow{
+    padding:0 !important;
+    margin:0 !important;
+    gap:0 !important;
+    height:0 !important;
+    min-height:0 !important;
+  }
   /* PASS A37: two-line spin buttons overlaid on the board */
   .spinOverlayBtn{ z-index: 26; }
   .spinOverlayBtn .btnLine1{ font-size: 12px; font-weight: 900; line-height: 1.05; }
   .spinOverlayBtn .btnLine2{ font-size: 11px; font-weight: 800; opacity: 0.92; line-height: 1.05; margin-top: 2px; }
 
+
+  /* PASS A38: strict two-line spin buttons */
+  .btnTwoLine{
+    display:flex;
+    flex-direction:column;
+    justify-content:center;
+    align-items:center;
+    gap:2px;
+    padding:8px 10px;
+    white-space:nowrap;
+    overflow:hidden;
+  }
+  .btnTwoLine .l1{
+    font-size:13px;
+    line-height:1.05;
+    font-weight:800;
+  }
+  .btnTwoLine .l2{
+    font-size:11px;
+    line-height:1.05;
+    opacity:0.9;
+    font-weight:700;
+  }
   /* A2/A3/A4: top banner styles + break flash */
   .notifyBar.bannerLose{
     background: rgba(120, 18, 26, 0.68);
@@ -893,7 +957,7 @@
     <div class="panel">
       <h2>Mindform stabilized</h2>
       <p id="winReason">You held the line long enough for the currents to settle.</p>
-      <div id="runSummary" style="white-space:pre-line; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace; font-size: 11px; color: rgba(232, 238, 252, 0.85); margin: 10px 0 12px 0;"></div>
+      <div id="runSummary" style="white-space: normal; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace; font-size: 11px; color: rgba(232, 238, 252, 0.85); margin: 10px 0 12px 0;"></div>
       <div style="display:flex; gap:8px; justify-content:flex-end;">
         <button class="btn" id="btnWinReset">New Run</button>
       </div>

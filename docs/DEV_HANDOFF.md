@@ -231,3 +231,24 @@ Source: `docs/systems_patients.js`, `docs/ui_lobby.js`
 - Persistence scheme unchanged: runtime `EC.UI_STATE._seenIntroBAP_v3`, Firestore `ui.seenIntroBAP_v3` (schema v2), session fallback `sessionStorage['ec_seenIntroBAP_v3']`.
 - Tutorial handoff unchanged: tutorial auto-start occurs only when cutscene actually played and then ended/skipped.
 - No DOM neon sign lettering or DOM Princess nametag lettering (baked art remains). Captions remain DOM.
+
+## Pass A38 — UI polish: timer fit + 2-line spin buttons + plan text
+
+**Goal:** Fix timer placement under Energy, enforce strict 2-line Spin button labels, align buttons to the green well bottom, reclaim bottom drawer space, and reformat Treatment Plan text for readability (≤ only).
+
+**Files changed**
+- UPDATED: `docs/ui_controls.js`
+  - Timer HUD placement: now anchors below Energy with fallback alignment (left-align if fits, else right-align, else center).
+  - Spin overlay buttons: strict 2-line template (`0 Spin` / `Cost X`, `0 Pair Spin` / `Cost X`), no extra lines; legacy cost spans no longer updated.
+  - Button vertical anchor: uses the green well’s true radius (no downward drift).
+  - Treatment Plan text: renders structured "Treatment Step x/y:" header + up to 3 rows of constraints (≤ only) with colored well names; next step on right or "Treatment complete".
+- UPDATED: `docs/index.html`
+  - Added `.btnTwoLine` styles for the new button templates.
+  - Collapsed `#ctrlPanel` visuals so the bottom panel doesn’t reserve the old empty strip.
+  - Added plan text styling (`.tpHdr`, `.tpRow`) and colored well-name classes (`.goalRed`…`goalOrange`).
+  - Reduced drawer goal line clamps to allow up to 4 lines per side without aggressive truncation.
+
+**Non-changes (guardrails honored)**
+- No mechanics/balance changes.
+- No new files; no ES modules; load order unchanged.
+

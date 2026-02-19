@@ -1,7 +1,6 @@
-Build: emotioncraft_v0_2_103_passD_passA37_psychePlasma_hudSwap_layout
+Build: emotioncraft_v0_2_103_passD_passA38_uiPolish_timerFit_buttons2line_planText
 Date: 2026-02-19
-Notes:
+Notes: PASS A38 — UI polish (no mechanics): timer placement fallback under energy; strict 2-line Spin buttons aligned to green well bottom; collapse old bottom ctrl bar so Treatment Plan text can expand; structured Treatment Step text (≤ only) with colored well names.
 - Visual-only: Psyche wedges now have more vivid, clearly animated "plasma depth" (additional layer + stronger motion) while keeping crisp wedge masks and preserving hue identity.
 - UI (presentation-only): Traits are always shown as neutral pills; Quirks are colored text by default and switch to colored pills when ACTIVE.
 - UI layout (presentation-only): Energy + timer HUD positioned using live well geometry; portrait centered above orange well; Spin-0 buttons moved into the board area with two-line labels (cost inside); drawer text capacity increased.
-
