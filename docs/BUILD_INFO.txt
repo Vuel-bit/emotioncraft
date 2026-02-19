@@ -1,8 +1,8 @@
-Build: emotioncraft_v0_2_103_passD_passA31_introBAP_framingCaptions_plateCblank
+Build: emotioncraft_v0_2_103_passD_passA32_introBAP_autoAdvance_tapOverride
 Date: 2026-02-19
 Notes:
-- BAP intro cutscene reframed so each shot starts in full “fit” view (removed negative inset enlargement; switched plates to object-fit: contain; added dark stage gradient for intentional letterboxing).
-- Re-timed cutscene to a 6-shot, 31.0s timeline: A(6s) → B(6s) → C0(blank)(5s) → D(4s) → C1(changed)(5s) → E(5s), with snappier D→C1 reveal crossfade.
-- Rewrote all captions per A31 spec; removed the special “label” styling/placement for “The Noodler 2000”.
-- Added Plate C original as a separate asset: docs/assets/intro_bap/plate_c_blank.png, and preloaded/played both C variants.
+- Reworked BAP intro cutscene playback into a shot state machine with auto-advance per shot duration + tap-anywhere to advance early (Skip button still ends cutscene).
+- Plate A: holds wide framing for 4.0s on line 1, then swaps to line 2 and begins a deliberate push/pan toward the helmet.
+- Plate B: strict no-zoom camera; caption sequence now runs Guaranteed (5.0s) → Probably (1.5s) → Most likely (1.5s) → Hopefully (1.5s).
+- Increased durations: C0(blank) 5s→7s, D 4s→6s, C1(changed) 5s→7s, E 5s→7s; C1 now performs a more aggressive pan/zoom to the upper-right sign.
 - Persistence + tutorial handoff unchanged: ui.seenIntroBAP_v3 (schema v2) + sessionStorage ec_seenIntroBAP_v3; tutorial auto-start only when cutscene actually played.

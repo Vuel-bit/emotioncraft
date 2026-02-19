@@ -151,3 +151,10 @@ Pass A29b: Hotfix — intro overlay opacity now stays visible for the full cutsc
 Pass A30: BAP intro cutscene update — extended to ~30s with re-timed dialogue beats; removed DOM neon sign + Princess nametag overlays (sign/tag lettering is baked into new plate art); intro now launches the Tutorial immediately on natural end or skip (only when the cutscene actually played). Updated intro_bap plate_c/plate_d/plate_e assets. No gameplay changes.
 
 Pass A31: BAP intro cutscene polish — fixed framing so shots start in full fit view (no negative inset; object-fit: contain); updated to a 31.0s 6-shot timeline with both Plate C variants (added plate_c_blank.png); rewrote captions + reduced constant Ken Burns (selective, smaller pushes; A pushes in only in second half). Tutorial handoff + seenIntroBAP_v3 persistence unchanged. No gameplay changes.
+
+[2026-02-19] Pass A32 — Intro BAP: auto-advance + tap override
+- docs/ui_intro_cutscene.js: replaced global timeline with per-shot state machine (auto-advance by shot duration; tap anywhere advances early; Skip still ends cutscene).
+- Plate A: 2-beat caption with delayed helmet focus move (starts wide; begins push/pan at 4.0s when line 2 appears).
+- Plate B: no-zoom camera; multi-beat caption sequence: Guaranteed → Probably → Most likely → Hopefully with specified hold times.
+- Durations increased: C0 7s, D 6s, C1 7s, E 7s; C1 uses a stronger focus move to the upper-right sign.
+- Persistence + tutorial handoff unchanged (seenIntroBAP_v3).

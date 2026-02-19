@@ -206,3 +206,23 @@ Source: `docs/systems_patients.js`, `docs/ui_lobby.js`
   - Motion retuned so every shot starts at scale 1.00 and only some shots push in (A pushes in only in the second half).
   - Added the original Plate C as `docs/assets/intro_bap/plate_c_blank.png` and preloaded/played both C variants.
 - Persistence + tutorial handoff unchanged (`ui.seenIntroBAP_v3` schema v2 + `sessionStorage['ec_seenIntroBAP_v3']`; tutorial auto-start only when cutscene actually played).
+
+## Pass A32 — Intro BAP: auto-advance + tap override
+
+**Goal:** Make the intro cutscene advance automatically per-shot but allow tap-anywhere to advance sooner (Skip still ends), retune A/B beats, extend C0/D/C1/E durations, and add a stronger sign focus move on C1.
+
+**Files changed**
+- UPDATED: `docs/ui_intro_cutscene.js`
+  - Replaced the prior global timeline with a shot state machine:
+    - auto-advance when the current shot’s max duration elapses
+    - tap/click anywhere advances immediately to the next shot
+    - `isAdvancing` lock prevents double-firing during crossfades
+  - Plate A: holds wide framing for 4.0s on line 1, then swaps to line 2 and begins a deliberate push/pan toward the helmet.
+  - Plate B: strict no-zoom camera; caption beats: Guaranteed (5.0s) → Probably (1.5s) → Most likely (1.5s) → Hopefully (1.5s).
+  - Updated shot durations: C0(blank)=7s, D=6s, C1(changed)=7s, E=7s.
+  - Plate C1: more aggressive pan/zoom to the upper-right sign.
+
+**Non-changes (guardrails honored)**
+- Persistence scheme unchanged: runtime `EC.UI_STATE._seenIntroBAP_v3`, Firestore `ui.seenIntroBAP_v3` (schema v2), session fallback `sessionStorage['ec_seenIntroBAP_v3']`.
+- Tutorial handoff unchanged: tutorial auto-start occurs only when cutscene actually played and then ended/skipped.
+- No DOM neon sign lettering or DOM Princess nametag lettering (baked art remains). Captions remain DOM.
