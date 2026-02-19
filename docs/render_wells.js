@@ -11,6 +11,18 @@
   const lerp = EC.lerp;
   const sign0 = EC.sign0;
 
+  // Small render-only helper
+  function _mixTowardWhite(col, t) {
+    const tt = clamp(t || 0, 0, 1);
+    const r = (col >> 16) & 255;
+    const g = (col >> 8) & 255;
+    const b = col & 255;
+    const rr = (r + (255 - r) * tt) | 0;
+    const gg = (g + (255 - g) * tt) | 0;
+    const bb = (b + (255 - b) * tt) | 0;
+    return (rr << 16) | (gg << 8) | bb;
+  }
+
   function drawBackground() {
     // IMPORTANT: Use EC.RENDER.app.screen (logical units) for layout/draw coordinates.
     // With autoDensity + resolution, renderer.width/height are in device pixels,
@@ -75,6 +87,93 @@ function ensurePsycheView() {
   if (!EC.RENDER.psycheG) {
     EC.RENDER.psycheG = new Graphics();
     EC.RENDER.psycheLayer.addChild(EC.RENDER.psycheG);
+  }
+
+  // PASS A35 (visual-only): subtle "well depth at rest" interior FX for psyche wedges.
+  // Insert ABOVE psycheG (flat fills) and BELOW goal shading/text/rings to preserve readability.
+  if (!EC.RENDER.psycheFxLayer) {
+    const fx = new Container();
+    fx.eventMode = 'none';
+    fx.interactiveChildren = false;
+    fx.name = 'psycheFxLayer';
+    EC.RENDER.psycheFxLayer = fx;
+
+    try {
+      const layer = EC.RENDER.psycheLayer;
+      const g = EC.RENDER.psycheG;
+      const idx = (layer && g && typeof layer.getChildIndex === 'function') ? layer.getChildIndex(g) : -1;
+      if (idx >= 0) layer.addChildAt(fx, idx + 1);
+      else layer.addChild(fx);
+    } catch (_) {
+      try { EC.RENDER.psycheLayer.addChild(fx); } catch (e2) {}
+    }
+  }
+
+  // Create per-wedge masked sprite stacks (crisp wedge mask keeps boundaries sharp).
+  if (!EC.RENDER.psycheFxWedges || !EC.RENDER.psycheFxMasks) {
+    const wedges = [];
+    const masks = [];
+    const fxLayer = EC.RENDER.psycheFxLayer;
+    const TEX = (EC.RENDER_WELLS_INIT && EC.RENDER_WELLS_INIT._TEX) ? EC.RENDER_WELLS_INIT._TEX : null;
+
+    // Safe blend mode access (Pixi v6/v7)
+    const BM = (PIXI && PIXI.BLEND_MODES) ? PIXI.BLEND_MODES : null;
+    const BM_NORMAL = BM ? BM.NORMAL : 0;
+    const BM_SCREEN = BM ? (BM.SCREEN != null ? BM.SCREEN : BM.ADD) : 0;
+    const BM_MULT = BM ? (BM.MULTIPLY != null ? BM.MULTIPLY : BM.NORMAL) : 0;
+
+    for (let i = 0; i < 6; i++) {
+      const wc = new Container();
+      wc.eventMode = 'none';
+      wc.interactiveChildren = false;
+      wc.visible = false;
+
+      // Base pigment body (subtle)
+      const sprBody = new PIXI.Sprite((TEX && (TEX.body || TEX.circle)) ? (TEX.body || TEX.circle) : PIXI.Texture.WHITE);
+      sprBody.anchor && sprBody.anchor.set(0.5);
+      sprBody.alpha = 0.10;
+      sprBody.blendMode = BM_NORMAL;
+      wc.addChild(sprBody);
+
+      // Subtle internal variation (marble/swirl) — slow drift only
+      const sprVar = new PIXI.Sprite((TEX && (TEX.marble || TEX.swirl || TEX.body || TEX.circle)) ? (TEX.marble || TEX.swirl || TEX.body || TEX.circle) : PIXI.Texture.WHITE);
+      sprVar.anchor && sprVar.anchor.set(0.5);
+      sprVar.alpha = 0.08;
+      sprVar.blendMode = BM_SCREEN;
+      wc.addChild(sprVar);
+
+      // Inner shading (edge)
+      const sprEdge = new PIXI.Sprite((TEX && (TEX.edge || TEX.circle)) ? (TEX.edge || TEX.circle) : PIXI.Texture.WHITE);
+      sprEdge.anchor && sprEdge.anchor.set(0.5);
+      sprEdge.alpha = 0.12;
+      sprEdge.tint = 0x000000;
+      sprEdge.blendMode = BM_MULT;
+      wc.addChild(sprEdge);
+
+      // Soft spec highlight
+      const sprHi = new PIXI.Sprite((TEX && (TEX.highlight || TEX.body || TEX.circle)) ? (TEX.highlight || TEX.body || TEX.circle) : PIXI.Texture.WHITE);
+      sprHi.anchor && sprHi.anchor.set(0.5);
+      sprHi.alpha = 0.07;
+      sprHi.blendMode = BM_SCREEN;
+      wc.addChild(sprHi);
+
+      // Crisp wedge mask (Graphics)
+      const m = new Graphics();
+      m.eventMode = 'none';
+      m.interactiveChildren = false;
+      wc.mask = m;
+
+      // Store refs for per-frame update
+      wc._fx = { body: sprBody, vari: sprVar, edge: sprEdge, hi: sprHi };
+
+      masks.push(m);
+      wedges.push(wc);
+      fxLayer.addChild(m);
+      fxLayer.addChild(wc);
+    }
+
+    EC.RENDER.psycheFxWedges = wedges;
+    EC.RENDER.psycheFxMasks = masks;
   }
 
   // Goal shading overlay (visualizes current per-hue objective ranges)
@@ -218,6 +317,12 @@ function renderPsyche() {
   const g = EC.RENDER.psycheG;
   g.clear();
 
+  // PASS A35: psyche wedge depth FX layer refs
+  const fxW = EC.RENDER.psycheFxWedges;
+  const fxM = EC.RENDER.psycheFxMasks;
+  const haveFx = fxW && fxM && fxW.length === 6 && fxM.length === 6;
+  const tSec = nowMs * 0.001;
+
   // Helper: draw an annular sector (donut slice)
   function drawAnnularWedge(gr, cx, cy, rin, rout, a0, a1) {
     // outer arc start
@@ -273,6 +378,55 @@ function renderPsyche() {
     const A = clamp(P[i] || 0, 0, HUE_CAP);
     const t = (HUE_CAP > 0) ? (A / HUE_CAP) : 0;
     const rf = Math.sqrt(r0 * r0 + t * (r1 * r1 - r0 * r0));
+
+    // Update psyche depth FX mask + subtle motion (crisp boundaries via Graphics mask)
+    if (haveFx) {
+      const wc = fxW[i];
+      const m = fxM[i];
+      if (wc && m) {
+        if (rf > r0 + 0.5) {
+          wc.visible = true;
+          m.visible = true;
+
+          // Redraw crisp annular wedge mask (r0 -> rf)
+          m.clear();
+          m.beginFill(0xffffff, 1);
+          drawAnnularWedge(m, 0, 0, r0, rf, start, end);
+          m.endFill();
+
+          const fx = wc._fx;
+          if (fx) {
+            const size = r1 * 2.10;
+            // Tint to hue (slightly varied per sprite)
+            fx.body.tint = color;
+            fx.vari.tint = _mixTowardWhite(color, 0.38);
+            fx.edge.tint = 0x000000;
+            fx.hi.tint = 0xffffff;
+
+            fx.body.width = fx.body.height = size;
+            fx.vari.width = fx.vari.height = size;
+            fx.edge.width = fx.edge.height = size;
+            fx.hi.width = fx.hi.height = size;
+
+            // Very slow drift/rotation (no edge wobble; mask keeps edges crisp)
+            const s0 = (i % 2 === 0) ? 1 : -1;
+            fx.vari.rotation = s0 * (tSec * 0.08) + i * 0.35;
+            fx.vari.position.set(Math.cos(tSec * 0.35 + i * 0.9) * 2.0, Math.sin(tSec * 0.28 + i * 1.1) * 2.0);
+
+            fx.hi.rotation = tSec * 0.11 + i * 0.20;
+            fx.hi.position.set(Math.cos(tSec * 0.48 + i * 0.7) * 4.0, -Math.sin(tSec * 0.42 + i * 0.5) * 4.0);
+
+            fx.edge.rotation = -tSec * 0.03;
+            fx.edge.position.set(0, 0);
+            fx.body.position.set(0, 0);
+          }
+        } else {
+          wc.visible = false;
+          m.clear();
+          m.visible = false;
+        }
+      }
+    }
 
     if (rf > r0 + 0.5) {
       g.beginFill(color, 0.86);

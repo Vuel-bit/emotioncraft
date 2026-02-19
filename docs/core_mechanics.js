@@ -616,7 +616,12 @@ instability: 0,
         aOver: new Float32Array(6),
         aUnder: new Float32Array(6),
         sOver: new Float32Array(6),
-        sUnder: new Float32Array(6)
+        sUnder: new Float32Array(6),
+        // PASS A35 (visual-only): absolute activity per seam to prevent net cancellation hiding spill
+        aOverAbs: new Float32Array(6),
+        aUnderAbs: new Float32Array(6),
+        sOverAbs: new Float32Array(6),
+        sUnderAbs: new Float32Array(6)
       });
       // Clear in-place (no per-tick allocations)
       try {
@@ -624,9 +629,14 @@ instability: 0,
         spillFx.aUnder.fill(0);
         spillFx.sOver.fill(0);
         spillFx.sUnder.fill(0);
+        spillFx.aOverAbs.fill(0);
+        spillFx.aUnderAbs.fill(0);
+        spillFx.sOverAbs.fill(0);
+        spillFx.sUnderAbs.fill(0);
       } catch (_) {
         for (let i = 0; i < 6; i++) {
           spillFx.aOver[i] = 0; spillFx.aUnder[i] = 0; spillFx.sOver[i] = 0; spillFx.sUnder[i] = 0;
+          spillFx.aOverAbs[i] = 0; spillFx.aUnderAbs[i] = 0; spillFx.sOverAbs[i] = 0; spillFx.sUnderAbs[i] = 0;
         }
       }
 
@@ -642,6 +652,10 @@ instability: 0,
       const fxAUnder = spillFx.aUnder;
       const fxSOver = spillFx.sOver;
       const fxSUnder = spillFx.sUnder;
+      const fxAOverAbs = spillFx.aOverAbs;
+      const fxAUnderAbs = spillFx.aUnderAbs;
+      const fxSOverAbs = spillFx.sOverAbs;
+      const fxSUnderAbs = spillFx.sUnderAbs;
 
       function propagateScalar(arr, vMin, vMax, ratePerSec, dtLocal, kindChar) {
         const EPS = 1e-6;
@@ -709,13 +723,21 @@ instability: 0,
                 ? ((kindChar === 'A') ? fxAOver : fxSOver)
                 : ((kindChar === 'A') ? fxAUnder : fxSUnder);
 
+              const dstAbs = (sign > 0)
+                ? ((kindChar === 'A') ? fxAOverAbs : fxSOverAbs)
+                : ((kindChar === 'A') ? fxAUnderAbs : fxSUnderAbs);
+
               // Across seam i (i <-> R)
               if (giveR > EPS) {
                 dst[i] += (sign > 0) ? (+giveR) : (-giveR);
+                // Absolute activity (no cancellation)
+                if (dstAbs) dstAbs[i] += giveR;
               }
               // Across seam L (L <-> i) => seam index is L
               if (giveL > EPS) {
                 dst[L] += (sign > 0) ? (-giveL) : (+giveL);
+                // Absolute activity (no cancellation)
+                if (dstAbs) dstAbs[L] += giveL;
               }
             } catch (_) {}
 

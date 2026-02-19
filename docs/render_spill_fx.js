@@ -29,11 +29,35 @@
     overS_sm: new Float32Array(6),
     underS_sm: new Float32Array(6),
 
+    // Smoothed magnitude for thickness (0..1)
+    overA_mag_sm: new Float32Array(6),
+    underA_mag_sm: new Float32Array(6),
+    overS_mag_sm: new Float32Array(6),
+    underS_mag_sm: new Float32Array(6),
+
+    // Hold timers (secs) to prevent flicker on small/canceling signals
+    overA_hold: new Float32Array(6),
+    underA_hold: new Float32Array(6),
+    overS_hold: new Float32Array(6),
+    underS_hold: new Float32Array(6),
+
+    // Cached direction sign when signed net cancels to ~0
+    overA_dir: new Int8Array(6),
+    underA_dir: new Int8Array(6),
+    overS_dir: new Int8Array(6),
+    underS_dir: new Int8Array(6),
+
     // Signed per-seam values
     overA_val: new Float32Array(6),
     underA_val: new Float32Array(6),
     overS_val: new Float32Array(6),
     underS_val: new Float32Array(6),
+
+    // Absolute per-seam activity values (for intensity/thickness)
+    overA_abs: new Float32Array(6),
+    underA_abs: new Float32Array(6),
+    overS_abs: new Float32Array(6),
+    underS_abs: new Float32Array(6),
 
     // Curve caches (avoid allocations)
     curvesAOver: new Array(6),
@@ -320,14 +344,14 @@
     return out;
   }
 
-  function _drawAmountRibbon(g, curve, inten01) {
+  function _drawAmountRibbon(g, curve, inten01, mag01) {
     if (!curve || !curve.active) return;
     const col = curve.col;
     const colCore = _mixTowardWhite(col, 0.28);
 
-    // Tasteful but visible (raised alpha floor vs A33)
-    const wBase = 7.0 + 11.0 * inten01;
-    const wCore = 2.6 + 4.6 * inten01;
+    // Tasteful but clearly readable: width uses BOTH intensity + magnitude so thickness scaling is obvious.
+    const wBase = 6.0 + 9.0 * inten01 + 16.0 * mag01;
+    const wCore = 2.2 + 3.8 * inten01 + 6.5 * mag01;
     const aBase = 0.16 + 0.30 * inten01;
     const aCore = 0.34 + 0.52 * inten01;
 
@@ -340,22 +364,22 @@
     g.quadraticCurveTo(curve.cpx, curve.cpy, curve.p1x, curve.p1y);
   }
 
-  function _drawSpinWave(g, curve, inten01, seamIdx, lane, phaseSign) {
+  function _drawSpinWave(g, curve, inten01, mag01, seamIdx, lane, phaseSign) {
     if (!curve || !curve.active) return;
 
     // Spin should read distinct: thinner + whiter corkscrew on same path.
     const colBase = _mixTowardWhite(curve.col, 0.38);
     const colCore = _mixTowardWhite(curve.col, 0.72);
 
-    const wBase = 3.2 + 3.8 * inten01;
-    const wCore = 1.4 + 2.0 * inten01;
+    const wBase = 2.8 + 2.6 * inten01 + 4.4 * mag01;
+    const wCore = 1.2 + 1.4 * inten01 + 2.0 * mag01;
     const aBase = 0.14 + 0.30 * inten01;
     const aCore = 0.40 + 0.54 * inten01;
 
     const N = 20; // segments
     const cycles = 2.2;
     const freq = cycles * Math.PI * 2;
-    const amp = (1.6 + 3.4 * inten01);
+    const amp = (1.4 + 2.8 * inten01 + 1.8 * mag01);
     const baseOff = ((lane === 'over') ? 1 : -1) * 2.6; // small lateral offset so it doesn't perfectly overlap
     const phase = (phaseSign >= 0 ? 1 : -1) * STATE.spinPhase + seamIdx * 0.55;
 
@@ -444,19 +468,50 @@
       const sOver = fx.sOver;
       const sUnder = fx.sUnder;
 
+      // PASS A35: absolute activity arrays (may be missing in older builds; fallback safely)
+      const aOverAbs = fx.aOverAbs;
+      const aUnderAbs = fx.aUnderAbs;
+      const sOverAbs = fx.sOverAbs;
+      const sUnderAbs = fx.sUnderAbs;
+
       // Targets: keep channels separate (Amount vs Spin)
       for (let i = 0; i < 6; i++) {
-        STATE.overA_val[i] = aOver ? (aOver[i] || 0) : 0;
-        STATE.underA_val[i] = aUnder ? (aUnder[i] || 0) : 0;
-        STATE.overS_val[i] = sOver ? (sOver[i] || 0) : 0;
-        STATE.underS_val[i] = sUnder ? (sUnder[i] || 0) : 0;
+        const ovA = aOver ? (aOver[i] || 0) : 0;
+        const unA = aUnder ? (aUnder[i] || 0) : 0;
+        const ovS = sOver ? (sOver[i] || 0) : 0;
+        const unS = sUnder ? (sUnder[i] || 0) : 0;
+
+        STATE.overA_val[i] = ovA;
+        STATE.underA_val[i] = unA;
+        STATE.overS_val[i] = ovS;
+        STATE.underS_val[i] = unS;
+
+        // Absolute activity (fallback to abs(signed) if abs arrays missing)
+        STATE.overA_abs[i] = aOverAbs ? (aOverAbs[i] || 0) : Math.abs(ovA);
+        STATE.underA_abs[i] = aUnderAbs ? (aUnderAbs[i] || 0) : Math.abs(unA);
+        STATE.overS_abs[i] = sOverAbs ? (sOverAbs[i] || 0) : Math.abs(ovS);
+        STATE.underS_abs[i] = sUnderAbs ? (sUnderAbs[i] || 0) : Math.abs(unS);
       }
 
-      // Visibility tuning: make ordinary spills clearly visible.
-      const REF_A = 1.5;
-      const REF_S = 0.8;
+      // Visibility tuning: trigger earlier + stable (abs-activity driven)
+      const EPS_ACTIVE = 1e-4;
+      const DIR_EPS = 1e-6;
+
+      // sqrt mapping makes small transfers visible; separate refs for unit differences.
+      const REF_A_ABS = 1.10;
+      const REF_S_ABS = 0.60;
+      const MIN_A = 0.10;
+      const MIN_S = 0.12;
+
+      // Hold to prevent flicker when signed nets cancel/oscillate
+      const HOLD_SECS = 0.24;
+
+      // Thickness mapping (separate from intensity) — obvious scaling
+      const MAG_REF_A = 0.80;
+      const MAG_REF_S = 0.55;
+
       const ON_TAU = 0.08;
-      const OFF_TAU = 0.28;
+      const OFF_TAU = 0.24;
 
       let anyA = false;
       let anyS = false;
@@ -467,15 +522,65 @@
         const ovS = STATE.overS_val[i];
         const unS = STATE.underS_val[i];
 
-        const toA = Math.min(1, Math.abs(ovA) / REF_A);
-        const tuA = Math.min(1, Math.abs(unA) / REF_A);
-        const toS = Math.min(1, Math.abs(ovS) / REF_S);
-        const tuS = Math.min(1, Math.abs(unS) / REF_S);
+        const oa = STATE.overA_abs[i];
+        const ua = STATE.underA_abs[i];
+        const os = STATE.overS_abs[i];
+        const us = STATE.underS_abs[i];
+
+        // Cache direction sign when signed net cancels to ~0
+        if (Math.abs(ovA) > DIR_EPS) STATE.overA_dir[i] = (ovA > 0) ? 1 : -1;
+        if (Math.abs(unA) > DIR_EPS) STATE.underA_dir[i] = (unA > 0) ? 1 : -1;
+        if (Math.abs(ovS) > DIR_EPS) STATE.overS_dir[i] = (ovS > 0) ? 1 : -1;
+        if (Math.abs(unS) > DIR_EPS) STATE.underS_dir[i] = (unS > 0) ? 1 : -1;
+
+        // Hold timers
+        if (oa > EPS_ACTIVE) STATE.overA_hold[i] = HOLD_SECS;
+        if (ua > EPS_ACTIVE) STATE.underA_hold[i] = HOLD_SECS;
+        if (os > EPS_ACTIVE) STATE.overS_hold[i] = HOLD_SECS;
+        if (us > EPS_ACTIVE) STATE.underS_hold[i] = HOLD_SECS;
+
+        STATE.overA_hold[i] = Math.max(0, STATE.overA_hold[i] - dt);
+        STATE.underA_hold[i] = Math.max(0, STATE.underA_hold[i] - dt);
+        STATE.overS_hold[i] = Math.max(0, STATE.overS_hold[i] - dt);
+        STATE.underS_hold[i] = Math.max(0, STATE.underS_hold[i] - dt);
+
+        // Intensity from ABS (sqrt mapping) + activity floor
+        let toA = (oa > 0) ? Math.sqrt(oa / REF_A_ABS) : 0;
+        let tuA = (ua > 0) ? Math.sqrt(ua / REF_A_ABS) : 0;
+        let toS = (os > 0) ? Math.sqrt(os / REF_S_ABS) : 0;
+        let tuS = (us > 0) ? Math.sqrt(us / REF_S_ABS) : 0;
+
+        toA = Math.max(0, Math.min(1, toA));
+        tuA = Math.max(0, Math.min(1, tuA));
+        toS = Math.max(0, Math.min(1, toS));
+        tuS = Math.max(0, Math.min(1, tuS));
+
+        if (oa > EPS_ACTIVE) toA = Math.max(toA, MIN_A);
+        if (ua > EPS_ACTIVE) tuA = Math.max(tuA, MIN_A);
+        if (os > EPS_ACTIVE) toS = Math.max(toS, MIN_S);
+        if (us > EPS_ACTIVE) tuS = Math.max(tuS, MIN_S);
+
+        // Hold hysteresis: keep minimal visibility while hold is active
+        if (STATE.overA_hold[i] > 0) toA = Math.max(toA, MIN_A * 0.75);
+        if (STATE.underA_hold[i] > 0) tuA = Math.max(tuA, MIN_A * 0.75);
+        if (STATE.overS_hold[i] > 0) toS = Math.max(toS, MIN_S * 0.75);
+        if (STATE.underS_hold[i] > 0) tuS = Math.max(tuS, MIN_S * 0.75);
 
         STATE.overA_sm[i] = _approach(STATE.overA_sm[i], toA, dt, (toA > STATE.overA_sm[i]) ? ON_TAU : OFF_TAU);
         STATE.underA_sm[i] = _approach(STATE.underA_sm[i], tuA, dt, (tuA > STATE.underA_sm[i]) ? ON_TAU : OFF_TAU);
         STATE.overS_sm[i] = _approach(STATE.overS_sm[i], toS, dt, (toS > STATE.overS_sm[i]) ? ON_TAU : OFF_TAU);
         STATE.underS_sm[i] = _approach(STATE.underS_sm[i], tuS, dt, (tuS > STATE.underS_sm[i]) ? ON_TAU : OFF_TAU);
+
+        // Thickness magnitude (0..1) from ABS (separate mapping); also smoothed.
+        const mOA = 1 - Math.exp(-(oa / MAG_REF_A));
+        const mUA = 1 - Math.exp(-(ua / MAG_REF_A));
+        const mOS = 1 - Math.exp(-(os / MAG_REF_S));
+        const mUS = 1 - Math.exp(-(us / MAG_REF_S));
+
+        STATE.overA_mag_sm[i] = _approach(STATE.overA_mag_sm[i], mOA, dt, (mOA > STATE.overA_mag_sm[i]) ? ON_TAU : OFF_TAU);
+        STATE.underA_mag_sm[i] = _approach(STATE.underA_mag_sm[i], mUA, dt, (mUA > STATE.underA_mag_sm[i]) ? ON_TAU : OFF_TAU);
+        STATE.overS_mag_sm[i] = _approach(STATE.overS_mag_sm[i], mOS, dt, (mOS > STATE.overS_mag_sm[i]) ? ON_TAU : OFF_TAU);
+        STATE.underS_mag_sm[i] = _approach(STATE.underS_mag_sm[i], mUS, dt, (mUS > STATE.underS_mag_sm[i]) ? ON_TAU : OFF_TAU);
 
         if (STATE.overA_sm[i] > 0.01 || STATE.underA_sm[i] > 0.01) anyA = true;
         if (STATE.overS_sm[i] > 0.01 || STATE.underS_sm[i] > 0.01) anyS = true;
@@ -504,12 +609,16 @@
       if (anyA) {
         for (let i = 0; i < 6; i++) {
           if (STATE.overA_sm[i] > 0.01) {
-            const c = _buildCurve(STATE.curvesAOver[i], i, STATE.overA_val[i], 'over', cx, cy, ringR, mvpWellGeom, 0);
-            if (c) _drawAmountRibbon(gAOver, c, STATE.overA_sm[i]);
+            const dir = (Math.abs(STATE.overA_val[i]) > DIR_EPS) ? 0 : (STATE.overA_dir[i] || 1);
+            const signedForCurve = (Math.abs(STATE.overA_val[i]) > DIR_EPS) ? STATE.overA_val[i] : (dir * (STATE.overA_abs[i] || 1e-6));
+            const c = _buildCurve(STATE.curvesAOver[i], i, signedForCurve, 'over', cx, cy, ringR, mvpWellGeom, 0);
+            if (c) _drawAmountRibbon(gAOver, c, STATE.overA_sm[i], STATE.overA_mag_sm[i]);
           }
           if (STATE.underA_sm[i] > 0.01) {
-            const c = _buildCurve(STATE.curvesAUnder[i], i, STATE.underA_val[i], 'under', cx, cy, ringR, mvpWellGeom, 0);
-            if (c) _drawAmountRibbon(gAUnder, c, STATE.underA_sm[i]);
+            const dir = (Math.abs(STATE.underA_val[i]) > DIR_EPS) ? 0 : (STATE.underA_dir[i] || 1);
+            const signedForCurve = (Math.abs(STATE.underA_val[i]) > DIR_EPS) ? STATE.underA_val[i] : (dir * (STATE.underA_abs[i] || 1e-6));
+            const c = _buildCurve(STATE.curvesAUnder[i], i, signedForCurve, 'under', cx, cy, ringR, mvpWellGeom, 0);
+            if (c) _drawAmountRibbon(gAUnder, c, STATE.underA_sm[i], STATE.underA_mag_sm[i]);
           }
         }
       }
@@ -519,12 +628,16 @@
         const SPIN_EXTRA_PUSH = 6;
         for (let i = 0; i < 6; i++) {
           if (STATE.overS_sm[i] > 0.01) {
-            const c = _buildCurve(STATE.curvesSOver[i], i, STATE.overS_val[i], 'over', cx, cy, ringR, mvpWellGeom, SPIN_EXTRA_PUSH);
-            if (c) _drawSpinWave(gSOver, c, STATE.overS_sm[i], i, 'over', +1); // positive spin overflow
+            const dir = (Math.abs(STATE.overS_val[i]) > DIR_EPS) ? 0 : (STATE.overS_dir[i] || 1);
+            const signedForCurve = (Math.abs(STATE.overS_val[i]) > DIR_EPS) ? STATE.overS_val[i] : (dir * (STATE.overS_abs[i] || 1e-6));
+            const c = _buildCurve(STATE.curvesSOver[i], i, signedForCurve, 'over', cx, cy, ringR, mvpWellGeom, SPIN_EXTRA_PUSH);
+            if (c) _drawSpinWave(gSOver, c, STATE.overS_sm[i], STATE.overS_mag_sm[i], i, 'over', +1); // positive spin overflow
           }
           if (STATE.underS_sm[i] > 0.01) {
-            const c = _buildCurve(STATE.curvesSUnder[i], i, STATE.underS_val[i], 'under', cx, cy, ringR, mvpWellGeom, SPIN_EXTRA_PUSH);
-            if (c) _drawSpinWave(gSUnder, c, STATE.underS_sm[i], i, 'under', -1); // negative spin underflow
+            const dir = (Math.abs(STATE.underS_val[i]) > DIR_EPS) ? 0 : (STATE.underS_dir[i] || 1);
+            const signedForCurve = (Math.abs(STATE.underS_val[i]) > DIR_EPS) ? STATE.underS_val[i] : (dir * (STATE.underS_abs[i] || 1e-6));
+            const c = _buildCurve(STATE.curvesSUnder[i], i, signedForCurve, 'under', cx, cy, ringR, mvpWellGeom, SPIN_EXTRA_PUSH);
+            if (c) _drawSpinWave(gSUnder, c, STATE.underS_sm[i], STATE.underS_mag_sm[i], i, 'under', -1); // negative spin underflow
           }
         }
       }
@@ -539,6 +652,7 @@
 
         const curve = (lane === 'over') ? STATE.curvesAOver[seam] : STATE.curvesAUnder[seam];
         const inten01 = (lane === 'over') ? STATE.overA_sm[seam] : STATE.underA_sm[seam];
+        const mag01 = (lane === 'over') ? STATE.overA_mag_sm[seam] : STATE.underA_mag_sm[seam];
 
         if (!curve || !curve.active || inten01 <= 0.01) {
           spr.visible = false;
@@ -565,7 +679,7 @@
         spr.visible = true;
         spr.tint = curve.col;
         spr.alpha = 0.14 + 0.60 * inten01;
-        const size = 2.2 + 4.8 * inten01;
+        const size = 2.0 + 4.2 * inten01 + 3.2 * mag01;
         spr.width = spr.height = size;
       }
 
@@ -580,6 +694,7 @@
         // For spin, lane maps to over/under buckets in the spin channel.
         const curve = (lane === 'over') ? STATE.curvesSOver[seam] : STATE.curvesSUnder[seam];
         const inten01 = (lane === 'over') ? STATE.overS_sm[seam] : STATE.underS_sm[seam];
+        const mag01 = (lane === 'over') ? STATE.overS_mag_sm[seam] : STATE.underS_mag_sm[seam];
 
         if (!curve || !curve.active || inten01 <= 0.01) {
           spr.visible = false;
@@ -604,7 +719,7 @@
         // Slightly whiter tint for spin droplets
         spr.tint = _mixTowardWhite(curve.col, 0.55);
         spr.alpha = 0.18 + 0.65 * inten01;
-        const size = 2.0 + 4.2 * inten01;
+        const size = 1.8 + 3.5 * inten01 + 2.2 * mag01;
         spr.width = spr.height = size;
 
         const rotSpd = spr._rotSpd || 3.0;

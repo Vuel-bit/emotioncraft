@@ -1,4 +1,5 @@
 ## v0_2_103_passD (2026-02-12)
+- passA35 — Visual-only: spill FX triggers earlier + is stable (abs-activity telemetry + hold timers); thickness scaling improved; psyche wedges gain subtle “well depth at rest” interior FX with crisp edges.
 - passA34 — Visual-only: spin reads even faster (~2× A33); spill FX now clearly visible; amount vs spin spill streams differentiated (spin supports positive + negative).
 - passA33 — Visual-only: spin reads 3× faster; added spill stream FX (ribbon + droplets). Added render telemetry for spill edges (no mechanics changes).
 - passA19 — Added EC.SIM_BOOT.ensure() and replaced duplicate SIM array init in core_mechanics (structural only).
