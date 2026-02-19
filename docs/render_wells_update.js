@@ -11,11 +11,14 @@
   // Spin speed multiplier affects ONLY visuals (view._swirlAng accumulator).
   // PASS A26 (visual-only): reduce A25 spin speed boost by half.
   // PASS A27 (visual-only): +50% vs A26.
-  const SPIN_VIS_SPEED_MULT = 3.75;
+  // PASS A33 (visual-only): make the visual spin feel ~3x faster (no gameplay changes).
+  const SPIN_SPEED_X = 3.0;
+  const SPIN_VIS_SPEED_MULT = 3.75 * SPIN_SPEED_X;
   // Outside-edge effects (any shading beyond the inner circle) are allowed only at high spins.
   const OUTER_FX_MIN = 0.75;
   // PASS A27 (visual-only): water FX motion also gets +50% (keeps spin=0 neutral).
-  const OMEGA_FX_MULT = 1.5;
+  // PASS A33 (visual-only): scale water FX motion by the same spin speed factor.
+  const OMEGA_FX_MULT = 1.5 * SPIN_SPEED_X;
 
   function mixRgb(a, b, t) {
     t = Math.max(0, Math.min(1, t));
@@ -445,8 +448,10 @@
         // At spin=0, no directional rotation (only wobble). When spinning, direction follows sign.
         // IMPORTANT: the faint "mist/aura" should not contradict spin direction.
         // Keep both ripple layers rotating in the SAME direction (or wobble-only at rest).
-        rippleA.rotation = wob + dir * ripT * (0.12 + 0.35 * magEff);
-        rippleB.rotation = -wob * 0.6 + dir * ripT * (0.08 + 0.26 * magEff);
+        // PASS A33: scale ONLY the directional rotation (dir-driven) so the surface reads faster.
+        // Keep wobble unchanged so spin=0 remains the same living-at-rest motion.
+        rippleA.rotation = wob + dir * ripT * SPIN_SPEED_X * (0.12 + 0.35 * magEff);
+        rippleB.rotation = -wob * 0.6 + dir * ripT * SPIN_SPEED_X * (0.08 + 0.26 * magEff);
       }
 
       // Water / fluid FX (render-only): refraction warp + caustics/spec + subtle rim.
@@ -905,6 +910,13 @@
         }
       }
     } catch (_) {}
+
+    // Spill stream FX (visual-only). Must never block input or throw.
+    try {
+      if (EC.RENDER_SPILL_FX && typeof EC.RENDER_SPILL_FX.update === 'function') {
+        EC.RENDER_SPILL_FX.update(snap, geom, dt, MVP_GEOM);
+      }
+    } catch (e) {}
 
     // Finalize authoritative geometry + debug line (always-visible in snapshot)
     try {

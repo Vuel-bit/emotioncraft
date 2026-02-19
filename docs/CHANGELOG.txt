@@ -1,4 +1,5 @@
 ## v0_2_103_passD (2026-02-12)
+- passA33 — Visual-only: spin reads 3× faster; added spill stream FX (ribbon + droplets). Added render telemetry for spill edges (no mechanics changes).
 - passA19 — Added EC.SIM_BOOT.ensure() and replaced duplicate SIM array init in core_mechanics (structural only).
 - passA15 — bracket init/reset writes via ACTIONS (resetRun + initMVP) to reduce simguard false positives.
 - passD Pass 1 — boot/start hardening (main.js).

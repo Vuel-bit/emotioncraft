@@ -1,8 +1,6 @@
-Build: emotioncraft_v0_2_103_passD_passA32_introBAP_autoAdvance_tapOverride
+Build: emotioncraft_v0_2_103_passD_passA33_spillFx_spin3x
 Date: 2026-02-19
 Notes:
-- Reworked BAP intro cutscene playback into a shot state machine with auto-advance per shot duration + tap-anywhere to advance early (Skip button still ends cutscene).
-- Plate A: holds wide framing for 4.0s on line 1, then swaps to line 2 and begins a deliberate push/pan toward the helmet.
-- Plate B: strict no-zoom camera; caption sequence now runs Guaranteed (5.0s) → Probably (1.5s) → Most likely (1.5s) → Hopefully (1.5s).
-- Increased durations: C0(blank) 5s→7s, D 4s→6s, C1(changed) 5s→7s, E 5s→7s; C1 now performs a more aggressive pan/zoom to the upper-right sign.
-- Persistence + tutorial handoff unchanged: ui.seenIntroBAP_v3 (schema v2) + sessionStorage ec_seenIntroBAP_v3; tutorial auto-start only when cutscene actually played.
+- Visual-only: spin reads ~3× faster (scaled spin visual multipliers + surface directional ripple rotation; no gameplay changes).
+- Visual-only: added spill stream FX (ribbon + droplets) between wells; overflow rides the outer lane and underflow rides the inner lane.
+- Added runtime-only spill telemetry bucket (SIM._spillFx) for renderer (no mechanics changes).

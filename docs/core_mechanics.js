@@ -606,6 +606,31 @@ instability: 0,
       spillMsgs = [];
 
       // -------------------------------------------------------------------
+      // PASS A33 (visual-only): Spill FX telemetry bucket (runtime-only)
+      // Stores signed per-seam flow so the renderer can draw spill streams.
+      // seam i is boundary between well i and (i+1)%6
+      // positive => flow i -> i+1, negative => flow i+1 -> i
+      // IMPORTANT: telemetry only; must not affect mechanics.
+      // -------------------------------------------------------------------
+      const spillFx = (SIM._spillFx = SIM._spillFx || {
+        aOver: new Float32Array(6),
+        aUnder: new Float32Array(6),
+        sOver: new Float32Array(6),
+        sUnder: new Float32Array(6)
+      });
+      // Clear in-place (no per-tick allocations)
+      try {
+        spillFx.aOver.fill(0);
+        spillFx.aUnder.fill(0);
+        spillFx.sOver.fill(0);
+        spillFx.sUnder.fill(0);
+      } catch (_) {
+        for (let i = 0; i < 6; i++) {
+          spillFx.aOver[i] = 0; spillFx.aUnder[i] = 0; spillFx.sOver[i] = 0; spillFx.sUnder[i] = 0;
+        }
+      }
+
+      // -------------------------------------------------------------------
       // Spillover routing (v0.2.2): guaranteed outward propagation
       // - Compute PURE overflow vs clamps (no flux/psy adjustments).
       // - Prefer open side: if one neighbor is blocked and the other isn't,
@@ -613,6 +638,11 @@ instability: 0,
       // - If both neighbors blocked, force spill into secondaries anyway;
       //   iterative propagation pushes excess outward until capacity exists.
       // -------------------------------------------------------------------
+      const fxAOver = spillFx.aOver;
+      const fxAUnder = spillFx.aUnder;
+      const fxSOver = spillFx.sOver;
+      const fxSUnder = spillFx.sUnder;
+
       function propagateScalar(arr, vMin, vMax, ratePerSec, dtLocal, kindChar) {
         const EPS = 1e-6;
         const MAX_ITERS = 96;
@@ -671,6 +701,23 @@ instability: 0,
             const giveR = mag * wR;
             const given = giveL + giveR;
             if (given <= EPS) continue;
+
+            // Telemetry: record signed flow across seams (visual-only).
+            // For seam i: positive means i->R (i+1). For seam L: positive means L->i.
+            try {
+              const dst = (sign > 0)
+                ? ((kindChar === 'A') ? fxAOver : fxSOver)
+                : ((kindChar === 'A') ? fxAUnder : fxSUnder);
+
+              // Across seam i (i <-> R)
+              if (giveR > EPS) {
+                dst[i] += (sign > 0) ? (+giveR) : (-giveR);
+              }
+              // Across seam L (L <-> i) => seam index is L
+              if (giveL > EPS) {
+                dst[L] += (sign > 0) ? (-giveL) : (+giveL);
+              }
+            } catch (_) {}
 
             if (sign > 0) didPos = true;
             else didNeg = true;
