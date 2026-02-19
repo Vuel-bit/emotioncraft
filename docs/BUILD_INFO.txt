@@ -1,8 +1,7 @@
-Build: emotioncraft_v0_2_103_passD_passA36_spillPulses_spinCorkscrew_psycheDepthFix
+Build: emotioncraft_v0_2_103_passD_passA37_psychePlasma_hudSwap_layout
 Date: 2026-02-19
 Notes:
-- Visual-only: spill streams now communicate magnitude via discrete traveling pulses (one per ~1 unit transferred), with stable base stream widths.
-- Visual-only: spin spill stream upgraded to a stronger corkscrew/helix look; spin pulses are diamond/rotating and ride the helix.
-- Render telemetry: spillFx now includes a per-sim-tick sequence counter (spillFx.seq) so render can treat abs arrays as deltas without double-counting.
-- Visual-only: psyche wedge depth FX revised to preserve hue identity (no mute), and animate more noticeably while keeping crisp wedge boundaries.
+- Visual-only: Psyche wedges now have more vivid, clearly animated "plasma depth" (additional layer + stronger motion) while keeping crisp wedge masks and preserving hue identity.
+- UI (presentation-only): Traits are always shown as neutral pills; Quirks are colored text by default and switch to colored pills when ACTIVE.
+- UI layout (presentation-only): Energy + timer HUD positioned using live well geometry; portrait centered above orange well; Spin-0 buttons moved into the board area with two-line labels (cost inside); drawer text capacity increased.
 

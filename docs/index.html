@@ -99,6 +99,43 @@
       font-weight: 800;
       margin-right: 6px;
     }
+
+    /* PASS A37: Traits as pills (always) */
+    .hudTraitWrap{ display: inline-flex; flex-wrap: wrap; gap: 4px; vertical-align: middle; }
+    .hudTraitPill{
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 999px;
+      font-size: 11px;
+      font-weight: 800;
+      letter-spacing: 0.2px;
+      color: rgba(232,238,252,0.92);
+      background: rgba(255,255,255,0.10);
+      border: 1px solid rgba(255,255,255,0.14);
+      box-shadow: 0 1px 6px rgba(0,0,0,0.22);
+    }
+
+    /* PASS A37: Quirks default to colored text; ACTIVE quirks become colored pills */
+    .hudQuirkText{
+      display:inline-block;
+      font-size: 11px;
+      font-weight: 900;
+      letter-spacing: 0.2px;
+      text-shadow: 0 0 10px rgba(0,0,0,0.30);
+      padding: 1px 2px;
+    }
+    .hudQuirkPillActive{
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 999px;
+      font-size: 11px;
+      font-weight: 900;
+      letter-spacing: 0.2px;
+      color: rgba(15,18,24,0.92);
+      border: 1px solid rgba(255,255,255,0.22);
+      box-shadow: 0 0 14px rgba(255,255,255,0.20), 0 1px 6px rgba(0,0,0,0.25);
+      transform: translateZ(0);
+    }
     .hudQuirkPill{
       display: inline-block;
       padding: 2px 8px;
@@ -587,7 +624,7 @@
     white-space: pre-line;
     overflow: hidden;
     display: -webkit-box;
-    -webkit-line-clamp: 3;
+    -webkit-line-clamp: 6;
     -webkit-box-orient: vertical;
   }
 
@@ -598,16 +635,17 @@
     min-width: 0;
     white-space: pre-line;
     overflow: hidden;
-    display: block;
+    display: -webkit-box;
+    -webkit-line-clamp: 6;
+    -webkit-box-orient: vertical;
   }
-  #costSpinZero, #costZeroPair{
-    display: inline-block;
-    min-width: 78px;
-    text-align: left;
-  }
+  /* PASS A37: costs move into the buttons (two-line labels); hide old spans to free drawer space. */
+  #costSpinZero, #costZeroPair{ display: none; }
 
-  /* A1: tighten ONLY the gap between pair cost and the pair button (snugger). */
-  #costZeroPair{ margin-right: -12px; }
+  /* PASS A37: two-line spin buttons overlaid on the board */
+  .spinOverlayBtn{ z-index: 26; }
+  .spinOverlayBtn .btnLine1{ font-size: 12px; font-weight: 900; line-height: 1.05; }
+  .spinOverlayBtn .btnLine2{ font-size: 11px; font-weight: 800; opacity: 0.92; line-height: 1.05; margin-top: 2px; }
 
   /* A2/A3/A4: top banner styles + break flash */
   .notifyBar.bannerLose{
@@ -670,7 +708,7 @@
   .ctrl{ margin-top: 6px; padding: 8px; }
   .ctrlRow{ gap: 8px; }
   .ctrlRow label{ gap: 6px; }
-  .energyHud{ position: fixed; left: 12px; bottom: 180px; z-index: 25; font-size: 13px; padding: 6px 10px; border-radius: 999px; background: rgba(18,22,35,0.70); border: 1px solid rgba(255,255,255,0.10); color: rgba(232,238,252,0.92); font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; }
+  .energyHud{ position: fixed; left: 12px; bottom: 180px; z-index: 25; font-size: 13px; padding: 6px 10px; border-radius: 999px; background: rgba(18,22,35,0.70); border: 1px solid rgba(255,255,255,0.10); color: rgba(232,238,252,0.92); font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; pointer-events:none; }
 
   /* Zen timer HUD (upper-right) */
   .zenTimerHud{ position: fixed; right: 12px; top: 68px; z-index: 25; font-size: 13px; padding: 6px 10px; border-radius: 999px; background: rgba(18,22,35,0.72); border: 1px solid rgba(255,255,255,0.12); color: rgba(255, 232, 170, 0.95); font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; letter-spacing: 0.2px; box-shadow: 0 10px 28px rgba(0,0,0,0.35); pointer-events:none; display:none; }

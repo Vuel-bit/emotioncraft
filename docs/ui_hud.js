@@ -693,33 +693,47 @@
           return s ? (s.charAt(0) + s.slice(1).toLowerCase()) : 'Quirk';
         };
 
+        // PASS A37 (presentation-only): swap trait/quirk styles.
+        // Line 1: patient name + TRAIT pills (always).
         let line1 = `<span class="hudPatientName">${esc(pName)}</span>`;
         if (traits && traits.length) {
-          const labs = [];
+          const pills = [];
           for (const tr of traits) {
             const lab = traitLabel(tr);
-            if (lab) labs.push(lab);
+            if (!lab) continue;
+            pills.push(`<span class="hudTraitPill">${esc(lab)}</span>`);
           }
-          if (labs.length) {
-            line1 += ` — ${esc(labs.join(', '))}`;
+          if (pills.length) {
+            line1 += ` <span class="hudTraitWrap">${pills.join(' ')}</span>`;
           }
         }
 
+        // Line 2: QUIRKS as colored text by default; ACTIVE quirks become colored pills.
         let line2 = '';
         if (quirks && quirks.length) {
-          const pills = [];
+          const bits = [];
           for (const q of quirks) {
             const ty = q && q.type ? String(q.type).toUpperCase() : '';
             const tier = (q && typeof q.intensityTier === 'number') ? q.intensityTier : 0;
             const c = tierColor(tier);
-            const cls = ['hudQuirkPill'];
-            if (ty && activeTypes[ty]) cls.push('hudQuirkActive');
-            if (ty && teleTypes[ty]) cls.push('hudQuirkTele');
-            pills.push(`<span class="${cls.join(' ')}" style="background:${c}">${esc(quirkLabel(ty))}</span>`);
+            const label = esc(quirkLabel(ty));
+            const isActive = !!(ty && activeTypes[ty]);
+            const isTele = !!(ty && teleTypes[ty]);
+
+            if (isActive) {
+              const cls = ['hudQuirkPillActive'];
+              if (isTele) cls.push('hudQuirkTele');
+              bits.push(`<span class="${cls.join(' ')}" style="background:${c}">${label}</span>`);
+            } else {
+              const cls = ['hudQuirkText'];
+              if (isTele) cls.push('hudQuirkTeleText');
+              bits.push(`<span class="${cls.join(' ')}" style="color:${c}">${label}</span>`);
+            }
           }
-          line2 = pills.join(' ');
+          line2 = bits.join(' ');
         }
-let html = `<div class="hudLine1">${line1}</div><div class="hudLine2">${line2}</div>`;
+
+        let html = `<div class="hudLine1">${line1}</div><div class="hudLine2">${line2}</div>`;
         patientInfoEl.innerHTML = html;
       }
     }

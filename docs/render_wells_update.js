@@ -889,14 +889,10 @@
           const redOuterR = Math.max(r, selOuter, haloOuter);
           const redTopY = cy0 - redOuterR;
 
-          // Shift right compared to previous build (was sizePx*0.55).
-          let x = Math.min(cx0, cx5) - (wR + sizePx * 0.25);
-          // Align portrait top edge to redTopY.
+          // PASS A37: portrait centered above ORANGE well (index 5),
+          // with top edge aligned to the top edge of RED well.
+          let x = cx5;
           let y = redTopY + sizePx * 0.5;
-
-          // Small nudge: a bit right and up (still clamped below).
-          x += sizePx * 0.07;
-          y -= sizePx * 0.05;
 
           const topRes = (geom && typeof geom.topReserved === 'number') ? geom.topReserved : 0;
           const botRes = (geom && typeof geom.bottomReserved === 'number') ? geom.bottomReserved : 0;

@@ -676,6 +676,103 @@ if (btnZeroPairEl) {
       }
     } catch (_) {}
 
+    // ------------------------------------------------------------
+    // PASS A37: Board HUD layout using live well geometry
+    // - Energy HUD moves to top-right of graphics square (centered above purple, top aligned to red top).
+    // - Zen timer sits below energy, left-aligned.
+    // - Spin buttons move into the graphics square (bottom aligned to green well bottom).
+    // Presentation-only: no gameplay logic changes.
+    // ------------------------------------------------------------
+    try {
+      const RS = EC.RENDER_STATE || null;
+      const WG = RS && RS.mvpWellGeom ? RS.mvpWellGeom : null;
+      const mvpGeom = RS && RS.layout && RS.layout.mvpGeom ? RS.layout.mvpGeom : null;
+      const cx = WG && WG.cx ? WG.cx : null;
+      const cy = WG && WG.cy ? WG.cy : null;
+      const wellR = (mvpGeom && typeof mvpGeom.wellMaxR === 'number') ? mvpGeom.wellMaxR : (WG && WG.r && typeof WG.r[0] === 'number' ? WG.r[0] : NaN);
+
+      const ok = cx && cy && isFinite(wellR) && isFinite(cx[0]) && isFinite(cy[0]) && isFinite(cx[1]) && isFinite(cy[1]) && isFinite(cx[2]) && isFinite(cy[2]) && isFinite(cx[3]) && isFinite(cy[3]) && isFinite(cx[4]) && isFinite(cy[4]) && isFinite(cx[5]) && isFinite(cy[5]);
+      if (ok) {
+        const vw = (typeof window !== 'undefined' && window.innerWidth) ? window.innerWidth : 0;
+        const vh = (typeof window !== 'undefined' && window.innerHeight) ? window.innerHeight : 0;
+        const M = 6;
+
+        const redTopY = cy[0] - wellR;
+        const greenBotY = cy[3] + wellR;
+
+        // --- Energy HUD ---
+        const eEl = energyHudEl2;
+        if (eEl && vw && vh) {
+          // Force fixed positioning in viewport space.
+          eEl.style.position = 'fixed';
+          eEl.style.bottom = '';
+          eEl.style.right = '';
+
+          // Center above purple well, top aligned to red top edge.
+          // (Top-right of graphics square in the default well layout.)
+          const rect = eEl.getBoundingClientRect();
+          let left = cx[1] - rect.width * 0.5;
+          let top = redTopY;
+          // Clamp to viewport.
+          left = Math.max(M, Math.min(vw - rect.width - M, left));
+          top = Math.max(M, Math.min(vh - rect.height - M, top));
+          eEl.style.left = left.toFixed(1) + 'px';
+          eEl.style.top = top.toFixed(1) + 'px';
+        }
+
+        // --- Timer HUD (below energy, left-aligned) ---
+        const zEl = dom.zenTimerHudEl || document.getElementById('zenTimerHud');
+        if (zEl && zEl.style.display !== 'none' && vw && vh) {
+          zEl.style.position = 'fixed';
+          zEl.style.right = '';
+          zEl.style.bottom = '';
+
+          const eRect = eEl ? eEl.getBoundingClientRect() : null;
+          const zRect = zEl.getBoundingClientRect();
+          const gap = 6;
+          let left = eRect ? eRect.left : (cx[1] - zRect.width * 0.5);
+          let top = (eRect ? (eRect.top + eRect.height + gap) : (redTopY + 28));
+          left = Math.max(M, Math.min(vw - zRect.width - M, left));
+          top = Math.max(M, Math.min(vh - zRect.height - M, top));
+          zEl.style.left = left.toFixed(1) + 'px';
+          zEl.style.top = top.toFixed(1) + 'px';
+        }
+
+        // --- Spin buttons inside graphics square ---
+        const btnSpin = dom.btnSpinZeroEl || document.getElementById('btnSpinZero');
+        const btnPair = dom.btnZeroPairEl || document.getElementById('btnZeroPair');
+
+        const placeBottomCentered = (el, centerX, bottomY) => {
+          if (!el || !vw || !vh) return;
+          el.classList.add('spinOverlayBtn');
+          el.style.position = 'fixed';
+          el.style.transform = 'translate(-50%, -100%)';
+          el.style.bottom = '';
+          el.style.right = '';
+          el.style.left = centerX.toFixed(1) + 'px';
+          el.style.top = bottomY.toFixed(1) + 'px';
+
+          // Clamp using rendered rect (after transform).
+          const r = el.getBoundingClientRect();
+          let dx = 0, dy = 0;
+          if (r.left < M) dx = (M - r.left);
+          if (r.right > (vw - M)) dx = (vw - M - r.right);
+          if (r.top < M) dy = (M - r.top);
+          if (r.bottom > (vh - M)) dy = (vh - M - r.bottom);
+          if (dx || dy) {
+            const curL = parseFloat(el.style.left) || centerX;
+            const curT = parseFloat(el.style.top) || bottomY;
+            el.style.left = (curL + dx).toFixed(1) + 'px';
+            el.style.top = (curT + dy).toFixed(1) + 'px';
+          }
+        };
+
+        // Bottom edge aligned to green well bottom; centers under yellow & blue.
+        placeBottomCentered(btnSpin, cx[4], greenBotY);
+        placeBottomCentered(btnPair, cx[2], greenBotY);
+      }
+    } catch (_) {}
+
 
     let sel = _getSelIndex(null, SIM);
     // Robust selection for bottom-bar costs: fall back to last known UI selection
@@ -694,6 +791,10 @@ if (btnZeroPairEl) {
       const costZeroPairEl2 = dom.costZeroPairEl || document.getElementById('costZeroPair');
       if (costSpinZeroEl2) costSpinZeroEl2.textContent = '—';
       if (costZeroPairEl2) costZeroPairEl2.textContent = '—';
+
+      // PASS A37: two-line labels with cost inside the buttons (spans kept but hidden via CSS).
+      if (btnSpinZeroEl2) btnSpinZeroEl2.innerHTML = `<div class="btnLine1">0 Spin</div><div class="btnLine2">Cost —</div>`;
+      if (btnZeroPairEl2) btnZeroPairEl2.innerHTML = `<div class="btnLine1">0 Pair Spin</div><div class="btnLine2">Cost —</div>`;
     } else {
       const mult = _getEnergyCostMult(SIM);
       const eU = energyToUnits(SIM.energy || 0);
@@ -705,6 +806,8 @@ if (btnZeroPairEl) {
       const costSpinZeroEl2 = dom.costSpinZeroEl || document.getElementById('costSpinZero');
       const costZeroPairEl2 = dom.costZeroPairEl || document.getElementById('costZeroPair');
       if (costSpinZeroEl2) costSpinZeroEl2.textContent = `Cost ${cost1Units}`;
+
+      if (btnSpinZeroEl2) btnSpinZeroEl2.innerHTML = `<div class="btnLine1">0 Spin</div><div class="btnLine2">Cost ${cost1Units}</div>`;
 
       if (btnSpinZeroEl2) {
         const changedSpin = (c1 && c1.changed);
@@ -736,6 +839,8 @@ if (btnZeroPairEl) {
       const pairCostFloatFinal = pairCostRaw * mult;
       const pairUnits = costToUnits(pairCostFloatFinal);
       if (costZeroPairEl2) costZeroPairEl2.textContent = `Cost ${pairUnits}`;
+
+      if (btnZeroPairEl2) btnZeroPairEl2.innerHTML = `<div class="btnLine1">0 Pair Spin</div><div class="btnLine2">Cost ${pairUnits}</div>`;
 
       // Gating must match displayed cost exactly.
       if (btnZeroPairEl2) {

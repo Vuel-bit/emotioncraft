@@ -140,21 +140,30 @@ function ensurePsycheView() {
       // PASS A36: base pigment body (preserve hue)
       const sprBody = new PIXI.Sprite((TEX && (TEX.body || TEX.rippleCircle || TEX.circle)) ? (TEX.body || TEX.rippleCircle || TEX.circle) : PIXI.Texture.WHITE);
       sprBody.anchor && sprBody.anchor.set(0.5);
-      sprBody.alpha = 0.20;
+      sprBody.alpha = 0.24;
       sprBody.blendMode = BM_NORMAL;
       wc.addChild(sprBody);
 
       // Internal variation (tracers/swirl/marble) — animated parallax
       const sprVar = new PIXI.Sprite((TEX && (TEX.tracers || TEX.swirl || TEX.marble || TEX.rippleCircle || TEX.body || TEX.circle)) ? (TEX.tracers || TEX.swirl || TEX.marble || TEX.rippleCircle || TEX.body || TEX.circle) : PIXI.Texture.WHITE);
       sprVar.anchor && sprVar.anchor.set(0.5);
-      sprVar.alpha = 0.14;
+      sprVar.alpha = 0.18;
       sprVar.blendMode = BM_SCREEN;
       wc.addChild(sprVar);
+
+      // PASS A37: additional animated caustic/ripple layer for "plasma depth"
+      // (kept hue-tinted; SCREEN/ADD so it brightens without muting).
+      const sprCau = new PIXI.Sprite((TEX && (TEX.rippleCircle || TEX.tracers || TEX.swirl || TEX.marble || TEX.body || TEX.circle)) ? (TEX.rippleCircle || TEX.tracers || TEX.swirl || TEX.marble || TEX.body || TEX.circle) : PIXI.Texture.WHITE);
+      sprCau.anchor && sprCau.anchor.set(0.5);
+      sprCau.alpha = 0.16;
+      sprCau.blendMode = BM_SCREEN;
+      wc.addChild(sprCau);
 
       // Inner shading (edge) — keep subtle; avoid black multiply that mutes/desaturates.
       const sprEdge = new PIXI.Sprite((TEX && (TEX.edge || TEX.rippleCircle || TEX.circle)) ? (TEX.edge || TEX.rippleCircle || TEX.circle) : PIXI.Texture.WHITE);
       sprEdge.anchor && sprEdge.anchor.set(0.5);
-      sprEdge.alpha = 0.06;
+      // Keep edge shading very subtle to avoid "muted" look.
+      sprEdge.alpha = 0.03;
       sprEdge.tint = 0xffffff; // actual tint applied per-frame from hue
       sprEdge.blendMode = BM_NORMAL;
       wc.addChild(sprEdge);
@@ -162,7 +171,7 @@ function ensurePsycheView() {
       // Soft spec highlight (tinted to hue, not white-wash)
       const sprHi = new PIXI.Sprite((TEX && (TEX.highlight || TEX.tracers || TEX.rippleCircle || TEX.body || TEX.circle)) ? (TEX.highlight || TEX.tracers || TEX.rippleCircle || TEX.body || TEX.circle) : PIXI.Texture.WHITE);
       sprHi.anchor && sprHi.anchor.set(0.5);
-      sprHi.alpha = 0.16;
+      sprHi.alpha = 0.20;
       sprHi.blendMode = BM_SCREEN;
       wc.addChild(sprHi);
 
@@ -173,7 +182,7 @@ function ensurePsycheView() {
       wc.mask = m;
 
       // Store refs for per-frame update
-      wc._fx = { body: sprBody, vari: sprVar, edge: sprEdge, hi: sprHi };
+      wc._fx = { body: sprBody, vari: sprVar, cau: sprCau, edge: sprEdge, hi: sprHi };
 
       masks.push(m);
       wedges.push(wc);
@@ -408,29 +417,37 @@ function renderPsyche() {
             const size = r1 * 2.10;
             // PASS A36: preserve hue identity — avoid black multiply + white wash.
             fx.body.tint = color;
-            fx.vari.tint = _mixTowardWhite(color, 0.08);
-            fx.edge.tint = _mixTowardBlack(color, 0.28);
-            fx.hi.tint = _mixTowardWhite(color, 0.10);
+            // PASS A37: keep hue vivid (no muting); use hue-tinted motion + SCREEN highlights.
+            fx.vari.tint = color;
+            if (fx.cau) fx.cau.tint = _mixTowardWhite(color, 0.06);
+            fx.edge.tint = _mixTowardBlack(color, 0.18);
+            fx.hi.tint = _mixTowardWhite(color, 0.08);
 
             fx.body.width = fx.body.height = size;
             fx.vari.width = fx.vari.height = size;
+            if (fx.cau) fx.cau.width = fx.cau.height = size;
             fx.edge.width = fx.edge.height = size;
             fx.hi.width = fx.hi.height = size;
 
-            // Clear, subtle "liquid depth" motion (mask keeps wedge edges crisp)
+            // PASS A37: more obvious "plasma depth" motion (mask keeps wedge edges crisp)
             const s0 = (i % 2 === 0) ? 1 : -1;
 
-            fx.body.rotation = tSec * 0.22 + i * 0.28;
-            fx.body.position.set(Math.cos(tSec * 0.55 + i * 0.9) * 2.0, Math.sin(tSec * 0.50 + i * 0.8) * 2.0);
+            fx.body.rotation = tSec * 0.34 + i * 0.28;
+            fx.body.position.set(Math.cos(tSec * 0.85 + i * 0.9) * 3.5, Math.sin(tSec * 0.80 + i * 0.8) * 3.5);
 
-            fx.vari.rotation = s0 * (tSec * 0.36) + i * 0.22;
-            fx.vari.position.set(Math.cos(tSec * 0.78 + i * 0.7) * 6.0, Math.sin(tSec * 0.70 + i * 0.6) * 6.0);
+            fx.vari.rotation = s0 * (tSec * 0.68) + i * 0.22;
+            fx.vari.position.set(Math.cos(tSec * 1.10 + i * 0.7) * 8.5, Math.sin(tSec * 1.02 + i * 0.6) * 8.5);
 
-            fx.hi.rotation = tSec * 0.28 + i * 0.18;
-            fx.hi.position.set(Math.cos(tSec * 0.92 + i * 0.6) * 10.0, -Math.sin(tSec * 0.84 + i * 0.6) * 10.0);
+            if (fx.cau) {
+              fx.cau.rotation = -s0 * (tSec * 0.95) + i * 0.14;
+              fx.cau.position.set(Math.cos(tSec * 1.35 + i * 0.5) * 11.0, Math.sin(tSec * 1.22 + i * 0.55) * 11.0);
+            }
 
-            fx.edge.rotation = tSec * 0.10;
-            fx.edge.position.set(Math.cos(tSec * 0.42 + i * 0.5) * 3.0, Math.sin(tSec * 0.46 + i * 0.4) * 3.0);
+            fx.hi.rotation = tSec * 0.54 + i * 0.18;
+            fx.hi.position.set(Math.cos(tSec * 1.18 + i * 0.6) * 13.0, -Math.sin(tSec * 1.10 + i * 0.6) * 13.0);
+
+            fx.edge.rotation = tSec * 0.18;
+            fx.edge.position.set(Math.cos(tSec * 0.66 + i * 0.5) * 4.2, Math.sin(tSec * 0.70 + i * 0.4) * 4.2);
           }
         } else {
           wc.visible = false;

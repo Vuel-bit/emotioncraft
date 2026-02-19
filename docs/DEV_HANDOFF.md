@@ -1,6 +1,6 @@
 # Emotioncraft — Current Build Handoff (2026-02-19)
 
-Build ID: **emotioncraft_v0_2_103_passD_passA36_spillPulses_spinCorkscrew_psycheDepthFix**
+Build ID: **emotioncraft_v0_2_103_passD_passA37_psychePlasma_hudSwap_layout**
 
 ## Non-negotiables (project guardrails)
 - **docs/** is the runnable web root (GitHub Pages).
@@ -40,6 +40,7 @@ Build ID: **emotioncraft_v0_2_103_passD_passA36_spillPulses_spinCorkscrew_psyche
 - `energy` float (HUD shows integer units via Math.round)
 
 ## Recent passes (quick notes)
+- **Pass A37:** Visual-only/UI-only: Psyche wedges upgraded to vivid, clearly animated "plasma depth" (adds a new animated layer + stronger motion; crisp wedge masks; hue identity preserved). HUD presentation swapped: traits are neutral pills; quirks are colored text by default and switch to colored pills when ACTIVE. Board UI layout repositioned using live well geometry (Energy + timer top-right of graphics square; portrait centered above orange; Spin-0 buttons moved onto the board with two-line labels + cost inside). Drawer text capacity increased.
 - **Pass A36:** Visual-only: spill magnitude now shown via discrete traveling pulses (one per ~1 unit transferred) using per-tick Abs deltas + `spillFx.seq` to avoid double-count. Base stream widths are stable (not the main magnitude cue). Spin stream upgraded to a stronger corkscrew/helix; spin pulses are diamond/rotating and ride the helix. Psyche depth FX revised to preserve hue identity (no mute) and animate more visibly while keeping crisp wedge masks.
 - **Pass A35:** Visual-only: spill FX triggers earlier + is stable (adds abs-activity telemetry alongside signed nets; renderer uses abs for intensity/thickness + adds hold timers to avoid flicker). Spill thickness scaling is more obvious. Psyche wedges gain subtle “well depth at rest” interior FX with crisp wedge masks.
 - **Pass A34:** Visual-only: spin ~2× faster than A33; spill FX now visible (layer above wells); amount vs spin spill streams differentiated (spin corkscrew + diamond droplets; supports +/− spin).
@@ -56,8 +57,8 @@ Grit, Ego, Chill, Nerves, Focus, Pep
 
 ## UI quick map
 - Top HUD (`docs/ui_hud.js`):
-  - Line 1: patient name (bold) + traits
-  - Line 2: quirk pills; telegraph/active highlight via `EC.DISP.getRenderStates()`
+  - Line 1: patient name (bold) + **trait pills**
+  - Line 2: **quirks as colored text** by default; **ACTIVE quirks become colored pills**; telegraph/active state via `EC.DISP.getRenderStates()`
   - Line 3: transient alerts (e.g., break messaging via `EC.UI_STATE.uiMsg`)
   - Log button opens opaque Log overlay and pauses sim (`SIM._uiPaused`)
   - Timed plan timer pill appears top-right during Zen / Tranquility / Transcendence

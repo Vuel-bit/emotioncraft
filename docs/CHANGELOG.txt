@@ -1,4 +1,5 @@
 ## v0_2_103_passD (2026-02-12)
+- passA37 — Visual-only/UI-only: Psyche wedges upgraded to vivid, clearly animated "plasma depth" (crisp wedge masks, no muting). HUD presentation updated: traits are pills; quirks are colored text, with ACTIVE quirks switching to colored pills. Board UI layout repositioned via live well geometry (energy + timer top-right; portrait above orange; Spin-0 buttons over the board with two-line labels/cost). Drawer shows more plan text.
 - passA36 — Visual-only: spill FX magnitude now shown via discrete traveling pulses (one per ~1 unit transferred) using per-tick Abs deltas + seq; spin stream is a stronger corkscrew; psyche depth FX preserves hue identity and animates more clearly (crisp wedge masks).
 - passA35 — Visual-only: spill FX triggers earlier + is stable (abs-activity telemetry + hold timers); thickness scaling improved; psyche wedges gain subtle “well depth at rest” interior FX with crisp edges.
 - passA34 — Visual-only: spin reads even faster (~2× A33); spill FX now clearly visible; amount vs spin spill streams differentiated (spin supports positive + negative).
