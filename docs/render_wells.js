@@ -118,80 +118,63 @@ function ensurePsycheView() {
     }
   }
 
-  // Create per-wedge masked sprite stacks (crisp wedge mask keeps boundaries sharp).
-  if (!EC.RENDER.psycheFxWedges || !EC.RENDER.psycheFxMasks) {
-    const wedges = [];
+  // PASS A40: Psyche interiors reuse the true well interior stack (textures + filters)
+  // and are clipped by crisp annular wedge masks.
+  if (!EC.RENDER.psycheWellFxWraps || !EC.RENDER.psycheWellFxMasks || !EC.RENDER.psycheWellFxViews) {
+    const wraps = [];
     const masks = [];
+    const views = [];
     const fxLayer = EC.RENDER.psycheFxLayer;
-    const TEX = (EC.RENDER_WELLS_INIT && EC.RENDER_WELLS_INIT._TEX) ? EC.RENDER_WELLS_INIT._TEX : null;
 
-    // Safe blend mode access (Pixi v6/v7)
-    const BM = (PIXI && PIXI.BLEND_MODES) ? PIXI.BLEND_MODES : null;
-    const BM_NORMAL = BM ? BM.NORMAL : 0;
-    const BM_SCREEN = BM ? (BM.SCREEN != null ? BM.SCREEN : BM.ADD) : 0;
-    const BM_MULT = BM ? (BM.MULTIPLY != null ? BM.MULTIPLY : BM.NORMAL) : 0;
+    // Clear any legacy plasma wedges from previous passes.
+    try { fxLayer.removeChildren(); } catch (e) {}
 
     for (let i = 0; i < 6; i++) {
-      const wc = new Container();
-      wc.eventMode = 'none';
-      wc.interactiveChildren = false;
-      wc.visible = false;
+      const wrap = new Container();
+      wrap.eventMode = 'none';
+      wrap.interactiveChildren = false;
+      wrap.visible = false;
+      wrap.position.set(cx, cy);
 
-      // PASS A36: base pigment body (preserve hue)
-      const sprBody = new PIXI.Sprite((TEX && (TEX.body || TEX.rippleCircle || TEX.circle)) ? (TEX.body || TEX.rippleCircle || TEX.circle) : PIXI.Texture.WHITE);
-      sprBody.anchor && sprBody.anchor.set(0.5);
-      sprBody.alpha = 0.24;
-      sprBody.blendMode = BM_NORMAL;
-      wc.addChild(sprBody);
+      const col = PSY_COLORS[hues[i]];
+      let vw = null;
+      try {
+        if (EC.RENDER_WELLS_INIT && EC.RENDER_WELLS_INIT.makeWellInteriorStack) {
+          vw = EC.RENDER_WELLS_INIT.makeWellInteriorStack(col, { alt: (i & 1) === 1 });
+        }
+      } catch (e) { vw = null; }
 
-      // Internal variation (tracers/swirl/marble) — animated parallax
-      const sprVar = new PIXI.Sprite((TEX && (TEX.tracers || TEX.swirl || TEX.marble || TEX.rippleCircle || TEX.body || TEX.circle)) ? (TEX.tracers || TEX.swirl || TEX.marble || TEX.rippleCircle || TEX.body || TEX.circle) : PIXI.Texture.WHITE);
-      sprVar.anchor && sprVar.anchor.set(0.5);
-      sprVar.alpha = 0.18;
-      sprVar.blendMode = BM_SCREEN;
-      wc.addChild(sprVar);
+      if (vw && vw.interior) {
+        vw.interior.position.set(0, 0);
+        wrap.addChild(vw.interior);
+      } else {
+        // Safe fallback to avoid crashing if helper is missing.
+        const s = new PIXI.Sprite((EC.RENDER_WELLS_INIT && EC.RENDER_WELLS_INIT._TEX && EC.RENDER_WELLS_INIT._TEX.circle) ? EC.RENDER_WELLS_INIT._TEX.circle : PIXI.Texture.WHITE);
+        s.anchor && s.anchor.set(0.5);
+        s.tint = col;
+        s.alpha = 0.12;
+        s.blendMode = (PIXI.BLEND_MODES && PIXI.BLEND_MODES.SCREEN != null) ? PIXI.BLEND_MODES.SCREEN : (PIXI.BLEND_MODES ? PIXI.BLEND_MODES.ADD : 0);
+        wrap.addChild(s);
+        vw = { interior: wrap, pigment: s };
+      }
 
-      // PASS A37: additional animated caustic/ripple layer for "plasma depth"
-      // (kept hue-tinted; SCREEN/ADD so it brightens without muting).
-      const sprCau = new PIXI.Sprite((TEX && (TEX.rippleCircle || TEX.tracers || TEX.swirl || TEX.marble || TEX.body || TEX.circle)) ? (TEX.rippleCircle || TEX.tracers || TEX.swirl || TEX.marble || TEX.body || TEX.circle) : PIXI.Texture.WHITE);
-      sprCau.anchor && sprCau.anchor.set(0.5);
-      sprCau.alpha = 0.16;
-      sprCau.blendMode = BM_SCREEN;
-      wc.addChild(sprCau);
-
-      // Inner shading (edge) — keep subtle; avoid black multiply that mutes/desaturates.
-      const sprEdge = new PIXI.Sprite((TEX && (TEX.edge || TEX.rippleCircle || TEX.circle)) ? (TEX.edge || TEX.rippleCircle || TEX.circle) : PIXI.Texture.WHITE);
-      sprEdge.anchor && sprEdge.anchor.set(0.5);
-      // Keep edge shading very subtle to avoid "muted" look.
-      sprEdge.alpha = 0.03;
-      sprEdge.tint = 0xffffff; // actual tint applied per-frame from hue
-      sprEdge.blendMode = BM_NORMAL;
-      wc.addChild(sprEdge);
-
-      // Soft spec highlight (tinted to hue, not white-wash)
-      const sprHi = new PIXI.Sprite((TEX && (TEX.highlight || TEX.tracers || TEX.rippleCircle || TEX.body || TEX.circle)) ? (TEX.highlight || TEX.tracers || TEX.rippleCircle || TEX.body || TEX.circle) : PIXI.Texture.WHITE);
-      sprHi.anchor && sprHi.anchor.set(0.5);
-      sprHi.alpha = 0.20;
-      sprHi.blendMode = BM_SCREEN;
-      wc.addChild(sprHi);
-
-      // Crisp wedge mask (Graphics)
       const m = new Graphics();
       m.eventMode = 'none';
       m.interactiveChildren = false;
-      wc.mask = m;
+      m.position.set(cx, cy);
+      wrap.mask = m;
 
-      // Store refs for per-frame update
-      wc._fx = { body: sprBody, vari: sprVar, cau: sprCau, edge: sprEdge, hi: sprHi };
-
-      masks.push(m);
-      wedges.push(wc);
       fxLayer.addChild(m);
-      fxLayer.addChild(wc);
+      fxLayer.addChild(wrap);
+
+      wraps.push(wrap);
+      masks.push(m);
+      views.push(vw);
     }
 
-    EC.RENDER.psycheFxWedges = wedges;
-    EC.RENDER.psycheFxMasks = masks;
+    EC.RENDER.psycheWellFxWraps = wraps;
+    EC.RENDER.psycheWellFxMasks = masks;
+    EC.RENDER.psycheWellFxViews = views;
   }
 
   // Goal shading overlay (visualizes current per-hue objective ranges)
@@ -311,6 +294,10 @@ function renderPsyche() {
   const HUE_CAP = (EC.TUNE && typeof EC.TUNE.PSY_HUE_CAP === 'number') ? EC.TUNE.PSY_HUE_CAP : 500;
 
   const nowMs = (typeof performance !== 'undefined' && performance && typeof performance.now === 'function') ? performance.now() : Date.now();
+  const tNow = (typeof SIM.mvpTime === 'number' && isFinite(SIM.mvpTime)) ? SIM.mvpTime : (nowMs * 0.001);
+  const prevPsyT = (typeof RSTATE._psycheInteriorPrevT === 'number') ? RSTATE._psycheInteriorPrevT : null;
+  const dt = (prevPsyT == null) ? 0 : Math.max(0, Math.min(0.05, tNow - prevPsyT));
+  RSTATE._psycheInteriorPrevT = tNow;
 
   // --- Safe circle inside the well ring (guaranteed no collision with wells) ---
   const geom = (LAYOUT && LAYOUT.mvpGeom) ? LAYOUT.mvpGeom : (SIM.mvpGeom || null);
@@ -335,11 +322,11 @@ function renderPsyche() {
   const g = EC.RENDER.psycheG;
   g.clear();
 
-  // PASS A35: psyche wedge depth FX layer refs
-  const fxW = EC.RENDER.psycheFxWedges;
-  const fxM = EC.RENDER.psycheFxMasks;
-  const haveFx = fxW && fxM && fxW.length === 6 && fxM.length === 6;
-  const tSec = nowMs * 0.001;
+  // PASS A40: psyche wedges use true well interior stacks (mini-wells) with crisp wedge masks
+  const psycheWraps = EC.RENDER.psycheWellFxWraps;
+  const psycheMasks = EC.RENDER.psycheWellFxMasks;
+  const psycheViews = EC.RENDER.psycheWellFxViews;
+  const haveFx = psycheWraps && psycheMasks && psycheViews && psycheWraps.length === 6 && psycheMasks.length === 6 && psycheViews.length === 6;
 
   // Helper: draw an annular sector (donut slice)
   function drawAnnularWedge(gr, cx, cy, rin, rout, a0, a1) {
@@ -399,56 +386,26 @@ function renderPsyche() {
 
     // Update psyche depth FX mask + subtle motion (crisp boundaries via Graphics mask)
     if (haveFx) {
-      const wc = fxW[i];
-      const m = fxM[i];
-      if (wc && m) {
+      const wc = psycheWraps[i];
+      const m = psycheMasks[i];
+      const vw = psycheViews[i];
+      if (wc && m && vw) {
         if (rf > r0 + 0.5) {
           wc.visible = true;
           m.visible = true;
 
-          // Redraw crisp annular wedge mask (r0 -> rf)
+          // Crisp annular wedge mask (r0 -> rf)
           m.clear();
           m.beginFill(0xffffff, 1);
           drawAnnularWedge(m, 0, 0, r0, rf, start, end);
           m.endFill();
 
-          const fx = wc._fx;
-          if (fx) {
-            const size = r1 * 2.10;
-            // PASS A36: preserve hue identity — avoid black multiply + white wash.
-            fx.body.tint = color;
-            // PASS A37: keep hue vivid (no muting); use hue-tinted motion + SCREEN highlights.
-            fx.vari.tint = color;
-            if (fx.cau) fx.cau.tint = _mixTowardWhite(color, 0.06);
-            fx.edge.tint = _mixTowardBlack(color, 0.18);
-            fx.hi.tint = _mixTowardWhite(color, 0.08);
-
-            fx.body.width = fx.body.height = size;
-            fx.vari.width = fx.vari.height = size;
-            if (fx.cau) fx.cau.width = fx.cau.height = size;
-            fx.edge.width = fx.edge.height = size;
-            fx.hi.width = fx.hi.height = size;
-
-            // PASS A37: more obvious "plasma depth" motion (mask keeps wedge edges crisp)
-            const s0 = (i % 2 === 0) ? 1 : -1;
-
-            fx.body.rotation = tSec * 0.34 + i * 0.28;
-            fx.body.position.set(Math.cos(tSec * 0.85 + i * 0.9) * 3.5, Math.sin(tSec * 0.80 + i * 0.8) * 3.5);
-
-            fx.vari.rotation = s0 * (tSec * 0.68) + i * 0.22;
-            fx.vari.position.set(Math.cos(tSec * 1.10 + i * 0.7) * 8.5, Math.sin(tSec * 1.02 + i * 0.6) * 8.5);
-
-            if (fx.cau) {
-              fx.cau.rotation = -s0 * (tSec * 0.95) + i * 0.14;
-              fx.cau.position.set(Math.cos(tSec * 1.35 + i * 0.5) * 11.0, Math.sin(tSec * 1.22 + i * 0.55) * 11.0);
+          // Animate the interior with the shared well updater.
+          try {
+            if (EC.RENDER_WELLS_UPDATE && EC.RENDER_WELLS_UPDATE.updateInteriorStack) {
+              EC.RENDER_WELLS_UPDATE.updateInteriorStack(vw, (dt || 0.016), rf, color, 0, i, tNow, { minOmegaAbs: 0.20 });
             }
-
-            fx.hi.rotation = tSec * 0.54 + i * 0.18;
-            fx.hi.position.set(Math.cos(tSec * 1.18 + i * 0.6) * 13.0, -Math.sin(tSec * 1.10 + i * 0.6) * 13.0);
-
-            fx.edge.rotation = tSec * 0.18;
-            fx.edge.position.set(Math.cos(tSec * 0.66 + i * 0.5) * 4.2, Math.sin(tSec * 0.70 + i * 0.4) * 4.2);
-          }
+          } catch (e) {}
         } else {
           wc.visible = false;
           m.clear();

@@ -1,6 +1,10 @@
 # Emotioncraft — Current Build Handoff (2026-02-19)
 
-Build ID: **emotioncraft_v0_2_103_passD_passA39_hotfix_crashFix_anchorFix_ctrlPanelHide**
+Build ID: **emotioncraft_v0_2_103_passD_passA40_psycheMiniWells_planTextFix**
+
+## Pass A40 summary (UI/visual only)
+- **Psyche center wedges** now reuse the true **well interior stack** (same textures + nebula/water FX) and are clipped by crisp wedge masks (feels like "mini wells"; avoids hue muting).
+- **Treatment Plan text** rendering fixed for current step kinds (ALL_OVER / ALL_BAND / SET_BOUNDS / PER_HUE_BOUNDS / SPIN_ZERO): grouped where possible, plain-language thresholds, no inequality symbols; unknown kinds fall back to `step.text`.
 
 ## Non-negotiables (project guardrails)
 - **docs/** is the runnable web root (GitHub Pages).
