@@ -1,10 +1,6 @@
 # Emotioncraft — Current Build Handoff (2026-02-19)
 
-Build ID: **emotioncraft_v0_2_103_passD_passA40_psycheMiniWells_planTextFix**
-
-## Pass A40 summary (UI/visual only)
-- **Psyche center wedges** now reuse the true **well interior stack** (same textures + nebula/water FX) and are clipped by crisp wedge masks (feels like "mini wells"; avoids hue muting).
-- **Treatment Plan text** rendering fixed for current step kinds (ALL_OVER / ALL_BAND / SET_BOUNDS / PER_HUE_BOUNDS / SPIN_ZERO): grouped where possible, plain-language thresholds, no inequality symbols; unknown kinds fall back to `step.text`.
+Build ID: **emotioncraft_v0_2_103_passD_passA39_hotfix_crashFix_anchorFix_ctrlPanelHide**
 
 ## Non-negotiables (project guardrails)
 - **docs/** is the runnable web root (GitHub Pages).
@@ -256,38 +252,3 @@ Source: `docs/systems_patients.js`, `docs/ui_lobby.js`
 **Non-changes (guardrails honored)**
 - No mechanics/balance changes.
 - No new files; no ES modules; load order unchanged.
-
-## Pass A39 — Hotfix: spin cost crash + HUD anchors + ctrl strip hide
-
-**Goal:** Fix a boot-time crash from undefined spin cost label variables, prevent right-side HUD stretching (top+bottom anchors), and fully hide the legacy bottom control strip.
-
-**Files changed**
-- UPDATED: `docs/ui_controls.js`
-  - Spin overlay buttons no longer reference undefined cost vars; show `Cost —` when no selection.
-  - Energy/Timer HUD: forced `right/bottom` anchors to `auto` when geometry-positioned to prevent stretching.
-  - Buttons enforced as strict 2-line templates.
-- UPDATED: `docs/index.html`
-  - Fully hid `#ctrlPanel` / `#ctrlRow` so the drawer doesn’t reserve an empty band.
-
-## Pass A40 — Psyche mini-wells + plan text fix
-
-**Goal:** Make psyche wedges feel like "mini wells" (true well interior plasma stack) while keeping crisp wedge edges; rework Treatment Plan bottom-panel formatting for correctness + clarity with safe fallbacks.
-
-**Files changed**
-- UPDATED: `docs/render_wells_init.js`
-  - Added helper to build a well interior stack for psyche FX reuse.
-- UPDATED: `docs/render_wells_update.js`
-  - Added helper updater so psyche interiors animate using the same math/FX pipeline as wells.
-- UPDATED: `docs/render_wells.js`
-  - Psyche FX wedges now reuse the well interior stack and are clipped by crisp annular wedge masks.
-- UPDATED: `docs/ui_controls.js`
-  - Treatment plan text: correctness-first formatter with grouping (e.g., "All Hues under 100") and safe fallback to the original step text when unknown.
-
-## Pass A40b — Hotfix: psyche FX boot crash
-
-**Goal:** Fix a start-up crash in psyche FX creation (`cx` undefined).
-
-**Files changed**
-- UPDATED: `docs/render_wells.js`
-  - Fixed psyche FX creation to use local psyche space (0,0) instead of undefined `cx/cy`.
-  - Corrected palette reference (`PSYCHE_COLORS`) and added local `hues` definition.
