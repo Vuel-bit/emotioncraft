@@ -1,6 +1,6 @@
 # Emotioncraft — Current Build Handoff (2026-02-19)
 
-Build ID: **emotioncraft_v0_2_103_passD_passA33_spillFx_spin3x**
+Build ID: **emotioncraft_v0_2_103_passD_passA34_spillFx_spin6x_amountVsSpin**
 
 ## Non-negotiables (project guardrails)
 - **docs/** is the runnable web root (GitHub Pages).
@@ -40,6 +40,7 @@ Build ID: **emotioncraft_v0_2_103_passD_passA33_spillFx_spin3x**
 - `energy` float (HUD shows integer units via Math.round)
 
 ## Recent passes (quick notes)
+- **Pass A34:** Visual-only: spin ~2× faster than A33; spill FX now visible (layer above wells); amount vs spin spill streams differentiated (spin corkscrew + diamond droplets; supports +/− spin).
 - **Pass A33:** Visual-only: spin reads 3× faster; spill stream FX (ribbon + droplets) with overflow on outer lane and underflow on inner lane. Added runtime-only spill edge telemetry bucket (`SIM._spillFx`) for the renderer (no mechanics changes).
 - **Pass A28:** Added one-time “Back-Alley Psychiatry (BAP)” intro cutscene overlay (`docs/ui_intro_cutscene.js`). Wired in `docs/index.html` (before `ui_app.js`) and invoked from `EC.initUI()` in `docs/ui_app.js`. Persisted via Firestore save doc `ui.seenIntroBAP` (schema v2) in `docs/systems_firebase.js`, with `sessionStorage` fallback key `ec_seenIntroBAP` when signed out.
 - PLAN_CHAIN: `SIM.planStepIndex`, `SIM.planHoldSec`, `SIM._planHoldReqSec`, `SIM._planStepFlashT` (each step may define `holdSec`; default 10s)

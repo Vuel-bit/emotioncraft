@@ -12,7 +12,7 @@
   // PASS A26 (visual-only): reduce A25 spin speed boost by half.
   // PASS A27 (visual-only): +50% vs A26.
   // PASS A33 (visual-only): make the visual spin feel ~3x faster (no gameplay changes).
-  const SPIN_SPEED_X = 3.0;
+  const SPIN_SPEED_X = 6.0;
   const SPIN_VIS_SPEED_MULT = 3.75 * SPIN_SPEED_X;
   // Outside-edge effects (any shading beyond the inner circle) are allowed only at high spins.
   const OUTER_FX_MIN = 0.75;

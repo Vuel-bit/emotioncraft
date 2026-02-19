@@ -1,6 +1,8 @@
-Build: emotioncraft_v0_2_103_passD_passA33_spillFx_spin3x
+Build: emotioncraft_v0_2_103_passD_passA34_spillFx_spin6x_amountVsSpin
 Date: 2026-02-19
 Notes:
-- Visual-only: spin reads ~3× faster (scaled spin visual multipliers + surface directional ripple rotation; no gameplay changes).
-- Visual-only: added spill stream FX (ribbon + droplets) between wells; overflow rides the outer lane and underflow rides the inner lane.
-- Added runtime-only spill telemetry bucket (SIM._spillFx) for renderer (no mechanics changes).
+- Visual-only: spin reads ~2× faster than A33 (overall ~6× vs pre-A33 baseline); scaled dir-driven motion only so spin=0 stays “alive at rest.”
+- Visual-only: spill stream FX moved above wells so it is clearly visible during real spills.
+- Visual-only: amount vs spin spill streams differentiated. Amount = smooth liquid ribbon + circle droplets. Spin = corkscrew/wave stream + diamond droplets, supports both positive (sOver) and negative (sUnder) spin spill.
+- Spill telemetry bucket remains runtime-only (SIM._spillFx); no mechanics changes.
+
