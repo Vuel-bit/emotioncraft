@@ -199,3 +199,27 @@ Pass A31: BAP intro cutscene polish — fixed framing so shots start in full fit
 - UI gating: Prevents intro autoplay from starting until Firebase auth state has resolved (avoids replaying intro for returning signed-in users before their save doc is consulted).
 - Intro flow: Skip button and Escape now end the intro and return to Lobby (still marks intro seen in runtime + sessionStorage and persists to Firestore best-effort). Natural end path still launches Tutorial.
 
+
+
+=== PASS A40f (2026-02-19) — Top bar layout + fixed quirks grid + announcements + log elapsed time ===
+- UI (HUD): Stacked Log button under Lobby on the in-game top bar; moved Debug adjacent with reduced spacing (patient name unchanged).
+- UI (HUD): Quirks now render in a fixed 2×2 grid with permanent slots: Fixates/Obsesses (top), Crashes/Spirals (bottom); missing quirks leave blank spaces (no reordering).
+- UI (HUD): Added an Announcements single-line row under the quirk grid (hidden when empty).
+- Log: Any HUD announcement also appends to the in-game Log as "[+MM:SS] ..." using elapsed sim time since run start.
+
+=== PASS A41a (2026-02-19) — Patient WIN stays in-match + persistent achievement announcement ===
+- UI/Flow: Patient WIN no longer auto-returns to Lobby; player remains on the match screen until pressing Lobby.
+- UI (HUD): On transition into WIN for a patient session, posts a one-time persistent announcement under the quirk grid:
+  - Zen: "Zen achieved! +1 starting energy."
+  - Tranquility: "Tranquility achieved! +1 starting energy."
+  - Transcendence: "Transcendence achieved! +3 starting energy."
+  - Other: "Treatment complete."
+- UI: Removed WIN banner styling and the "SUCCESS!" header replacement; LOSE banner behavior unchanged.
+- Log: The WIN announcement is also appended to the in-game Log with elapsed sim timestamp.
+
+=== PASS A41b (2026-02-19) — Tranquility Step 2 stairs display lines ===
+- UI (Bottom panel): For Tranquility plan Step 2 (stairs), the step constraints now display as three fixed lines:
+  - 100 < w+5 < 150 < w+4 < 200
+  - 200 < w+3 < 250 < w+2 < 300
+  - 300 < w+1 < 350 < w < 400
+  using the existing colored hue span styling for the rolled primary well (w) and its neighbors.

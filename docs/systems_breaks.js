@@ -34,6 +34,13 @@
     if (UI._seenFirstPopups[k]) return false;
     UI._seenFirstPopups[k] = true;
 
+    // PASS A40f: mirror info popups into HUD announcements + log
+    try {
+      if (EC.UI_HUD && typeof EC.UI_HUD.setAnnouncement === 'function') {
+        EC.UI_HUD.setAnnouncement(String(title || (lines && lines[0]) || ''));
+      }
+    } catch (_) {}
+
     // Persist per-player seen flags when signed in (Firestore). Safe no-op when unavailable.
     try {
       if (EC.SAVE && typeof EC.SAVE.debouncedWrite === 'function') {
@@ -149,6 +156,13 @@
     } catch (_) {}
     // 0.5s hit-stop
     sim._hitStopT = 0.5;
+
+    // PASS A40f: announce mental breaks in the HUD (and log)
+    try {
+      if (EC.UI_HUD && typeof EC.UI_HUD.setAnnouncement === 'function') {
+        EC.UI_HUD.setAnnouncement('Mental Break — ' + String(titleLine || ''));
+      }
+    } catch (_) {}
     // FX masks
     const wellMask = new Array(6).fill(false);
     const psyMask = new Array(6).fill(false);

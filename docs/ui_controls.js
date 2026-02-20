@@ -721,7 +721,7 @@ if (btnZeroPairEl) {
           return out;
         }
 
-        function constraintsForStep(st){
+        function constraintsForStep(st, idx){
           const out = [];
           const kind = String(st && st.kind || '');
 
@@ -763,6 +763,28 @@ if (btnZeroPairEl) {
           }
 
           if (kind === 'PER_HUE_BOUNDS') {
+            // Special-case: Tranquility plan, Step 2 (stairs) display format
+            try {
+              const pkRaw = (win && win.planKey != null) ? win.planKey : '';
+              const pk = String(pkRaw).toUpperCase().replace(/[\s\-]+/g, '_');
+              const rolled = (win && win.rolled) ? win.rolled : null;
+              const primary = rolled && rolled.primary;
+              const p = Number(primary);
+              if (pk === 'TRANQUILITY' && (idx|0) === 1 && Number.isFinite(p) && p >= 0 && p < 6) {
+                const i0 = p|0;
+                const i1 = (i0 + 1) % 6;
+                const i2 = (i0 + 2) % 6;
+                const i3 = (i0 + 3) % 6;
+                const i4 = (i0 + 4) % 6;
+                const i5 = (i0 + 5) % 6;
+                return [
+                  `100 &lt; ${hueSpan(i5)} &lt; 150 &lt; ${hueSpan(i4)} &lt; 200`,
+                  `200 &lt; ${hueSpan(i3)} &lt; 250 &lt; ${hueSpan(i2)} &lt; 300`,
+                  `300 &lt; ${hueSpan(i1)} &lt; 350 &lt; ${hueSpan(i0)} &lt; 400`
+                ];
+              }
+            } catch (_) {}
+
             const bounds = Array.isArray(st.bounds) ? st.bounds : [];
             const items = [];
             for (let i=0;i<6;i++){
@@ -788,7 +810,7 @@ if (btnZeroPairEl) {
           if (!el) return;
           const st = steps[idx] || {};
           const hdr = `<span class=\"tpHdr\">Treatment Step ${idx+1}/${total}:</span>`;
-          const conds = constraintsForStep(st);
+          const conds = constraintsForStep(st, idx);
           const rows = packRows(conds);
           const body = rows.map(r => `<span class=\"tpRow\">${r}</span>`).join('<br>');
           el.innerHTML = hdr + (body ? ('<br>' + body) : '');

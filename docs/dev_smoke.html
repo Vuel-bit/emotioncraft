@@ -66,10 +66,35 @@
     }
     /* Allow name line (Line1) to wrap so traits remain readable on mobile. */
     .hudLine2{
+      margin-top: 4px;
+      opacity: 0.92;
+    }
+    .hudQuirkGrid{
+      display: grid;
+      grid-template-columns: auto auto;
+      gap: 4px 8px;
+      align-items: center;
+    }
+    .hudQuirkSlot{
+      min-height: 18px;
+      display: flex;
+      align-items: center;
+    }
+    .hudQuirkVacant{
+      opacity: 0;
+      pointer-events: none;
+    }
+    .hudAnnounceLine{
+      margin-top: 4px;
+      font-size: 12px;
+      color: rgba(232,238,252,0.84);
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
-      opacity: 0.92;
+      opacity: 0.95;
+    }
+    .hudAnnounceLine.hidden{
+      display: none;
     }
     .hudTraitWord{
       font-weight: 800;
@@ -135,16 +160,22 @@
       -webkit-box-orient: vertical;
       overflow: hidden;
     }
-
     .notifyControls{
       grid-column: 2;
       grid-row: 1 / span 2;
       display:flex;
-      align-items:center;
+      align-items:flex-start;
       justify-content:flex-end;
-      gap: 8px;
+      gap: 6px;
       pointer-events: auto;
     }
+    .notifyBtnStack{
+      display:flex;
+      flex-direction: column;
+      gap: 6px;
+      align-items: stretch;
+    }
+    .notifyBtnStack .btn{ min-width: 72px; width: 100%; text-align: center; }
     .notifyControls .btn{ padding: 6px 10px; font-size: 12px; }
     /* Level selector removed in this pass (Reset returns to lobby). */
     .topbar {

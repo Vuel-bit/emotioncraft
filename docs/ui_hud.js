@@ -43,6 +43,63 @@
     } catch (_) { /* ignore */ }
   }
 
+  // HUD Announcements (PASS A40f) — single-line HUD row + log entry with elapsed sim time
+  function _escHtml(s){
+    return String(s==null?'':s)
+      .replace(/&/g,'&amp;')
+      .replace(/</g,'&lt;')
+      .replace(/>/g,'&gt;')
+      .replace(/"/g,'&quot;');
+  }
+
+  function _getElapsedSimSec(){
+    try {
+      const SIM = EC.SIM || {};
+      if (typeof SIM.mvpTime === 'number' && isFinite(SIM.mvpTime)) return SIM.mvpTime;
+      if (typeof SIM.tSec === 'number' && isFinite(SIM.tSec)) return SIM.tSec;
+      if (typeof SIM.t === 'number' && isFinite(SIM.t)) return SIM.t;
+      if (typeof SIM.time === 'number' && isFinite(SIM.time)) return SIM.time;
+    } catch (_) {}
+    return 0;
+  }
+
+  // Public API: post a HUD announcement (optionally logged). Supports opts:
+  // { ttl:number, log:boolean, color:string }
+  MOD.setAnnouncement = function setAnnouncement(text, opts){
+    try {
+      const UI = EC.UI_STATE || (EC.UI_STATE = {});
+      const SIM = EC.SIM || {};
+      const inRun = !SIM.inLobby && !!SIM._patientActive;
+      const o = opts || {};
+      const doLog = (o.log !== false);
+      const ttl = (typeof o.ttl === 'number' && isFinite(o.ttl)) ? o.ttl : 8.0;
+      UI._hudAnnounceColor = (o && o.color) ? String(o.color) : '';
+      const msg = String(text==null?'':text).trim();
+      if (!msg) {
+        UI._hudAnnounceText = '';
+        UI._hudAnnounceT = 0;
+        UI._hudAnnounceColor = '';
+        return;
+      }
+
+      UI._hudAnnounceText = msg;
+      UI._hudAnnounceT = ttl;
+
+      // Log once per distinct announcement (avoid spam).
+      const last = String(UI._hudAnnounceLast || '');
+      if (doLog && inRun && msg !== last) {
+        UI._hudAnnounceLast = msg;
+        UI.logEntries = UI.logEntries || [];
+        UI.logEntries.push({
+          tSec: _getElapsedSimSec(),
+          html: `<div class=\"logMsg\">${_escHtml(msg)}</div>`,
+          isAnnounce: true
+        });
+      }
+    } catch (_) {}
+  };
+
+
   // Objective summary text (used in bottom panel)
   MOD.getObjectiveSummaryText = function getObjectiveSummaryText() {
     const snap = (EC.ENGINE && EC.ENGINE.getSnapshot) ? EC.ENGINE.getSnapshot() : { SIM: (EC.SIM||{}), UI: (EC.UI_STATE||{}), RENDER: (EC.RENDER_STATE||{}) };
@@ -225,6 +282,10 @@
     UI_STATE.uiMsgT = (typeof UI_STATE.uiMsgT === 'number') ? UI_STATE.uiMsgT : 0;
     UI_STATE.debugOn = !!UI_STATE.debugOn;
 
+    UI_STATE._hudAnnounceText = (typeof UI_STATE._hudAnnounceText === 'string') ? UI_STATE._hudAnnounceText : '';
+    UI_STATE._hudAnnounceT = (typeof UI_STATE._hudAnnounceT === 'number') ? UI_STATE._hudAnnounceT : 0;
+    UI_STATE._hudAnnounceLast = (typeof UI_STATE._hudAnnounceLast === 'string') ? UI_STATE._hudAnnounceLast : '';
+
     const dom = ctx.dom || {};
     const debugEl = dom.debugEl || document.getElementById('debug');
     const objectivePanelEl = dom.objectivePanelEl || document.getElementById('objectivePanel');
@@ -237,6 +298,21 @@
     const btnLogCloseEl = dom.btnLogCloseEl || document.getElementById('btnLogClose');
     const logOverlayEl = dom.logOverlayEl || document.getElementById('logOverlay');
     const logBodyEl = dom.logBodyEl || document.getElementById('logBody');
+
+    // PASS A40f (layout): stack Lobby over Log, and keep Debug adjacent/close
+    try {
+      const controlsEl = document.getElementById('notifyControls');
+      if (controlsEl && !UI_STATE._notifyBtnStacked) {
+        UI_STATE._notifyBtnStacked = true;
+        const stack = document.createElement('div');
+        stack.className = 'notifyBtnStack';
+        if (btnLobbyEl) stack.appendChild(btnLobbyEl);
+        if (btnLogEl) stack.appendChild(btnLogEl);
+        while (controlsEl.firstChild) controlsEl.removeChild(controlsEl.firstChild);
+        if (btnDebugEl) controlsEl.appendChild(btnDebugEl);
+        controlsEl.appendChild(stack);
+      }
+    } catch (_) {}
 
     // Reset button removed (Lobby + Debug cover reset flows)
 
@@ -311,7 +387,8 @@
           const t = (typeof e.tSec === 'number') ? e.tSec : 0;
           const mm = String(Math.floor(t / 60)).padStart(2,'0');
           const ss = String(Math.floor(t % 60)).padStart(2,'0');
-          const hdr = `<div class=\"logT\">[${mm}:${ss}]</div>`;
+          const plus = (e && e.isAnnounce) ? '+' : '';
+          const hdr = `<div class=\"logT\">[${plus}${mm}:${ss}]</div>`;
           parts.push(`<div class=\"logEntry\">${hdr}${e.html || ''}</div>`);
         }
         logBodyEl2.innerHTML = parts.join('');
@@ -371,7 +448,8 @@
                 tmp.innerHTML = html;
                 const msg = (tmp.textContent != null) ? String(tmp.textContent) : '';
                 const clean = msg.replace(/\s+/g, ' ').trim();
-                lines.push(`[${mm}:${ss}] ${clean}`.trim());
+                const plus = (e2 && e2.isAnnounce) ? "+" : "";
+                lines.push(`[${plus}${mm}:${ss}] ${clean}`.trim());
               }
               const out = lines.join('\n');
 
@@ -517,24 +595,41 @@
     if (UI_STATE.uiMsgT > 0) UI_STATE.uiMsgT = Math.max(0, UI_STATE.uiMsgT - (dt || 0));
     if (UI_STATE.uiMsgFlashT > 0) UI_STATE.uiMsgFlashT = Math.max(0, UI_STATE.uiMsgFlashT - (dt || 0));
 
-    // Patient WIN auto-advance: for patient sessions only, jump back to the lobby so
-    // post-win popups (weekly reward / zen congrats / intake congrats) appear
-    // without requiring the player to press Lobby. Do not auto-advance on lose.
-    const _isWinNow = (SIM.levelState === 'win') || !!SIM.mvpWin;
-    if (_isWinNow && SIM._patientActive && !SIM._autoWinHandled) {
-      const pk = String((SIM && (SIM._patientPlanKey || SIM._activePlanKey)) || '').toUpperCase();
-      try { if (EC.ENGINE && typeof EC.ENGINE.dispatch === 'function') EC.ENGINE.dispatch('markAutoWinHandled', true); else if (EC.ACTIONS && typeof EC.ACTIONS.markAutoWinHandled === 'function') EC.ACTIONS.markAutoWinHandled(true); } catch (_) {}
-      if (pk === 'INTAKE') {
-        try { if (EC.endAllMentalBreaks) EC.endAllMentalBreaks(); } catch (_) {}
-      } else {
-        try {
-          if (EC.ENGINE && typeof EC.ENGINE.dispatch === 'function') EC.ENGINE.dispatch('patBackToLobby');
-          else if (EC.ACTIONS && typeof EC.ACTIONS.patBackToLobby === 'function') EC.ACTIONS.patBackToLobby();
-          else if (EC.PAT && typeof EC.PAT.backToLobby === 'function') EC.PAT.backToLobby();
-        } catch (_) {}
-        return;
-      }
+    // HUD announcement timer (presentation-only)
+    if (UI_STATE._hudAnnounceT > 0) {
+      UI_STATE._hudAnnounceT = Math.max(0, UI_STATE._hudAnnounceT - (dt || 0));
+      if (UI_STATE._hudAnnounceT === 0) UI_STATE._hudAnnounceText = '';
     }
+
+    // Patient WIN: stay in-match (sim is already frozen by win), and post a one-time
+    // persistent announcement (also logged with elapsed sim time).
+    const _isWinNow = (SIM.levelState === 'win') || !!SIM.mvpWin;
+    try {
+      const runStamp = String((typeof SIM._mvpInitStamp === 'number') ? SIM._mvpInitStamp : 0) + '|' + String(SIM._patientLevelId || SIM._patientId || '');
+      // Clear any prior persistent WIN announcement when a new run starts.
+      if (UI_STATE._hudAnnounceRunStamp && UI_STATE._hudAnnounceRunStamp !== runStamp) {
+        UI_STATE._hudAnnounceText = '';
+        UI_STATE._hudAnnounceT = 0;
+        UI_STATE._hudAnnounceRunStamp = '';
+        UI_STATE._hudAnnounceColor = '';
+      }
+
+      if (_isWinNow && !!SIM._patientActive) {
+        if (String(UI_STATE._winAnnouncedStamp || '') !== runStamp) {
+          UI_STATE._winAnnouncedStamp = runStamp;
+          const planKeyRaw = String((SIM && (SIM._patientPlanKey || SIM._activePlanKey)) || '').toUpperCase();
+          const pk = planKeyRaw.replace(/[\s-]+/g, '_');
+          let msg = 'Treatment complete.';
+          if (pk === 'ZEN') msg = 'Zen achieved! +1 starting energy.';
+          else if (pk === 'TRANQUILITY') msg = 'Tranquility achieved! +1 starting energy.';
+          else if (pk === 'TRANSCENDENCE') msg = 'Transcendence achieved! +3 starting energy.';
+          try { if (EC.UI_HUD && typeof EC.UI_HUD.setAnnouncement === 'function') EC.UI_HUD.setAnnouncement(msg, { color: 'good', log: true }); } catch (_) {}
+          // Persist beyond normal TTL on WIN screen.
+          UI_STATE._hudAnnounceT = 999999;
+          UI_STATE._hudAnnounceRunStamp = runStamp;
+        }
+      }
+    } catch (_) {}
 
     const T = EC.TUNE || {};
     const E_CAP = (typeof T.ENERGY_CAP === 'number') ? T.ENERGY_CAP : ((typeof T.E_MAX === 'number') ? T.E_MAX : 200);
@@ -581,16 +676,13 @@
       const isLose = (SIM.levelState === 'lose') || !!SIM.mvpLose || !!SIM.gameOver;
       // Notify bar classes (visual styling)
       if (notifyBarEl) {
-        notifyBarEl.classList.toggle('isBanner', !!(isWin || isLose));
-        notifyBarEl.classList.toggle('bannerWin', !!isWin);
+        // WIN should not use banner styling.
+        notifyBarEl.classList.toggle('isBanner', !!isLose);
+        notifyBarEl.classList.toggle('bannerWin', false);
         notifyBarEl.classList.toggle('bannerLose', !!isLose);
 }
 
-      if (isWin) {
-        setText(patientInfoEl, 'patientInfo', 'SUCCESS!');
-        const pk = String((SIM && (SIM._patientPlanKey || SIM._activePlanKey)) || '').toUpperCase();
-        setText(notifyTextEl, 'notifyText', (pk === 'INTAKE') ? 'Treatment Complete' : 'Treatment complete');
-      } else if (isLose) {
+      if (isLose) {
         setText(patientInfoEl, 'patientInfo', 'TREATMENT FAILED');
         // Optional second line: keep it short + player-facing.
         let line2 = 'Too many breaks';
@@ -614,8 +706,8 @@
 
     // Patient + step (top-left)
     try {
-      // If a banner is active, we already replaced patientInfoEl above.
-      if ((SIM.levelState === 'win') || !!SIM.mvpWin || (SIM.levelState === 'lose') || !!SIM.mvpLose || !!SIM.gameOver) {
+      // Keep LOSE banner behavior, but allow normal patient header render on WIN.
+      if ((SIM.levelState === 'lose') || !!SIM.mvpLose || !!SIM.gameOver) {
         // No-op: keep banner/break header.
       } else {
       const lvl = SIM.levelId || 1;
@@ -707,33 +799,55 @@
             line1 += ` <span class="hudTraitWrap">${pills.join(' ')}</span>`;
           }
         }
-
-        // Line 2: QUIRKS as colored text by default; ACTIVE quirks become colored pills.
-        let line2 = '';
+        // Line 2: QUIRKS in a fixed 2×2 grid (permanent slots; no reflow).
+        const byType = Object.create(null);
         if (quirks && quirks.length) {
-          const bits = [];
           for (const q of quirks) {
             const ty = q && q.type ? String(q.type).toUpperCase() : '';
+            if (!ty) continue;
+            if (!byType[ty]) byType[ty] = q;
+          }
+        }
+
+        const slots = [
+          { ty: 'LOCKS_IN', label: 'Fixates' },
+          { ty: 'AMPED',    label: 'Obsesses' },
+          { ty: 'CRASHES',  label: 'Crashes' },
+          { ty: 'SPIRALS',  label: 'Spirals' },
+        ];
+
+        const gridBits = [];
+        for (const s of slots) {
+          const q = byType[s.ty];
+          if (q) {
             const tier = (q && typeof q.intensityTier === 'number') ? q.intensityTier : 0;
             const c = tierColor(tier);
-            const label = esc(quirkLabel(ty));
-            const isActive = !!(ty && activeTypes[ty]);
-            const isTele = !!(ty && teleTypes[ty]);
-
+            const label = esc(s.label);
+            const isActive = !!activeTypes[s.ty];
+            const isTele = !!teleTypes[s.ty];
             if (isActive) {
               const cls = ['hudQuirkPillActive'];
               if (isTele) cls.push('hudQuirkTele');
-              bits.push(`<span class="${cls.join(' ')}" style="background:${c}">${label}</span>`);
+              gridBits.push(`<div class=\"hudQuirkSlot\"><span class=\"${cls.join(' ')}\" style=\"background:${c}\">${label}</span></div>`);
             } else {
               const cls = ['hudQuirkText'];
               if (isTele) cls.push('hudQuirkTeleText');
-              bits.push(`<span class="${cls.join(' ')}" style="color:${c}">${label}</span>`);
+              gridBits.push(`<div class=\"hudQuirkSlot\"><span class=\"${cls.join(' ')}\" style=\"color:${c}\">${label}</span></div>`);
             }
+          } else {
+            // Vacant slot: preserve layout with invisible placeholder label.
+            gridBits.push(`<div class=\"hudQuirkSlot\"><span class=\"hudQuirkText hudQuirkVacant\">${esc(s.label)}</span></div>`);
           }
-          line2 = bits.join(' ');
         }
+        const line2 = `<div class=\"hudQuirkGrid\">${gridBits.join('')}</div>`;
 
-        let html = `<div class="hudLine1">${line1}</div><div class="hudLine2">${line2}</div>`;
+        // Line 3: Announcements (single line, hidden when empty or not in-run)
+        const inRun = !SIM.inLobby && !!SIM._patientActive;
+        const annText = (inRun && UI_STATE && UI_STATE._hudAnnounceText) ? String(UI_STATE._hudAnnounceText) : '';
+        const annCls = annText ? '' : ' hidden';
+        const annHtml = `<div class=\"hudAnnounceLine${annCls}\">${esc(annText)}</div>`;
+
+        let html = `<div class=\"hudLine1\">${line1}</div><div class=\"hudLine2\">${line2}</div>${annHtml}`;
         patientInfoEl.innerHTML = html;
       }
     }
@@ -1080,7 +1194,8 @@ if (verbose) {
               const t = (typeof e.tSec === 'number') ? e.tSec : 0;
               const mm = String(Math.floor(t / 60)).padStart(2,'0');
               const ss = String(Math.floor(t % 60)).padStart(2,'0');
-              parts.push(`<div class="logEntry"><div class="logT">[${mm}:${ss}]</div>${e.html || ''}</div>`);
+              const plus = (e && e.isAnnounce) ? '+' : '';
+              parts.push(`<div class=\"logEntry\"><div class=\"logT\">[${plus}${mm}:${ss}]</div>${e.html || ''}</div>`);
             }
             body.innerHTML = parts.join('');
             try { body.scrollTop = body.scrollHeight; } catch (_) {}
