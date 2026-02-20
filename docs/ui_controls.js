@@ -806,10 +806,29 @@ if (btnZeroPairEl) {
           if (raw) out.push(esc(raw.replace(/^Step\s*\d+\s*:\s*/i, '')));
           return out;
         }
+
+        function _planLabel(){
+          let key = '';
+          try {
+            key = (win && win.planKey) ? win.planKey : (SIM._patientPlanKey || SIM._activePlanKey || '');
+          } catch (_) { key = ''; }
+          key = String(key || '').toUpperCase().replace(/[\s\-]+/g, '_').trim();
+          if (!key) key = 'INTAKE';
+          if (key.indexOf('WEEKLY') === 0) return 'Weekly';
+          if (key === 'INTAKE') return 'Intake';
+          if (key === 'ZEN') return 'Zen';
+          if (key === 'TRANQUILITY') return 'Tranquility';
+          if (key === 'TRANSCENDENCE') return 'Transcendence';
+          // Fallback: title-case the key segments
+          const parts = key.split('_').filter(Boolean);
+          return parts.map(s => s.charAt(0) + s.slice(1).toLowerCase()).join(' ');
+        }
+        const planLabel = _planLabel();
+
         function renderStep(el, idx){
           if (!el) return;
           const st = steps[idx] || {};
-          const hdr = `<span class=\"tpHdr\">Treatment Step ${idx+1}/${total}:</span>`;
+          const hdr = `<span class=\"tpHdr\">${esc(planLabel)} Step ${idx+1}/${total}:</span>`;
           const conds = constraintsForStep(st, idx);
           const rows = packRows(conds);
           const body = rows.map(r => `<span class=\"tpRow\">${r}</span>`).join('<br>');
@@ -861,7 +880,7 @@ if (btnZeroPairEl) {
         const t = SIM.zenTimeRemainingSec;
         const isTimed = (pk === 'ZEN' || pk === 'TRANQUILITY' || pk === 'TRANSCENDENCE');
         if (isTimed && typeof t === 'number' && isFinite(t)) {
-          const label = (pk === 'ZEN') ? 'ZEN' : (pk === 'TRANQUILITY') ? 'TRANQ' : (pk === 'TRANSCENDENCE') ? 'TRANSC' : 'TIME';
+          const label = 'Timer';
           const sec = Math.max(0, Math.floor(t));
           const mm = Math.floor(sec / 60);
           const ss = sec % 60;

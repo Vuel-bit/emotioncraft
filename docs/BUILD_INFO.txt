@@ -1,3 +1,3 @@
-Build: emotioncraft_v0_2_103_passD_passA42_lossNotifyText_notifyTextFont_spinPlane
+Build: emotioncraft_v0_2_103_passD_passA44_breakInfoNoAutoLog_metallicGoalRing.zip
 Date: 2026-02-20
-Notes: PASS A42 — UI-only polish: LOSE notifyText now reads exactly "Treatment Failed." with red banner; top-bar notifyText font size increased for readability; spin buttons now align to a fixed plane based on GREEN's maximum outer visual radius (no vertical bob).
+Notes: PASS A44 — Mental Break info popups no longer auto-log a one-line announcement (detailed effects log remains only). Goal-satisfied psyche wedge indicator ring is now metallic gold (layered strokes) with a subtle animated glint segment (Pixi Graphics only).

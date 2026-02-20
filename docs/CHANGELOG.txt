@@ -235,3 +235,13 @@ Pass A31: BAP intro cutscene polish — fixed framing so shots start in full fit
 - UI (LOSE): Top-bar notifyText now reads exactly "Treatment Failed." when the run is lost (banner remains red).
 - UI (Top bar): Increased .notifyText font size for better readability.
 - UI (Controls): Spin buttons now align to a fixed resting plane based on GREEN's maximum outer visual radius (includes worst-case selection ring + disposition halo), eliminating vertical bob as GREEN's amount changes.
+
+=== PASS A43 (2026-02-20) — Plan header labels + timed "Timer" + mental break announcement/log cleanup ===
+- UI (Bottom panel): Plan-chain step headers now show the plan name (Intake/Weekly/Zen/Tranquility/Transcendence) instead of "Treatment Step" for both current and next step panes.
+- UI (Timer HUD): Timed patient sessions now label the countdown as "Timer" (format unchanged: "Timer mm:ss").
+- Log: Mental breaks no longer create a duplicate one-line Log entry via HUD announcements; only the detailed effects entry remains.
+- UI (Announcements): Mental break announcements are now compact and player-facing (no "hue" wording), e.g., "Mental Break — Psyche Grit" and "Mental Break — Well overflow".
+
+=== PASS A44 (2026-02-20) — Break info popup log suppression + metallic goal ring ===
+- Log/UI: First-time Mental Break informational popups no longer create a one-line Log entry via HUD announcements (detailed effects log remains the only break log entry).
+- Visual (Psyche): Goal-satisfied wedge indicator ring now renders as metallic gold (shadow/base/highlight layered strokes) with a subtle animated outer-edge glint segment (Pixi Graphics only; no assets).

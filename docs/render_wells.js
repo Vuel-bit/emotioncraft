@@ -529,10 +529,17 @@ function renderPsyche() {
   }
 
   // Position text and draw satisfied rings in the same wedge geometry.
-  const gold = 0xffd166;
+  // PASS A44: make the satisfied indicator read as metallic gold (not flat yellow) and add a subtle glint.
+  const goldBase = 0xD4AF37;
+  const goldShadow = 0x8C6B1F;
+  const goldHighlight = 0xFFF2B2;
+
   const ringW = Math.max(2, Math.min(6, safeR * 0.03));
   const textR = r0 + (r1 - r0) * 0.62;
   const fontSize = Math.max(12, Math.min(22, safeR * 0.16));
+
+  // Reuse a single lineStyle object to avoid per-wedge allocations in the hot loop.
+  const ringLS = { width: ringW, color: goldBase, alpha: 1.0 };
 
   // UI-only flash when a treatment hold completes
   const flashDur = (EC.TUNE && typeof EC.TUNE.PLAN_STEP_FLASH_SEC === 'number') ? EC.TUNE.PLAN_STEP_FLASH_SEC : 0.45;
@@ -562,11 +569,49 @@ function renderPsyche() {
     // Gold ring if this wedge currently satisfies its objective condition
     const ok = goalPerHue ? goalOk(goalPerHue[i], vv) : false;
     if (ok && ringG) {
-      ringG.lineStyle({ width: ringW, color: gold, alpha: (0.92 + 0.38 * flash) });
+      // Layered metallic stroke (shadow → base → highlight).
+      // Keep the existing treatment-hold flash behavior as a subtle alpha lift.
+      const aShadow = clamp(0.28 + 0.22 * flash, 0, 1);
+      const aBase = clamp(0.82 + 0.22 * flash, 0, 1);
+      const aHi = clamp(0.55 + 0.25 * flash, 0, 1);
+
+      ringLS.width = ringW;
+      ringLS.color = goldShadow;
+      ringLS.alpha = aShadow;
+      ringG.lineStyle(ringLS);
       drawAnnularWedge(ringG, 0, 0, r0, r1, start, end);
-      ringG.closePath();
-      ringG.endFill && ringG.endFill();
-      ringG.lineStyle();
+
+      ringLS.width = ringW * 0.78;
+      ringLS.color = goldBase;
+      ringLS.alpha = aBase;
+      ringG.lineStyle(ringLS);
+      drawAnnularWedge(ringG, 0, 0, r0, r1, start, end);
+
+      ringLS.width = ringW * 0.36;
+      ringLS.color = goldHighlight;
+      ringLS.alpha = aHi;
+      ringG.lineStyle(ringLS);
+      drawAnnularWedge(ringG, 0, 0, r0, r1, start, end);
+
+      // Subtle moving glint segment near the OUTER edge (filled band, not a warning flash).
+      // Keep it slow and non-distracting.
+      try {
+        const spanAng = end - start;
+        const segAng = Math.max(spanAng * 0.12, Math.min(spanAng * 0.20, spanAng * 0.18));
+        const phase = (nowMs * 0.00006 + i * 0.17) % 1; // ~16.7s cycle
+        const a0 = start + (spanAng - segAng) * phase;
+        const a1 = a0 + segAng;
+        const pulse = 0.22 + 0.12 * (0.5 + 0.5 * Math.sin(nowMs * 0.0014 + i * 1.9));
+        const glA = clamp(pulse + 0.10 * flash, 0.10, 0.55);
+        const bandW = Math.max(2, ringW * 1.25);
+        const rin = Math.max(r0 + 1, r1 - bandW);
+        ringG.lineStyle(0);
+        ringG.beginFill(goldHighlight, glA);
+        drawAnnularWedge(ringG, 0, 0, rin, r1, a0, a1);
+        ringG.endFill && ringG.endFill();
+      } catch (_) { /* ignore */ }
+
+      ringG.lineStyle(0);
     }
 
     // UI-only psyche warning flashes + break highlight overlays (per wedge)

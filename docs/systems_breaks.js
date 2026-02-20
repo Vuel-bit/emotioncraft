@@ -37,7 +37,9 @@
     // PASS A40f: mirror info popups into HUD announcements + log
     try {
       if (EC.UI_HUD && typeof EC.UI_HUD.setAnnouncement === 'function') {
-        EC.UI_HUD.setAnnouncement(String(title || (lines && lines[0]) || ''));
+        // PASS A44: do NOT add a one-line log entry for first-time break info popups.
+        // Keep the detailed effects log only (written elsewhere in this file).
+        EC.UI_HUD.setAnnouncement(String(title || (lines && lines[0]) || ''), { log: false });
       }
     } catch (_) {}
 
@@ -148,7 +150,7 @@
     arr.push({ tSec: (sim && typeof sim.mvpTime === 'number') ? sim.mvpTime : 0, html: String(html || '') });
   }
 
-  function _triggerBreakUI(sim, titleLine, before, after) {
+  function _triggerBreakUI(sim, titleLine, before, after, announceShort) {
     if (!sim) return;
     // Quirks must not carry through a mental break: cancel pending/telegraph/active and reset ramp timers.
     try {
@@ -157,13 +159,14 @@
     // 0.5s hit-stop
     sim._hitStopT = 0.5;
 
-    // PASS A40f: announce mental breaks in the HUD (and log)
+    // PASS A40f: announce mental breaks in the HUD (no auto-log; detailed log entry is appended below)
     try {
       if (EC.UI_HUD && typeof EC.UI_HUD.setAnnouncement === 'function') {
-        EC.UI_HUD.setAnnouncement('Mental Break — ' + String(titleLine || ''));
+        const short = (announceShort != null && String(announceShort).trim()) ? String(announceShort).trim() : '';
+        const base = short ? short : String(titleLine || '').trim();
+        EC.UI_HUD.setAnnouncement('Mental Break — ' + base, { log: false });
       }
-    } catch (_) {}
-    // FX masks
+    } catch (_) {}// FX masks
     const wellMask = new Array(6).fill(false);
     const psyMask = new Array(6).fill(false);
     try {
@@ -420,7 +423,7 @@
 
     const msgLines = msgArr.join('\n');
     _pushBreakMsg(msgLines);
-    _triggerBreakUI(sim, typeLine, before, after);
+    _triggerBreakUI(sim, typeLine, before, after, 'Psyche ' + _wellDispName(h));
     _record(sim.mvpTime || 0, kind === 'LOW' ? 'PSY_HUE_LOW' : 'PSY_HUE_HIGH', { hue: h, value: val }, msgLines);
     _maybeTriggerLose(sim);
   }
@@ -576,7 +579,7 @@
 
     const msgLines = msgArr.join('\n');
     _pushBreakMsg(msgLines);
-    _triggerBreakUI(sim, typeLine, before, after);
+    _triggerBreakUI(sim, typeLine, before, after, 'Well overflow');
     const recDetails = details ? Object.assign({}, details) : {};
     if (penaltyDetails) recDetails.penalty = penaltyDetails;
     _record(sim.mvpTime || 0, cause, recDetails, msgLines);
