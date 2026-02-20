@@ -624,6 +624,8 @@
           else if (pk === 'TRANQUILITY') msg = 'Tranquility achieved! +1 starting energy.';
           else if (pk === 'TRANSCENDENCE') msg = 'Transcendence achieved! +3 starting energy.';
           try { if (EC.UI_HUD && typeof EC.UI_HUD.setAnnouncement === 'function') EC.UI_HUD.setAnnouncement(msg, { color: 'good', log: true }); } catch (_) {}
+          // PASS A41c (visual-only): win celebration FX (confetti + "Success!")
+          try { if (EC.RENDER_SUCCESS_FX && typeof EC.RENDER_SUCCESS_FX.trigger === 'function') EC.RENDER_SUCCESS_FX.trigger(runStamp); } catch (_) {}
           // Persist beyond normal TTL on WIN screen.
           UI_STATE._hudAnnounceT = 999999;
           UI_STATE._hudAnnounceRunStamp = runStamp;

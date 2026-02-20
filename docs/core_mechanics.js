@@ -995,6 +995,12 @@ EC.tickUI = function tickUI(safeDt) {
   if (!(typeof safeDt === 'number' && isFinite(safeDt) && safeDt > 0)) return;
   if (EC.updatePsycheView) EC.updatePsycheView();
   if (EC.updateMvpBoardView) EC.updateMvpBoardView();
+  // PASS A41c (visual-only): win celebration FX must animate even when SIM time is frozen.
+  try {
+    if (EC.RENDER_SUCCESS_FX && typeof EC.RENDER_SUCCESS_FX.update === 'function') {
+      EC.RENDER_SUCCESS_FX.update(safeDt);
+    }
+  } catch (_) {}
   if (EC.updateUI) EC.updateUI(safeDt);
 };
 

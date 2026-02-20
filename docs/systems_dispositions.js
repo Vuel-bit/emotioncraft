@@ -88,6 +88,22 @@
     return String(type || '');
   }
 
+  function _escHtml(s) {
+    const str = String(s == null ? '' : s);
+    return str
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+  }
+
+  function _spanLogWell(i) {
+    const idx = (i | 0);
+    const name = hueName(idx);
+    return '<span class="logWell w' + idx + '">' + _escHtml(name) + '</span>';
+  }
+
   function intensityLabel(x01) {
     const T = EC.TUNE || {};
     const hi = (typeof T.DISP_INTENSITY_HIGH_TH === 'number') ? T.DISP_INTENSITY_HIGH_TH : 0.66;
@@ -964,6 +980,23 @@
           try { delete inst._sndPulse; } catch (_) {}
           inst.startT = _t;
           inst.endT = _t + durSec;
+
+          // PASS A41c (UI/log only): record quirk activations into the Log overlay.
+          try {
+            if (!inst._logActive) {
+              inst._logActive = true;
+              const UI = (EC.UI_STATE = EC.UI_STATE || {});
+              UI.logEntries = UI.logEntries || [];
+              const tier = (inst.tpl && typeof inst.tpl.intensityTier === 'number') ? (inst.tpl.intensityTier | 0) : 0;
+              const tierTxt = (tier <= 0) ? 'LOW' : (tier === 1) ? 'MID' : 'HIGH';
+              const w = (typeof inst.hueIndex === 'number') ? (inst.hueIndex | 0) : 0;
+              const typ = typeDisplayName(inst.type);
+              UI.logEntries.push({
+                tSec: (typeof inst.startT === 'number') ? inst.startT : _t,
+                html: '<div><b>Quirk</b> — ' + _escHtml(typ) + ' (' + tierTxt + ') on ' + _spanLogWell(w) + '</div>'
+              });
+            }
+          } catch (_) {}
           // Debug timeline accumulator (event-based; push on end, not per-tick spam)
           try {
             inst._tl = {

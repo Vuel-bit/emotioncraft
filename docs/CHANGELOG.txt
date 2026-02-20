@@ -223,3 +223,10 @@ Pass A31: BAP intro cutscene polish — fixed framing so shots start in full fit
   - 200 < w+3 < 250 < w+2 < 300
   - 300 < w+1 < 350 < w < 400
   using the existing colored hue span styling for the rolled primary well (w) and its neighbors.
+
+=== PASS A41c (2026-02-20) — UI polish + quirk logging + WIN success FX ===
+- UI (Timer HUD): Abbreviated the Transcendence timer label to "TRANSC" (format unchanged).
+- UI (Top bar): Removed/hidden the Debug button from the on-screen controls (Debug remains accessible via the "D" hotkey toggle).
+- UI (Top bar): Increased the announcement line font size for readability.
+- Log: Quirk activations now append an entry to the Log overlay when they promote from telegraph → active (includes tier + color-coded well name).
+- Visual: On WIN, a one-time confetti burst plays from the board center and a "Success!" overlay appears (animates via UI dt so it runs even while sim time is frozen).

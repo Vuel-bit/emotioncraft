@@ -861,7 +861,7 @@ if (btnZeroPairEl) {
         const t = SIM.zenTimeRemainingSec;
         const isTimed = (pk === 'ZEN' || pk === 'TRANQUILITY' || pk === 'TRANSCENDENCE');
         if (isTimed && typeof t === 'number' && isFinite(t)) {
-          const label = (pk === 'ZEN') ? 'ZEN' : (pk === 'TRANQUILITY') ? 'TRANQ' : (pk === 'TRANSCENDENCE') ? 'TRANSCEND' : 'TIME';
+          const label = (pk === 'ZEN') ? 'ZEN' : (pk === 'TRANQUILITY') ? 'TRANQ' : (pk === 'TRANSCENDENCE') ? 'TRANSC' : 'TIME';
           const sec = Math.max(0, Math.floor(t));
           const mm = Math.floor(sec / 60);
           const ss = sec % 60;
