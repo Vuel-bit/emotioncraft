@@ -676,58 +676,112 @@ if (btnZeroPairEl) {
           }
           return rows.slice(0,3);
         }
+        function hueList(indices){
+          const list = [];
+          for (let k=0;k<indices.length;k++) list.push(hueSpan(indices[k]));
+          return list.join('/');
+        }
+
+        function groupConstraints(items){
+          // items: { idx, lo, hi } where lo/hi may be null
+          const groups = Object.create(null);
+          for (let k=0;k<items.length;k++){
+            const it = items[k];
+            if (!it) continue;
+            const i = it.idx|0;
+            const lo = (it.lo == null || !isFinite(Number(it.lo))) ? null : Number(it.lo);
+            const hi = (it.hi == null || !isFinite(Number(it.hi))) ? null : Number(it.hi);
+            let type = '';
+            let a = null, b = null;
+            if (lo != null && hi != null) { type = 'between'; a = lo; b = hi; }
+            else if (lo != null) { type = 'over'; a = lo; }
+            else if (hi != null) { type = 'under'; b = hi; }
+            else continue;
+            const key = type + '|' + String(a) + '|' + String(b);
+            if (!groups[key]) groups[key] = { type, a, b, idxs: [] };
+            groups[key].idxs.push(i);
+          }
+          return groups;
+        }
+
+        function formatGrouped(groups){
+          const out = [];
+          const keys = Object.keys(groups);
+          for (let k=0;k<keys.length;k++){
+            const g = groups[keys[k]];
+            if (!g || !g.idxs || !g.idxs.length) continue;
+            // sort for stable output
+            g.idxs.sort((x,y)=>x-y);
+            const all = (g.idxs.length === 6);
+            const who = all ? 'All Hues' : hueList(g.idxs);
+            if (g.type === 'under') out.push(`${who} under ${fmtInt(g.b)}`);
+            else if (g.type === 'over') out.push(`${who} over ${fmtInt(g.a)}`);
+            else out.push(`${who} between ${fmtInt(g.a)} and ${fmtInt(g.b)}`);
+          }
+          return out;
+        }
+
         function constraintsForStep(st){
           const out = [];
           const kind = String(st && st.kind || '');
+
           if (kind === 'ALL_OVER') {
-            const thr = (st && st.thr != null) ? st.thr : 0;
-            for (let i=0;i<6;i++) out.push(condLo(thr, i));
+            const thr = (st && st.threshold != null) ? st.threshold : ((st && st.thr != null) ? st.thr : 0);
+            out.push(`All Hues over ${fmtInt(thr)}`);
             return out;
           }
+
           if (kind === 'ALL_BAND') {
-            const lo = (st && st.lo != null) ? st.lo : 0;
-            const hi = (st && st.hi != null) ? st.hi : lo;
-            for (let i=0;i<6;i++) out.push(condRange(lo, i, hi));
+            const lo = (st && st.low != null) ? st.low : ((st && st.lo != null) ? st.lo : 0);
+            const hi = (st && st.high != null) ? st.high : ((st && st.hi != null) ? st.hi : lo);
+            out.push(`All Hues between ${fmtInt(lo)} and ${fmtInt(hi)}`);
             return out;
           }
+
           if (kind === 'SET_BOUNDS') {
             const hiMin = (st && st.hiMin != null) ? st.hiMin : 0;
             const loMax = (st && st.loMax != null) ? st.loMax : 0;
             const highs = Array.isArray(st.highs) ? st.highs : [];
             const lows = Array.isArray(st.lows) ? st.lows : [];
-            for (let j=0;j<highs.length;j++){
-              const i = highs[j]|0;
-              if (i>=0 && i<6) out.push(condLo(hiMin, i));
+
+            if (highs.length) {
+              const idxs = highs.map(x => x|0).filter(i => i>=0 && i<6);
+              if (idxs.length) {
+                idxs.sort((a,b)=>a-b);
+                out.push(`${idxs.length===6 ? 'All Hues' : hueList(idxs)} over ${fmtInt(hiMin)}`);
+              }
             }
-            for (let j=0;j<lows.length;j++){
-              const i = lows[j]|0;
-              if (i>=0 && i<6) out.push(condHi(i, loMax));
+            if (lows.length) {
+              const idxs = lows.map(x => x|0).filter(i => i>=0 && i<6);
+              if (idxs.length) {
+                idxs.sort((a,b)=>a-b);
+                out.push(`${idxs.length===6 ? 'All Hues' : hueList(idxs)} under ${fmtInt(loMax)}`);
+              }
             }
+
             return out;
           }
+
           if (kind === 'PER_HUE_BOUNDS') {
             const bounds = Array.isArray(st.bounds) ? st.bounds : [];
+            const items = [];
             for (let i=0;i<6;i++){
               const b = bounds[i] || null;
               if (!b) continue;
-              const hasLo = (b.lo != null && Number.isFinite(Number(b.lo)));
-              const hasHi = (b.hi != null && Number.isFinite(Number(b.hi)));
-              if (hasLo && hasHi) out.push(condRange(b.lo, i, b.hi));
-              else if (hasLo) out.push(condLo(b.lo, i));
-              else if (hasHi) out.push(condHi(i, b.hi));
+              items.push({ idx: i, lo: b.low != null ? b.low : b.lo, hi: b.high != null ? b.high : b.hi });
             }
-            return out;
+            const groups = groupConstraints(items);
+            return formatGrouped(groups);
           }
+
           if (kind === 'SPIN_ZERO') {
-            out.push(`|Spin| \u2264 0`);
+            out.push('All spins stop');
             return out;
           }
-          // Fallback: sanitize existing text (still visual-only).
-          const raw = String(st && st.text || '');
-          if (raw.trim()) {
-            const safe = esc(raw.trim()).replace(/\u2265/g, '\u2264').replace(/&gt;/g, '\u2264');
-            out.push(safe);
-          }
+
+          // Fallback: use existing text if present
+          const raw = String((st && (st.text || st.textTmpl)) || '').trim();
+          if (raw) out.push(esc(raw.replace(/^Step\s*\d+\s*:\s*/i, '')));
           return out;
         }
         function renderStep(el, idx){

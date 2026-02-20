@@ -344,12 +344,42 @@
 
     const { rx, ry } = map;
 
-    // Authoritative geometry comes from EC.RENDER.wellGeom (updated by render_wells).
-    const geom = (EC.RENDER && EC.RENDER.wellGeom) ? EC.RENDER.wellGeom : null;
-    if (!geom || !geom.cx || !geom.cy || !geom.hitR) {
-      return { idx: -1, inside: false, rx, ry, cand: -1, err: 'wellGeom_not_ready' };
+    // Authoritative geometry comes from EC.RENDER.wellGeom (updated by render_wells_update).
+    // PASS A40c hardening: if geom isn't ready yet (or got reset), fall back to layout.mvpGeom
+    // so gesture input never regresses due to purely-visual passes.
+    let geom = (EC.RENDER && EC.RENDER.wellGeom) ? EC.RENDER.wellGeom : null;
+    if (!geom || !geom.cx || !geom.cy || !geom.hitR || !geom.ready) {
+      try {
+        const snap = _snap();
+        const RSTATE = snap && snap.RSTATE ? snap.RSTATE : null;
+        const SIM = snap && snap.SIM ? snap.SIM : null;
+        const lay = (RSTATE && RSTATE.layout) ? RSTATE.layout : null;
+        const g = (lay && lay.mvpGeom) ? lay.mvpGeom : (SIM && SIM.mvpGeom ? SIM.mvpGeom : null);
+        if (g) {
+          if (!geom || !geom.cx || !geom.cy || !geom.hitR) {
+            geom = { cx: new Array(6).fill(0), cy: new Array(6).fill(0), hitR: new Array(6).fill(0), ready: 0 };
+            if (EC.RENDER) EC.RENDER.wellGeom = geom;
+          }
+
+          const cx0 = (typeof g.cx === 'number' && isFinite(g.cx)) ? g.cx : (map.sw * 0.5);
+          const cy0 = (typeof g.cy === 'number' && isFinite(g.cy)) ? g.cy : (map.sh * 0.5);
+          let ringR = (typeof g.ringR === 'number' && isFinite(g.ringR)) ? g.ringR : (Math.min(map.sw, map.sh) * 0.285);
+          if (!isFinite(ringR) || ringR <= 0) ringR = Math.min(map.sw, map.sh) * 0.285;
+          const baseAngle = (typeof g.baseAngle === 'number' && isFinite(g.baseAngle)) ? g.baseAngle : (-Math.PI / 2);
+          const wellMaxR = (typeof g.wellMaxR === 'number' && isFinite(g.wellMaxR)) ? g.wellMaxR : ((typeof g.wellMinR === 'number' && isFinite(g.wellMinR)) ? g.wellMinR : (Math.min(map.sw, map.sh) * 0.075));
+          const hitR = Math.max(18, wellMaxR * 1.10);
+
+          for (let i=0;i<6;i++) {
+            const a = baseAngle + i * (Math.PI * 2 / 6);
+            geom.cx[i] = cx0 + Math.cos(a) * ringR;
+            geom.cy[i] = cy0 + Math.sin(a) * ringR;
+            geom.hitR[i] = hitR;
+          }
+          geom.ready = 1;
+        }
+      } catch (_) {}
     }
-    if (!geom.ready) {
+    if (!geom || !geom.cx || !geom.cy || !geom.hitR || !geom.ready) {
       return { idx: -1, inside: false, rx, ry, cand: -1, err: 'wellGeom_not_ready' };
     }
 

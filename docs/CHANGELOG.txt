@@ -1,4 +1,6 @@
 ## v0_2_103_passD (2026-02-12)
+- passA40c — Hotfix (input restore): hardened input hit-testing so swipe/drag/long-press + selection never regress. systems_input.js now falls back to layout.mvpGeom to compute well hit targets when EC.RENDER.wellGeom isn't ready.
+- passA40b — Hotfix (UI/visual only): fixed a boot crash in render_wells.js (cx undefined) by using local psyche-space centers and correct palette for psyche FX.
 - passA39 — Hotfix (UI/visual only): fixed ui_controls spin button cost label crash; forced energy/timer HUD anchors to auto (prevents stretched right-side shading); fully hid legacy ctrlPanel strip. No mechanics changes.
 - passA37 — Visual-only/UI-only: Psyche wedges upgraded to vivid, clearly animated "plasma depth" (crisp wedge masks, no muting). HUD presentation updated: traits are pills; quirks are colored text, with ACTIVE quirks switching to colored pills. Board UI layout repositioned via live well geometry (energy + timer top-right; portrait above orange; Spin-0 buttons over the board with two-line labels/cost). Drawer shows more plan text.
 - passA36 — Visual-only: spill FX magnitude now shown via discrete traveling pulses (one per ~1 unit transferred) using per-tick Abs deltas + seq; spin stream is a stronger corkscrew; psyche depth FX preserves hue identity and animates more clearly (crisp wedge masks).
@@ -171,3 +173,17 @@ Pass A31: BAP intro cutscene polish — fixed framing so shots start in full fit
 - UI: Spin overlay buttons align to the true green well bottom radius (no drift).
 - UI: Collapsed the old bottom ctrl bar visuals so the bottom panel no longer reserves an empty strip and Treatment Plan text can use the space.
 - UI: Treatment Plan goal text now renders as "Treatment Step x/y:" + 2–4 lines of constraints using ≤ only, with colored well names; current step on left, next step on right (or "Treatment complete").
+
+=== PASS A39 (2026-02-19) — Hotfix: spin cost crash + HUD anchors + ctrl strip hide ===
+- UI: Fixed a spin button cost label crash when the legacy cost span is missing.
+- UI: Forced Energy/Timer HUD anchors to auto-sizing to prevent stretched right-side shading.
+- UI: Fully hid the legacy bottom ctrlPanel strip so the bottom panel does not reserve an empty band.
+- UI: Kept strict 2-line spin button labels with correct disable/cost display (no gameplay changes).
+
+=== PASS A40 (2026-02-19) — Psyche mini-wells + plan text fix ===
+- Render: Psyche center wedges now reuse the true well interior stack (same textures + nebula/water FX) clipped by crisp wedge masks; avoids hue muting and feels like "mini wells".
+- UI: Treatment Plan step text rendering now correctly interprets ALL_OVER / ALL_BAND / SET_BOUNDS / PER_HUE_BOUNDS / SPIN_ZERO; groups hues when possible (e.g., "All Hues under 100"), uses plain-language thresholds (no symbols), and falls back to step.text when unknown.
+
+=== PASS A40b (2026-02-19) — Hotfix: psyche FX boot crash ===
+- Render: Fixed a boot crash in `docs/render_wells.js` where psyche FX creation referenced undefined `cx`/`cy`, an undefined palette name (`PSY_COLORS`), and an out-of-scope `hues` variable.
+- Render: Psyche FX elements now stay in local psyche space (0,0) and use the correct `PSYCHE_COLORS` palette.
