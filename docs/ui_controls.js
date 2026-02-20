@@ -896,8 +896,23 @@ if (btnZeroPairEl) {
         const M = 6;
 
         const redTopY = cy[0] - wellR;
-        const greenR = (WG.r && Number.isFinite(WG.r[3])) ? WG.r[3] : wellR;
-        const greenBotY = cy[3] + greenR;
+
+        // PASS A42: Spin buttons must sit on a fixed "resting plane" based on GREEN's
+        // maximum visual outer extent (including worst-case selection ring + disposition halo).
+        // Do NOT depend on WG.r[3] (current radius), which causes vertical bob.
+        const R = (EC.TUNE && EC.TUNE.RENDER) || {};
+        const r = wellR;
+        // Mirror the conservative outer-radius logic used in render_wells_update.js portrait placement.
+        const selPad = Math.max(6, r * 0.12);
+        const selW = Math.max(2, r * 0.055);
+        const selOuter = (r + selPad) + selW * 0.5;
+        const haloPad = (typeof R.DISP_HALO_PAD === 'number') ? R.DISP_HALO_PAD : 0;
+        const haloWMin = (typeof R.DISP_HALO_W_MIN === 'number') ? R.DISP_HALO_W_MIN : 0;
+        const haloWScale = (typeof R.DISP_HALO_W_SCALE === 'number') ? R.DISP_HALO_W_SCALE : 0;
+        const haloW = Math.max(haloWMin, r * haloWScale);
+        const haloOuter = (r + haloPad) + haloW * 0.5;
+        const greenOuterR = Math.max(r, selOuter, haloOuter);
+        const greenBotY = cy[3] + greenOuterR;
 
         // --- Energy HUD ---
         const eEl = energyHudEl2;

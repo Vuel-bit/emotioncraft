@@ -1,3 +1,3 @@
-Build: emotioncraft_v0_2_103_passD_passA41c_timerLabel_debugHide_announceFont_quirkLog_successFx
+Build: emotioncraft_v0_2_103_passD_passA42_lossNotifyText_notifyTextFont_spinPlane
 Date: 2026-02-20
-Notes: PASS A41c — UI-only polish: Transcendence timer label abbreviated (TRANSC); Debug button removed from UI (hotkey D still works); announcement line text larger; quirk activations append to Log; WIN now shows confetti burst + "Success!" overlay that animates while sim is frozen.
+Notes: PASS A42 — UI-only polish: LOSE notifyText now reads exactly "Treatment Failed." with red banner; top-bar notifyText font size increased for readability; spin buttons now align to a fixed plane based on GREEN's maximum outer visual radius (no vertical bob).

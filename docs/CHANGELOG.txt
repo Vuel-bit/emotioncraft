@@ -230,3 +230,8 @@ Pass A31: BAP intro cutscene polish — fixed framing so shots start in full fit
 - UI (Top bar): Increased the announcement line font size for readability.
 - Log: Quirk activations now append an entry to the Log overlay when they promote from telegraph → active (includes tier + color-coded well name).
 - Visual: On WIN, a one-time confetti burst plays from the board center and a "Success!" overlay appears (animates via UI dt so it runs even while sim time is frozen).
+
+=== PASS A42 (2026-02-20) — Loss banner text + notifyText font + stable spin button plane ===
+- UI (LOSE): Top-bar notifyText now reads exactly "Treatment Failed." when the run is lost (banner remains red).
+- UI (Top bar): Increased .notifyText font size for better readability.
+- UI (Controls): Spin buttons now align to a fixed resting plane based on GREEN's maximum outer visual radius (includes worst-case selection ring + disposition halo), eliminating vertical bob as GREEN's amount changes.

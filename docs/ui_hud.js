@@ -693,7 +693,9 @@
           // If reason isn't the standard one, show it.
           line2 = r;
         }
-        setText(notifyTextEl, 'notifyText', line2);
+        // PASS A42: Loss message must read exactly "Treatment Failed." in the notifyText region.
+        // (Keep reason available elsewhere; do not replace the required message.)
+        setText(notifyTextEl, 'notifyText', 'Treatment Failed.');
       } else {
         // Normal mode: show disposition HUD or short message + gesture debug line.
         // Hide disposition telegraph/active text from HUD; keep only UI messages.
