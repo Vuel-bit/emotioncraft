@@ -6,6 +6,8 @@
   function clamp(v, a, b) { return Math.max(a, Math.min(b, v)); }
 
   function _ecStartEnergy() {
+    // Ensure any already-loaded save doc is applied before we compute start energy (prevents 0-bonus on refresh).
+    try { if (EC.SAVE && typeof EC.SAVE._tryApplyPending === 'function') EC.SAVE._tryApplyPending(); } catch (_) {}
     const T = EC.TUNE || {};
     const base = (typeof T.ENERGY_START === 'number') ? T.ENERGY_START : 0;
     const cap = (typeof T.ENERGY_CAP === 'number') ? T.ENERGY_CAP : 200;

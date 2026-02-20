@@ -809,6 +809,8 @@ function _uniq(arr) {
   }
 
   function startRun(id, planKey) {
+    // Ensure any already-loaded save doc is applied before building the run state.
+    try { if (EC.SAVE && typeof EC.SAVE._tryApplyPending === 'function') EC.SAVE._tryApplyPending(); } catch (_) {}
     const p = getById(id);
     if (!p) return;
     let k = String(planKey || '').toUpperCase();

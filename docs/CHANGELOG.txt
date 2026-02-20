@@ -187,3 +187,15 @@ Pass A31: BAP intro cutscene polish — fixed framing so shots start in full fit
 === PASS A40b (2026-02-19) — Hotfix: psyche FX boot crash ===
 - Render: Fixed a boot crash in `docs/render_wells.js` where psyche FX creation referenced undefined `cx`/`cy`, an undefined palette name (`PSY_COLORS`), and an out-of-scope `hues` variable.
 - Render: Psyche FX elements now stay in local psyche space (0,0) and use the correct `PSYCHE_COLORS` palette.
+
+=== PASS A40c (2026-02-19) — Hotfix: input restore ===
+- Input: Restored swipe/drag/long-press + selection (and therefore Spin buttons) by hardening input hit-testing. `systems_input.js` now falls back to `layout.mvpGeom` to compute well hit targets when `EC.RENDER.wellGeom` isn't ready.
+
+=== PASS A40d (2026-02-19) — Hotfix: Starting Energy persistence + spin overflow spill ===
+- Persistence: Ensures any already-loaded save doc is applied before computing Starting Energy / starting a run, so returning signed-in users correctly receive their earned start energy bonus on fresh load.
+- Mechanics hotfix: Restored spin overflow spill by soft-clamping spin targets to a higher ceiling (instead of hard clamping to ±S_MAX), allowing temporary overflow so spillover propagation can redistribute it.
+
+=== PASS A40e (2026-02-19) — Intro gating + Skip to Lobby ===
+- UI gating: Prevents intro autoplay from starting until Firebase auth state has resolved (avoids replaying intro for returning signed-in users before their save doc is consulted).
+- Intro flow: Skip button and Escape now end the intro and return to Lobby (still marks intro seen in runtime + sessionStorage and persists to Firestore best-effort). Natural end path still launches Tutorial.
+

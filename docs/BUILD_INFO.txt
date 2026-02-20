@@ -1,3 +1,3 @@
-Build: emotioncraft_v0_2_103_passD_passA40c_hotfix_inputRestore
+Build: emotioncraft_v0_2_103_passD_passA40e_introGate_skipLobby
 Date: 2026-02-19
-Notes: PASS A40c — Hotfix: restore swipe/drag/long-press + selection (and therefore Spin buttons) by hardening input hit-testing. systems_input.js now falls back to layout.mvpGeom to compute well hit targets when EC.RENDER.wellGeom isn't ready.
+Notes: PASS A40e — Intro gating + Skip behavior: delay intro autoplay until Firebase auth resolves; Skip/Escape returns to Lobby (still marks intro seen + persists best-effort).

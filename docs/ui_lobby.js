@@ -1295,6 +1295,8 @@ function render() {
           const T = EC.TUNE || {};
           const base = (typeof T.ENERGY_START === 'number') ? T.ENERGY_START : 0;
           const cap = (typeof T.ENERGY_CAP === 'number') ? T.ENERGY_CAP : ((typeof T.E_MAX === 'number') ? T.E_MAX : 200);
+          // Ensure any already-loaded save doc is applied before reading patient bonuses.
+          try { if (EC.SAVE && typeof EC.SAVE._tryApplyPending === 'function') EC.SAVE._tryApplyPending(); } catch (_) {}
           let bonus = 0;
           try {
             if (EC.PAT && typeof EC.PAT.getStartEnergyBonus === 'function') bonus = (EC.PAT.getStartEnergyBonus() || 0);

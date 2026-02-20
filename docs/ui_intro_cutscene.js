@@ -9,7 +9,8 @@
        firestore: ui.seenIntroBAP_v3 (schema v2)
        session fallback: sessionStorage['ec_seenIntroBAP_v3']
    - Fail-safe: if anything throws, mark session seen and exit (no tutorial auto-start)
-   - On natural end OR skip (only when the cutscene actually played): hide lobby and start Tutorial.
+   - Natural end (only when the cutscene actually played): hide lobby and start Tutorial.
+   - Skip: return to Lobby (mark seen + persist best-effort).
 */
 (() => {
   const EC = (window.EC = window.EC || {});
@@ -756,8 +757,32 @@
     try {
       if (EC.AUTH && typeof EC.AUTH.onChange === 'function') {
         EC.AUTH.onChange((u) => {
+          // If the user signs in later during this session and intro was already seen, persist it.
           if (u && _readSeen()) {
             try { setTimeout(() => { try { _persistSeenBestEffort(); } catch (_) {} }, 50); } catch (_) { _persistSeenBestEffort(); }
+          }
+
+          // If autoplay was deferred waiting for auth resolution, continue once auth is ready.
+          if (MOD._autoPending && !MOD._playing) {
+            const fbOk = !!(EC.FB && EC.FB.ok);
+            const authReady = !!(EC.AUTH && EC.AUTH._ready === true);
+            if (fbOk && authReady) {
+              if (!u) {
+                // Signed out: decide immediately using runtime/session flags.
+                MOD._autoPending = false;
+                if (!_readSeen()) {
+                  try { MOD.play(); } catch (_) {}
+                }
+              } else {
+                // Signed in: keep waiting for SAVE load; onSaveLoaded will resolve.
+                if (MOD._saveLoaded) {
+                  MOD._autoPending = false;
+                  if (!_readSeen()) {
+                    try { MOD.play(); } catch (_) {}
+                  }
+                }
+              }
+            }
           }
         });
       }
@@ -789,6 +814,17 @@
     // 1) runtime flag
     // 2) sessionStorage fallback
     if (_readSeen()) return;
+
+    // If Firebase is available, never autoplay until auth has resolved.
+    // This prevents returning signed-in users from seeing the intro before their save doc is consulted.
+    try {
+      const fbOk = !!(EC.FB && EC.FB.ok);
+      const authReady = !!(EC.AUTH && EC.AUTH._ready === true);
+      if (fbOk && !authReady) {
+        MOD._autoPending = true;
+        return;
+      }
+    } catch (_) {}
 
     // Signed-in users: wait for SAVE load before deciding, so we never replay for returning users.
     if (_isAuthed() && !MOD._saveLoaded) {
@@ -862,7 +898,12 @@
     }
 
     try {
-      _finish(true);
+      // Ensure we return to the Lobby (skip should not launch tutorial).
+      try {
+        if (EC.ACTIONS && typeof EC.ACTIONS.setInLobby === 'function') EC.ACTIONS.setInLobby(true);
+        else if (EC.ENGINE && typeof EC.ENGINE.dispatch === 'function') EC.ENGINE.dispatch('setInLobby', true);
+      } catch (_) {}
+      _finish(false);
     } catch (_) {
       MOD._playing = false;
       try { _safeSSSet(); } catch (_) {}

@@ -64,7 +64,14 @@
     const A0 = (SIM.wellsA[i] || 0);
     const S0 = (SIM.wellsS[i] || 0);
     const A1 = clamp((A1_in == null ? A0 : A1_in), A_MIN, A_MAX);
-    const S1 = clamp((S1_in == null ? S0 : S1_in), S_MIN, S_MAX);
+
+    // Spin: allow temporary overflow beyond ±S_MAX so spillover mechanics can redistribute it.
+    // Clamp only to a soft ceiling (mirrors opposite-push behavior) to keep costs bounded.
+    const sAbs = Math.max(1, Math.abs(S_MIN || 0), Math.abs(S_MAX || 0));
+    const S_SOFT = (typeof T.S_SOFT_MAX === 'number')
+      ? T.S_SOFT_MAX
+      : (sAbs * ((T.COST && typeof T.COST.S_SOFT_MULT === 'number') ? T.COST.S_SOFT_MULT : 3));
+    const S1 = clamp((S1_in == null ? S0 : S1_in), -S_SOFT, S_SOFT);
 
     const impulseSim = fluxSim(A1, S1) - fluxSim(A0, S0);
     const impulseCost = fluxCost(A1, S1) - fluxCost(A0, S0);

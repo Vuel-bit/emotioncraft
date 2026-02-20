@@ -66,9 +66,16 @@
 
     // Compute new absolute targets based on current state.
     const A0 = clamp((SIM.wellsA[i] || 0), A_MIN, A_MAX);
-    const S0 = clamp((SIM.wellsS[i] || 0), S_MIN, S_MAX);
+
+    // Spin: do not hard-clamp to ±S_MAX here; allow temporary overflow so spillover can route it.
+    const sAbs = Math.max(1, Math.abs(S_MIN || 0), Math.abs(S_MAX || 0));
+    const S_SOFT = (typeof T.S_SOFT_MAX === 'number')
+      ? T.S_SOFT_MAX
+      : (sAbs * ((T.COST && typeof T.COST.S_SOFT_MULT === 'number') ? T.COST.S_SOFT_MULT : 3));
+    const S0 = clamp((SIM.wellsS[i] || 0), -S_SOFT, S_SOFT);
+
     const A1t = clamp(A0 + (dA || 0), A_MIN, A_MAX);
-    const S1t = clamp(S0 + (dS || 0), S_MIN, S_MAX);
+    const S1t = clamp(S0 + (dS || 0), -S_SOFT, S_SOFT);
 
     const prev = AM.computeApplyPreview(i, A1t, S1t);
     const res = AM.applyPreviewToSim(i, prev);

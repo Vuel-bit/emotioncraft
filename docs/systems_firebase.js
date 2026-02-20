@@ -76,6 +76,9 @@
   // Auth
   // ----------------------------
   AUTH.user = AUTH.user || null;
+  // Runtime-only flag: becomes true after Firebase auth state has been resolved at least once.
+  // Used by UI gating (e.g., intro autoplay) to avoid racing before we know whether the user is signed in.
+  if (AUTH._ready !== true) AUTH._ready = false;
   AUTH._listeners = AUTH._listeners || [];
 
   function _notifyAuth() {
@@ -92,6 +95,8 @@
 
     try {
       FB.auth.onAuthStateChanged((u) => {
+        // Mark auth as resolved as early as possible to unblock UI gating.
+        AUTH._ready = true;
         AUTH.user = u || null;
         _notifyAuth();
 
