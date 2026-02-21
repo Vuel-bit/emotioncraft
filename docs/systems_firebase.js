@@ -259,6 +259,12 @@
       UI._seenIntroBAP_v3 = true;
     }
 
+    // Persisted UI-only player display name (editable in lobby)
+    if (v >= 2 && data.ui && typeof data.ui === 'object' && typeof data.ui.playerName === 'string') {
+      const UI = EC.UI_STATE || (EC.UI_STATE = {});
+      UI._playerName = String(data.ui.playerName || '');
+    }
+
     if (v >= 2 && data.pat && typeof data.pat === 'object') {
       SAVE._pendingDoc = data;
       // Try immediately; if patients system not ready yet, retry a few times.
@@ -288,7 +294,19 @@
       const seenFirstPopups = Object.assign({}, (UI && UI._seenFirstPopups) || {});
       const seenIntroBAP = !!(UI && UI._seenIntroBAP);
       const seenIntroBAP_v3 = !!(UI && UI._seenIntroBAP_v3);
-      return SAVE.debouncedWrite({ schemaVersion: 2, ui: { seenFirstPopups, seenIntroBAP, seenIntroBAP_v3 } }, { merge: true });
+      // Include playerName in ui map so merge writes don't wipe it.
+      let playerName = '';
+      try { if (UI && typeof UI._playerName === 'string' && UI._playerName.trim()) playerName = UI._playerName.trim(); } catch (_) {}
+      if (!playerName) {
+        try {
+          const last = SAVE._lastLoadedDoc;
+          if (last && last.ui && typeof last.ui.playerName === 'string' && last.ui.playerName.trim()) playerName = last.ui.playerName.trim();
+        } catch (_) {}
+      }
+      if (!playerName) {
+        try { if (AUTH.user && AUTH.user.displayName) playerName = String(AUTH.user.displayName); } catch (_) {}
+      }
+      return SAVE.debouncedWrite({ schemaVersion: 2, ui: { seenFirstPopups, seenIntroBAP, seenIntroBAP_v3, playerName } }, { merge: true });
     }
 
     SAVE._patWriteAttempts = 0;
@@ -297,7 +315,19 @@
     const seenFirstPopups = Object.assign({}, (UI && UI._seenFirstPopups) || {});
     const seenIntroBAP = !!(UI && UI._seenIntroBAP);
     const seenIntroBAP_v3 = !!(UI && UI._seenIntroBAP_v3);
-    return SAVE.debouncedWrite({ schemaVersion: 2, pat, ui: { seenFirstPopups, seenIntroBAP, seenIntroBAP_v3 } }, { merge: true });
+    // Include playerName in ui map so merge writes don't wipe it.
+    let playerName = '';
+    try { if (UI && typeof UI._playerName === 'string' && UI._playerName.trim()) playerName = UI._playerName.trim(); } catch (_) {}
+    if (!playerName) {
+      try {
+        const last = SAVE._lastLoadedDoc;
+        if (last && last.ui && typeof last.ui.playerName === 'string' && last.ui.playerName.trim()) playerName = last.ui.playerName.trim();
+      } catch (_) {}
+    }
+    if (!playerName) {
+      try { if (AUTH.user && AUTH.user.displayName) playerName = String(AUTH.user.displayName); } catch (_) {}
+    }
+    return SAVE.debouncedWrite({ schemaVersion: 2, pat, ui: { seenFirstPopups, seenIntroBAP, seenIntroBAP_v3, playerName } }, { merge: true });
   };
 
   SAVE._touchOnSignIn = SAVE._touchOnSignIn || function _touchOnSignIn() {

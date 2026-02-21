@@ -1,3 +1,3 @@
-Build: emotioncraft_v0_2_103_passD_passA45_patientRoster_1-30.zip
+Build: emotioncraft_v0_2_103_passD_passA46_lobbyUI_detailsFix_nameEdit.zip
 Date: 2026-02-21
-Notes: PASS A45 — Updated roster 1–30 names/notes/portraits (assets/patients/1–30.png). Added new patients 27–30 with provided mood/vibe/traits/quirks.
+Notes: PASS A46 — Lobby UI layout tweaks (actions row top, auth row bottom, remove default hint, center “?”). Fix expanded patient details labels/ranges and remove flip chance. Add editable player name persisted at ui.playerName.

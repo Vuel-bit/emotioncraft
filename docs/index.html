@@ -380,9 +380,13 @@
     .lobbyHeader .sub{ font-size: 12px; color: rgba(232,238,252,0.72); text-align:right; }
 
     /* Lobby auth mini-row (minimal functional scaffolding) */
-    .lobbyAuth{ display:flex; justify-content:flex-end; align-items:center; gap: 8px; margin: 0 0 10px 0; flex-wrap: wrap; }
+    .lobbyAuth{ display:flex; justify-content:flex-end; align-items:center; gap: 8px; margin: 12px 0 0 0; flex-wrap: wrap; padding-top: 10px; border-top: 1px solid rgba(255,255,255,0.10); }
     .lobbyAuthUser{ font-size: 12px; color: rgba(232,238,252,0.72); max-width: 420px; overflow:hidden; text-overflow: ellipsis; white-space: nowrap; }
     .lobbyStartEnergy{ font-size: 12px; color: rgba(232,238,252,0.72); opacity: 0.88; white-space: nowrap; }
+    .lobbyNameWrap{ display:flex; align-items:center; gap: 6px; }
+    .lobbyNameLabel{ font-size: 12px; color: rgba(232,238,252,0.72); white-space: nowrap; }
+    .lobbyInput{ height: 26px; border-radius: 10px; padding: 0 8px; font-size: 12px; background: rgba(0,0,0,0.22); border: 1px solid rgba(255,255,255,0.12); color: rgba(232,238,252,0.92); outline: none; width: 170px; max-width: 48vw; }
+    .lobbyInput:disabled{ opacity: 0.55; }
     .lobbyBtn[disabled]{ opacity: 0.55; cursor: not-allowed; }
 
     .lobbyDetails{
@@ -474,6 +478,7 @@
     .patientBadges{ display:flex; gap: 8px; align-items:center; justify-content:flex-end; }
     .pill{ font-size: 11px; padding: 4px 8px; border-radius: 999px; border: 1px solid rgba(255,255,255,0.10); background: rgba(255,255,255,0.06); color: rgba(232,238,252,0.86); white-space:nowrap; }
     .lobbyActions{ display:flex; justify-content:flex-end; gap: 8px; margin-top: 12px; }
+    .lobbyActionsTop{ margin: 6px 0 10px 0; }
     .lobbyBtn{
       pointer-events: auto;
       background: rgba(255,255,255,0.08);
@@ -485,6 +490,8 @@
       cursor: pointer;
       user-select: none;
     }
+    /* Ensure the "?" glyph is centered (override lobbyBtn padding). */
+    .lobbyBtn.lobbyInfoBtn{ padding:0; width:22px; height:22px; display:flex; align-items:center; justify-content:center; line-height:1; }
     .lobbyBtn.primary{ background: rgba(122, 162, 255, 0.18); border-color: rgba(122, 162, 255, 0.35); }
     .lobbyBtn:active{ transform: translateY(1px); }
 
@@ -880,12 +887,11 @@
         <div class="sub" id="lobbyHint"></div>
       </div>
 
-      <!-- Auth (minimal) -->
-      <div class="lobbyAuth" id="lobbyAuth" aria-hidden="false">
-        <button id="btnAuthSignIn" class="lobbyBtn">Sign in with Google</button>
-        <div id="authUser" class="lobbyAuthUser" style="display:none;"></div>
-        <div id="lobbyStartEnergy" class="lobbyStartEnergy">Starting Energy: 0</div>
-        <button id="btnAuthSignOut" class="lobbyBtn" style="display:none;">Sign out</button>
+      <div class="lobbyActions lobbyActionsTop">
+        <button id="btnLobbyHeroes" class="lobbyBtn">Heroes</button>
+        <button id="btnLobbyTutorial" class="lobbyBtn" style="margin-right:auto;">Tutorial</button>
+        <button id="btnLobbyResume" class="lobbyBtn" style="display:none;">Resume</button>
+        <button id="btnLobbyStart" class="lobbyBtn primary">Start Session</button>
       </div>
 
       <div class="lobbyDetails" id="lobbyDetails" aria-hidden="false">
@@ -907,11 +913,17 @@
         </div>
       </div>
       <div id="patientList" class="patientList"></div>
-      <div class="lobbyActions">
-        <button id="btnLobbyHeroes" class="lobbyBtn">Heroes</button>
-        <button id="btnLobbyTutorial" class="lobbyBtn" style="margin-right:auto;">Tutorial</button>
-        <button id="btnLobbyResume" class="lobbyBtn" style="display:none;">Resume</button>
-        <button id="btnLobbyStart" class="lobbyBtn primary">Start Session</button>
+
+      <!-- Auth (minimal) - moved to bottom -->
+      <div class="lobbyAuth" id="lobbyAuth" aria-hidden="false">
+        <button id="btnAuthSignIn" class="lobbyBtn">Sign in with Google</button>
+        <div id="authUser" class="lobbyAuthUser" style="display:none;"></div>
+        <div id="lobbyNameWrap" class="lobbyNameWrap" style="display:none;">
+          <div class="lobbyNameLabel">Name</div>
+          <input id="authPlayerName" class="lobbyInput" type="text" autocomplete="nickname" maxlength="28" />
+        </div>
+        <div id="lobbyStartEnergy" class="lobbyStartEnergy">Starting Energy: 0</div>
+        <button id="btnAuthSignOut" class="lobbyBtn" style="display:none;">Sign out</button>
       </div>
     </div>
   </div>

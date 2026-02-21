@@ -85,6 +85,8 @@
       btnAuthSignIn: $("btnAuthSignIn"),
       btnAuthSignOut: $("btnAuthSignOut"),
       authUser: $("authUser"),
+      authNameWrap: $("lobbyNameWrap"),
+      authPlayerName: $("authPlayerName"),
       startEnergyEl: $("lobbyStartEnergy"),
       portraitImg: $("lobbyPortraitImg"),
       detailsName: $("lobbyDetailsName"),
@@ -638,6 +640,11 @@
         els.authUser.textContent = '';
         els.authUser.style.display = 'none';
       }
+      if (els.authNameWrap) els.authNameWrap.style.display = 'none';
+      if (els.authPlayerName) {
+        els.authPlayerName.value = '';
+        els.authPlayerName.disabled = true;
+      }
       return;
     }
 
@@ -652,11 +659,31 @@
         els.authUser.textContent = '';
         els.authUser.style.display = 'none';
       }
+      if (els.authNameWrap) els.authNameWrap.style.display = 'none';
+      if (els.authPlayerName) {
+        els.authPlayerName.value = '';
+        els.authPlayerName.disabled = true;
+      }
     } else {
       if (els.btnAuthSignIn) els.btnAuthSignIn.style.display = 'none';
       if (els.authUser) {
         els.authUser.textContent = authLabel(u);
         els.authUser.style.display = '';
+      }
+      // Editable player name (persisted separately from auth profile)
+      try {
+        const UI = _snap().UI;
+        let pn = (UI && typeof UI._playerName === 'string') ? UI._playerName.trim() : '';
+        if (!pn) pn = (u && u.displayName) ? String(u.displayName) : '';
+        if (els.authNameWrap) els.authNameWrap.style.display = '';
+        if (els.authPlayerName) {
+          els.authPlayerName.disabled = false;
+          if (document.activeElement !== els.authPlayerName) els.authPlayerName.value = pn;
+        }
+        if (UI && !UI._playerName && pn) UI._playerName = pn;
+      } catch (_) {
+        if (els.authNameWrap) els.authNameWrap.style.display = '';
+        if (els.authPlayerName) els.authPlayerName.disabled = false;
       }
       if (els.btnAuthSignOut) {
         els.btnAuthSignOut.style.display = '';
@@ -698,8 +725,8 @@
       if (els.detailsName) els.detailsName.textContent = p.name || '—';
       if (els.detailsTagline) els.detailsTagline.textContent = (p.notes || p.tagline || '');
 
-      const mood = p.moodLabel || '—';
-      const vibe = p.vibeLabel || '—';
+      const mood = p.moodLabel || (p.mood && p.mood.label) || 'Steady';
+      const vibe = p.vibeLabel || (p.vibe && p.vibe.label) || 'Mid';
       const traits = (p.traits && p.traits.length) ? p.traits.join(', ') : 'none';
       const last = (typeof p.lastOutcome === 'string' && p.lastOutcome.length) ? p.lastOutcome : '—';
 
@@ -747,25 +774,29 @@
             els.detailsHelp.style.display = 'none';
           } else {
             const Tn = (EC.TUNE || {});
-            const moodLbl = p.moodLabel || '—';
-            const vibeLbl = p.vibeLabel || '—';
+            const moodLbl = p.moodLabel || (p.mood && p.mood.label) || 'Steady';
+            const vibeLbl = p.vibeLabel || (p.vibe && p.vibe.label) || 'Mid';
             const totalR = (Tn.PAT_MINDSET_TOTAL_RANGES && Tn.PAT_MINDSET_TOTAL_RANGES[moodLbl]) ? Tn.PAT_MINDSET_TOTAL_RANGES[moodLbl] : null;
-            const tmpl = p.moodTemplate || p.spreadTemplate || p.template || '—';
+            const tmpl = p.moodTemplate || (p.mood && p.mood.template) || p.spreadTemplate || p.template || 'FLAT';
             const vibeB = (Tn.PAT_VIBE_BANDS && Tn.PAT_VIBE_BANDS[vibeLbl]) ? Tn.PAT_VIBE_BANDS[vibeLbl] : null;
-            const flipC = (typeof Tn.PAT_VIBE_FLIP_CHANCE === 'number') ? Tn.PAT_VIBE_FLIP_CHANCE : null;
-            const maxF = (typeof Tn.PAT_VIBE_MAX_FLIPS === 'number') ? Tn.PAT_VIBE_MAX_FLIPS : null;
 
-            // Traits: list only what the patient actually has.
+            // Traits: include section only if the patient actually has traits.
+            const rawTraits = Array.isArray(p.traits) ? p.traits : [];
             const traitLines = [];
-            try {
-              const ts = Array.isArray(p.traits) ? p.traits.map((t) => String(t || '').toUpperCase()) : [];
-              const has = (k) => ts.indexOf(String(k || '').toUpperCase()) >= 0;
-              if (has('STUBBORN')) traitLines.push('stubborn: energy costs ×1.2');
-              if (has('SENSITIVE')) traitLines.push('sensitive: quirk strength ×1.5');
-              if (has('FRAGILE')) traitLines.push('fragile: deprecated (no meaningful effect)');
-              if (has('GROUNDED')) traitLines.push('grounded: timed boards start at 10:00');
-              if (!traitLines.length) traitLines.push('• none');
-            } catch (_) { traitLines.push('• none'); }
+            if (rawTraits.length) {
+              try {
+                const ts = rawTraits.map((t) => String(t || '').toUpperCase());
+                const has = (k) => ts.indexOf(String(k || '').toUpperCase()) >= 0;
+                if (has('STUBBORN')) traitLines.push('stubborn: energy costs ×1.2');
+                if (has('SENSITIVE')) traitLines.push('sensitive: quirk strength ×1.5');
+                if (has('FRAGILE')) traitLines.push('fragile: deprecated (no meaningful effect)');
+                if (has('GROUNDED')) traitLines.push('grounded: timed boards start at 10:00');
+                // Fallback: show raw trait names if we didn't match any known descriptions.
+                if (!traitLines.length) rawTraits.forEach((t) => traitLines.push(String(t || '').toLowerCase()));
+              } catch (_) {
+                rawTraits.forEach((t) => traitLines.push(String(t || '').toLowerCase()));
+              }
+            }
 
             // Quirks: list only what the patient actually has.
             const qLines = [];
@@ -773,27 +804,28 @@
             try {
               const qs2 = Array.isArray(p.quirks) ? p.quirks : [];
               const types = {};
-              qs2.forEach((q) => { const t = String(q && q.type || '').toUpperCase(); if (t) types[t] = true; });
+              qs2.forEach((q) => { const t = String((q && q.type) || '').toUpperCase(); if (t) types[t] = true; });
               if (types['LOCKS_IN']) qLines.push('Fixates: Amount ↑');
               if (types['CRASHES']) qLines.push('Crashes: Amount ↓');
               if (types['AMPED']) { qLines.push('Obsesses: Spin pushed toward +100'); hasSpinQuirk = true; }
               if (types['SPIRALS']) { qLines.push('Spirals: Spin pushed toward -100'); hasSpinQuirk = true; }
               if (!qLines.length) qLines.push('• none');
               if (hasSpinQuirk) qLines.push('Note: Spin-quirk push scales with Amount (low Amount reduces effect).');
-            } catch (_) { qLines.push('• none'); }            const parts = [];
+            } catch (_) { qLines.push('• none'); }
+
+            const parts = [];
             parts.push('Mood');
             parts.push('• Total starting Psyche: ' + (totalR ? (totalR[0] + '–' + totalR[1]) : '—'));
             parts.push('• Template: ' + String(tmpl));
             parts.push('');
             parts.push('Vibe');
             parts.push('• Spin band: ' + (vibeB ? (vibeB[0] + '–' + vibeB[1]) : '—'));
-            if (flipC != null || maxF != null) {
-              parts.push('• Flip chance: ' + (flipC != null ? (Math.round(flipC * 100) + '%') : '—') + (maxF != null ? (' (max ' + maxF + ' flips)') : ''));
+            parts.push('');
+            if (traitLines.length) {
+              parts.push('Traits');
+              traitLines.forEach((t) => parts.push('• ' + t));
+              parts.push('');
             }
-            parts.push('');
-            parts.push('Traits');
-            traitLines.forEach((t) => parts.push('• ' + t));
-            parts.push('');
             parts.push('Quirks');
             qLines.forEach((t) => parts.push('• ' + t));
 
@@ -942,7 +974,12 @@
           // Re-render details for current selection
           try {
             const pid = _snap().UI.selectedPatientId;
-            const p = (EC.PAT && typeof EC.PAT.get === 'function') ? EC.PAT.get(pid) : null;
+            let p = null;
+            try {
+              const list = (EC.PAT && typeof EC.PAT.list === 'function') ? (EC.PAT.list() || []) : [];
+              p = list.find((it) => it && it.id === pid) || null;
+            } catch (_) { p = null; }
+            if (!p && EC.PAT && typeof EC.PAT.get === 'function') p = EC.PAT.get(pid);
             renderDetails(els, p);
           } catch (_) {}
         });
@@ -975,6 +1012,37 @@
         EC.AUTH.onChange(() => updateAuthUI(els));
       }
       updateAuthUI(els);
+
+      // Editable player name (saved to Firestore under ui.playerName)
+      if (els.authPlayerName && !els.authPlayerName._ecBound) {
+        els.authPlayerName._ecBound = true;
+        const commit = () => {
+          try {
+            const u = (EC.AUTH && EC.AUTH.user) ? EC.AUTH.user : null;
+            if (!u) return;
+            const UI = _snap().UI;
+            const prev = (UI && typeof UI._playerName === 'string') ? UI._playerName.trim() : '';
+            const next = String(els.authPlayerName.value || '').trim();
+            if (!next) {
+              // Revert to previous (or auth profile) if cleared.
+              els.authPlayerName.value = prev || (u.displayName ? String(u.displayName) : '');
+              return;
+            }
+            if (next === prev) return;
+            UI._playerName = next;
+            if (EC.SAVE && typeof EC.SAVE._writeCurrentPat === 'function') {
+              EC.SAVE._writeCurrentPat('playerName');
+            }
+          } catch (_) {}
+        };
+        els.authPlayerName.addEventListener('keydown', (e) => {
+          if (e && e.key === 'Enter') {
+            try { e.preventDefault(); } catch (_) {}
+            try { els.authPlayerName.blur(); } catch (_) {}
+          }
+        });
+        els.authPlayerName.addEventListener('blur', commit);
+      }
     } catch (_) {}
 
     // Resume button (only shown when a session is paused and resumable)
@@ -1320,7 +1388,13 @@ function render() {
       try {
         const subEl = els.overlay.querySelector('.sub');
         if (subEl && subEl.tagName && subEl.tagName.toLowerCase() === 'div') {
-          subEl.textContent = resumable ? 'Session paused. Resume or start a new patient.' : 'Select a patient to begin a session.';
+          if (resumable) {
+            subEl.textContent = 'Session paused. Resume or start a new patient.';
+            subEl.style.display = '';
+          } else {
+            subEl.textContent = '';
+            subEl.style.display = 'none';
+          }
         }
       } catch (_) { /* ignore */ }
 

@@ -249,3 +249,8 @@ Pass A31: BAP intro cutscene polish — fixed framing so shots start in full fit
 === PASS A45 (2026-02-21) — Patient roster 1–30 refresh ===
 - Data: Updated roster entries 1–26 name/notes/tagline/portrait to match new portraits at assets/patients/1–26.png (no stat changes).
 - Data: Added new roster entries 27–30 with portraits assets/patients/27–30.png and the provided mood/vibe/traits/quirks.
+
+=== PASS A46 (2026-02-21) — Lobby UI layout + patient details fixes + editable player name ===
+- UI (Lobby): Removed default "Select a patient..." hint, moved action buttons row to top, moved auth row to bottom, and fixed "?" button glyph centering.
+- UI (Lobby details): "?" toggle no longer blanks Mood/Vibe; expanded details now show correct mood/vibe ranges, removes flip chance line, and hides Traits section when empty.
+- Save/UI: Added editable player name field in lobby, persisted under schema v2 ui.playerName.
