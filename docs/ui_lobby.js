@@ -229,10 +229,10 @@
       const tag = document.createElement('div');
       tag.style.fontSize = '12px';
       tag.style.opacity = '0.85';
-      tag.textContent = p.tagline || '';
+      tag.textContent = (p.notes || p.tagline || '');
 
       col.appendChild(nm);
-      if (p.tagline) col.appendChild(tag);
+      if (p.notes || p.tagline) col.appendChild(tag);
 
       row.appendChild(frame);
       row.appendChild(col);
@@ -696,7 +696,7 @@
     if (!p) return;
     try {
       if (els.detailsName) els.detailsName.textContent = p.name || '—';
-      if (els.detailsTagline) els.detailsTagline.textContent = p.tagline || '';
+      if (els.detailsTagline) els.detailsTagline.textContent = (p.notes || p.tagline || '');
 
       const mood = p.moodLabel || '—';
       const vibe = p.vibeLabel || '—';
@@ -864,7 +864,7 @@
       meta.className = 'patientMeta';
       const mood = p.moodLabel ? `Mood: ${p.moodLabel}` : '';
       const vibe = p.vibeLabel ? `Vibe: ${p.vibeLabel}` : '';
-      const tagline = p.tagline ? p.tagline : '';
+      const tagline = (p.notes || p.tagline) ? (p.notes || p.tagline) : '';
       meta.textContent = [tagline, [mood, vibe].filter(Boolean).join(' • ')].filter(Boolean).join(' — ');
       left.appendChild(title);
       left.appendChild(meta);

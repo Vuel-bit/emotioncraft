@@ -245,3 +245,7 @@ Pass A31: BAP intro cutscene polish — fixed framing so shots start in full fit
 === PASS A44 (2026-02-20) — Break info popup log suppression + metallic goal ring ===
 - Log/UI: First-time Mental Break informational popups no longer create a one-line Log entry via HUD announcements (detailed effects log remains the only break log entry).
 - Visual (Psyche): Goal-satisfied wedge indicator ring now renders as metallic gold (shadow/base/highlight layered strokes) with a subtle animated outer-edge glint segment (Pixi Graphics only; no assets).
+
+=== PASS A45 (2026-02-21) — Patient roster 1–30 refresh ===
+- Data: Updated roster entries 1–26 name/notes/tagline/portrait to match new portraits at assets/patients/1–26.png (no stat changes).
+- Data: Added new roster entries 27–30 with portraits assets/patients/27–30.png and the provided mood/vibe/traits/quirks.
