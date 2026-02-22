@@ -530,9 +530,9 @@ function renderPsyche() {
 
   // Position text and draw satisfied rings in the same wedge geometry.
   // PASS A44: make the satisfied indicator read as metallic gold (not flat yellow) and add a subtle glint.
-  const goldBase = 0xD4AF37;
-  const goldShadow = 0x8C6B1F;
-  const goldHighlight = 0xFFF2B2;
+  const goldBase = 0xB8872A;
+  const goldShadow = 0x5B3E12;
+  const goldHighlight = 0xFFF7E6;
 
   const ringW = Math.max(2, Math.min(6, safeR * 0.03));
   const textR = r0 + (r1 - r0) * 0.62;

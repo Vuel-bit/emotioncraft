@@ -254,3 +254,18 @@ Pass A31: BAP intro cutscene polish — fixed framing so shots start in full fit
 - UI (Lobby): Removed default "Select a patient..." hint, moved action buttons row to top, moved auth row to bottom, and fixed "?" button glyph centering.
 - UI (Lobby details): "?" toggle no longer blanks Mood/Vibe; expanded details now show correct mood/vibe ranges, removes flip chance line, and hides Traits section when empty.
 - Save/UI: Added editable player name field in lobby, persisted under schema v2 ui.playerName.
+
+=== PASS A47 (2026-02-22) — Lobby UX refinements + quirks list + treatment history ===
+- UI (Lobby auth bar): Replaced always-on name input with click-to-edit name display pill next to Starting Energy; removed Name label; hides Google display line after custom name is chosen (persisted via ui.playerNameCustom).
+- UI (Lobby list): Patient list reformatted to 3-line left layout and right-side 2×2 quirks grid (Fixates/Obsesses then Crashes/Spirals) with tier coloring; removed Returning/Intake pill.
+- UI (Lobby pause): Resume button lightly pulses when resumable; paused subtitle shows two explicit lines.
+- UI (Details): Quirk help uses Amount↑/↓ and Spin↑/↓ with no extra spin note; shows Treatment History under portrait only when details expanded.
+- Save/Patients: Added per-patient treatmentHistory[] metadata persisted in schema v2 patients blob (no gameplay effects; safe fallback for older saves).
+
+=== PASS A48 (2026-02-22) — Spin quirk scaling bug fix ===
+- Mechanics: Fixed AMPED/SPIRALS spin quirks to apply constant-strength spin deltas regardless of current spin (removed target-distance scaling). Amount shield (A_ref/100) mitigation remains unchanged. Updated unshielded force totals + debug timeline force accumulation to match.
+
+
+=== PASS A49 (2026-02-22) — Intro Skip reliability + gold goal ring palette ===
+- UI (Intro): Skip button input is no longer hijacked by overlay tap-to-advance handlers; Skip now triggers immediately on pointerdown and reliably returns to Lobby (intro still marked seen; no tutorial auto-launch).
+- Visual (Psyche): Goal-satisfied wedge ring palette tweaked toward deeper metallic gold (darker bronze shadow + near-white champagne highlight) to avoid reading as the Yellow hue wedge.

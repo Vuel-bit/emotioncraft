@@ -767,31 +767,17 @@
       SIM.wellsA[hi] = A_raw - rate * dt;
       try { SIM._quirkForceTotals.byWell[hi] -= (rate * dt); SIM._quirkForceTotals.byType.CRASHES[hi] -= (rate * dt); } catch (_) {}
     } else if (w.type === TYPES.AMPED) {
-      // Push toward +100 specifically (no clamping; overshoot allowed by design).
+      // Push spin upward at constant strength (no target-distance scaling; overshoot allowed).
       const rateSpin = rate * (A_ref / 100);
-      const target = S_MAX;
-      let deltaNorm;
-      if (S_raw >= target - EPS) {
-        deltaNorm = 1;
-      } else {
-        deltaNorm = Math.max(0, Math.min(1, (target - S_raw) / 100));
-      }
-      SIM.wellsS[hi] = S_raw + rateSpin * deltaNorm * dt;
+      SIM.wellsS[hi] = S_raw + rateSpin * dt;
       // Track force ignoring A_ref/100 mitigation. Direction is by type (Amped=+).
-      try { const mag = (rate * Math.abs(deltaNorm) * dt); SIM._quirkForceTotals.byWell[hi] += mag; SIM._quirkForceTotals.byType.AMPED[hi] += mag; } catch (_) {}
+      try { const mag = (rate * dt); SIM._quirkForceTotals.byWell[hi] += mag; SIM._quirkForceTotals.byType.AMPED[hi] += mag; } catch (_) {}
     } else if (w.type === TYPES.SPIRALS) {
-      // Push toward -100 specifically.
+      // Push spin downward at constant strength (no target-distance scaling; overshoot allowed).
       const rateSpin = rate * (A_ref / 100);
-      const target = S_MIN;
-      let deltaNorm;
-      if (S_raw <= target + EPS) {
-        deltaNorm = -1;
-      } else {
-        deltaNorm = Math.max(-1, Math.min(0, (target - S_raw) / 100));
-      }
-      SIM.wellsS[hi] = S_raw + rateSpin * deltaNorm * dt;
+      SIM.wellsS[hi] = S_raw - rateSpin * dt;
       // Track force ignoring A_ref/100 mitigation. Direction is by type (Spirals=-).
-      try { const mag = (rate * Math.abs(deltaNorm) * dt); SIM._quirkForceTotals.byWell[hi] -= mag; SIM._quirkForceTotals.byType.SPIRALS[hi] -= mag; } catch (_) {}
+      try { const mag = (rate * dt); SIM._quirkForceTotals.byWell[hi] -= mag; SIM._quirkForceTotals.byType.SPIRALS[hi] -= mag; } catch (_) {}
     }
 
     // S_ref is unused, but keeping read consistent for future debug.
@@ -1119,16 +1105,12 @@
                   dForce = rate * dt;
                 } else if (inst.type === TYPES.CRASHES) {
                   dForce = -rate * dt;
+                } else if (inst.type === TYPES.AMPED) {
+                  dForce = rate * dt;
+                } else if (inst.type === TYPES.SPIRALS) {
+                  dForce = -rate * dt;
                 } else {
-                  const S_MIN = (typeof T.S_MIN === 'number') ? T.S_MIN : -100;
-                  const S_MAX = (typeof T.S_MAX === 'number') ? T.S_MAX : 100;
-                  const hi = inst.hueIndex | 0;
-                  const S_raw = (SIM.wellsS && SIM.wellsS[hi] != null) ? Number(SIM.wellsS[hi]) : 0;
-                  const target = (inst.type === TYPES.AMPED) ? S_MAX : S_MIN;
-                  const delta = target - S_raw;
-                  const deltaNorm = Math.max(-1, Math.min(1, delta / 100));
-                  const mag = rate * Math.abs(deltaNorm) * dt;
-                  dForce = (inst.type === TYPES.AMPED) ? mag : -mag;
+                  dForce = 0;
                 }
                 if (isFinite(dForce)) inst._tl.force += dForce;
               }

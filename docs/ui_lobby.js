@@ -85,10 +85,11 @@
       btnAuthSignIn: $("btnAuthSignIn"),
       btnAuthSignOut: $("btnAuthSignOut"),
       authUser: $("authUser"),
-      authNameWrap: $("lobbyNameWrap"),
       authPlayerName: $("authPlayerName"),
+      authPlayerNameDisplay: $("authPlayerNameDisplay"),
       startEnergyEl: $("lobbyStartEnergy"),
       portraitImg: $("lobbyPortraitImg"),
+      treatmentHistory: $("lobbyTreatmentHistory"),
       detailsName: $("lobbyDetailsName"),
       infoBtn: $("btnLobbyPatientInfo"),
       detailsTagline: $("lobbyDetailsTagline"),
@@ -627,6 +628,9 @@
     const fbOk = !!(EC.FB && EC.FB.ok);
     const hasAuth = !!(EC.AUTH && typeof EC.AUTH.signInGoogle === 'function' && typeof EC.AUTH.signOut === 'function');
     const u = (EC.AUTH && EC.AUTH.user) ? EC.AUTH.user : null;
+    const UI = _snap().UI;
+    let custom = !!(UI && UI._playerNameCustom);
+    const isEditing = !!(els.authPlayerName && els.authPlayerName.style && els.authPlayerName.style.display !== 'none');
 
     // If Firebase is unavailable, fail gracefully: disable sign-in.
     if (!fbOk || !hasAuth) {
@@ -640,10 +644,14 @@
         els.authUser.textContent = '';
         els.authUser.style.display = 'none';
       }
-      if (els.authNameWrap) els.authNameWrap.style.display = 'none';
+      if (els.authPlayerNameDisplay) {
+        els.authPlayerNameDisplay.textContent = '';
+        els.authPlayerNameDisplay.style.display = 'none';
+      }
       if (els.authPlayerName) {
         els.authPlayerName.value = '';
         els.authPlayerName.disabled = true;
+        els.authPlayerName.style.display = 'none';
       }
       return;
     }
@@ -659,31 +667,60 @@
         els.authUser.textContent = '';
         els.authUser.style.display = 'none';
       }
-      if (els.authNameWrap) els.authNameWrap.style.display = 'none';
+      if (els.authPlayerNameDisplay) {
+        els.authPlayerNameDisplay.textContent = '';
+        els.authPlayerNameDisplay.style.display = 'none';
+        els.authPlayerNameDisplay.classList.remove('muted');
+      }
       if (els.authPlayerName) {
         els.authPlayerName.value = '';
         els.authPlayerName.disabled = true;
+        els.authPlayerName.style.display = 'none';
       }
     } else {
       if (els.btnAuthSignIn) els.btnAuthSignIn.style.display = 'none';
       if (els.authUser) {
         els.authUser.textContent = authLabel(u);
-        els.authUser.style.display = '';
+        // Hide the Google display line once the player has chosen a custom name.
+        els.authUser.style.display = custom ? 'none' : '';
       }
-      // Editable player name (persisted separately from auth profile)
+      // Player name display (editable): show display pill by default, input only while editing.
       try {
-        const UI = _snap().UI;
         let pn = (UI && typeof UI._playerName === 'string') ? UI._playerName.trim() : '';
-        if (!pn) pn = (u && u.displayName) ? String(u.displayName) : '';
-        if (els.authNameWrap) els.authNameWrap.style.display = '';
+        const fallback = (u && u.displayName) ? String(u.displayName) : (u && u.email ? String(u.email) : 'Player');
+        // Soft-migrate: if a saved name exists and differs from the auth display name, treat it as custom.
+        try {
+          if (!custom && pn && u && u.displayName && pn !== String(u.displayName)) {
+            custom = true;
+            if (UI) UI._playerNameCustom = true;
+          }
+        } catch (_) {}
+        try { if (els.authUser) els.authUser.style.display = custom ? 'none' : ''; } catch (_) {}
+
+        if (els.authPlayerNameDisplay) {
+          let displayText = '';
+          let muted = false;
+          if (custom) {
+            displayText = pn || fallback;
+            muted = false;
+          } else {
+            displayText = pn || 'Tap to set name';
+            muted = (!pn);
+          }
+          els.authPlayerNameDisplay.textContent = displayText;
+          els.authPlayerNameDisplay.style.display = isEditing ? 'none' : '';
+          els.authPlayerNameDisplay.classList.toggle('muted', muted);
+        }
+
         if (els.authPlayerName) {
           els.authPlayerName.disabled = false;
-          if (document.activeElement !== els.authPlayerName) els.authPlayerName.value = pn;
+          // Only show the input while editing.
+          els.authPlayerName.style.display = isEditing ? '' : 'none';
+          // Do NOT auto-assign UI._playerName from Google display name.
         }
-        if (UI && !UI._playerName && pn) UI._playerName = pn;
       } catch (_) {
-        if (els.authNameWrap) els.authNameWrap.style.display = '';
-        if (els.authPlayerName) els.authPlayerName.disabled = false;
+        if (els.authPlayerNameDisplay) els.authPlayerNameDisplay.style.display = 'none';
+        if (els.authPlayerName) { els.authPlayerName.disabled = false; els.authPlayerName.style.display = 'none'; }
       }
       if (els.btnAuthSignOut) {
         els.btnAuthSignOut.style.display = '';
@@ -772,6 +809,10 @@
         if (els.detailsHelp) {
           if (!show) {
             els.detailsHelp.style.display = 'none';
+            if (els.treatmentHistory) {
+              els.treatmentHistory.textContent = '';
+              els.treatmentHistory.style.display = 'none';
+            }
           } else {
             const Tn = (EC.TUNE || {});
             const moodLbl = p.moodLabel || (p.mood && p.mood.label) || 'Steady';
@@ -807,11 +848,10 @@
               qs2.forEach((q) => { const t = String((q && q.type) || '').toUpperCase(); if (t) types[t] = true; });
               if (types['LOCKS_IN']) qLines.push('Fixates: Amount ↑');
               if (types['CRASHES']) qLines.push('Crashes: Amount ↓');
-              if (types['AMPED']) { qLines.push('Obsesses: Spin pushed toward +100'); hasSpinQuirk = true; }
-              if (types['SPIRALS']) { qLines.push('Spirals: Spin pushed toward -100'); hasSpinQuirk = true; }
-              if (!qLines.length) qLines.push('• none');
-              if (hasSpinQuirk) qLines.push('Note: Spin-quirk push scales with Amount (low Amount reduces effect).');
-            } catch (_) { qLines.push('• none'); }
+              if (types['AMPED']) { qLines.push('Obsesses: Spin ↑'); hasSpinQuirk = true; }
+              if (types['SPIRALS']) { qLines.push('Spirals: Spin ↓'); hasSpinQuirk = true; }
+              if (!qLines.length) qLines.push('none');
+            } catch (_) { qLines.push('none'); }
 
             const parts = [];
             parts.push('Mood');
@@ -831,6 +871,16 @@
 
             els.detailsHelp.textContent = parts.join('\n');
             els.detailsHelp.style.display = '';
+
+            // Treatment History (portrait column) — only when details are expanded.
+            if (els.treatmentHistory) {
+              const hist = Array.isArray(p.treatmentHistory) ? p.treatmentHistory : [];
+              const lines = ['Treatment History'];
+              if (hist.length) hist.forEach((h) => lines.push(String(h)));
+              else lines.push('—');
+              els.treatmentHistory.textContent = lines.join('\n');
+              els.treatmentHistory.style.display = '';
+            }
           }
         }
       } catch (_) {}
@@ -889,24 +939,61 @@
       row.dataset.pid = p.id;
 
       const left = document.createElement('div');
-      const title = document.createElement('div');
-      title.className = 'patientTitle';
-      title.textContent = p.name;
-      const meta = document.createElement('div');
-      meta.className = 'patientMeta';
-      const mood = p.moodLabel ? `Mood: ${p.moodLabel}` : '';
-      const vibe = p.vibeLabel ? `Vibe: ${p.vibeLabel}` : '';
-      const tagline = (p.notes || p.tagline) ? (p.notes || p.tagline) : '';
-      meta.textContent = [tagline, [mood, vibe].filter(Boolean).join(' • ')].filter(Boolean).join(' — ');
-      left.appendChild(title);
-      left.appendChild(meta);
+      // Left side: 3-line layout
+      const top = document.createElement('div');
+      top.className = 'patientTopLine';
+      const traits = Array.isArray(p.traits) ? p.traits.filter(Boolean) : [];
+      if (traits.length) top.textContent = `${p.name} - ${traits.join(', ')}`;
+      else top.textContent = p.name;
+
+      const mid = document.createElement('div');
+      mid.className = 'patientMidLine';
+      mid.textContent = (p.notes || p.tagline || '');
+
+      const bot = document.createElement('div');
+      bot.className = 'patientBottomLine';
+      const mood = p.moodLabel ? `${p.moodLabel}` : '—';
+      const vibe = p.vibeLabel ? `${p.vibeLabel}` : '—';
+      bot.textContent = `Mood - ${mood} || Vibe - ${vibe}`;
+
+      left.appendChild(top);
+      left.appendChild(mid);
+      left.appendChild(bot);
 
       const right = document.createElement('div');
       right.className = 'patientBadges';
-      const pill1 = document.createElement('div');
-      pill1.className = 'pill';
-      pill1.textContent = (p.intakeDone ? 'Returning' : 'Intake');
-      right.appendChild(pill1);
+      // Right side: quirks grid (Fixates/Obsesses then Crashes/Spirals)
+      const grid = document.createElement('div');
+      grid.className = 'patientQuirkGrid';
+
+      const qByType = Object.create(null);
+      try {
+        (Array.isArray(p.quirks) ? p.quirks : []).forEach((q) => {
+          const t = String((q && q.type) || '').toUpperCase();
+          if (!t) return;
+          qByType[t] = (typeof q.intensityTier === 'number') ? q.intensityTier : 0;
+        });
+      } catch (_) {}
+
+      const slot = (label, typeKey) => {
+        const el = document.createElement('div');
+        el.className = 'patientQuirkSlot';
+        el.textContent = label;
+        const k = String(typeKey || '').toUpperCase();
+        if (Object.prototype.hasOwnProperty.call(qByType, k)) {
+          el.style.color = _tierColor(qByType[k]);
+        } else {
+          // Preserve alignment without showing text.
+          el.style.opacity = '0';
+        }
+        return el;
+      };
+
+      grid.appendChild(slot('Fixates', 'LOCKS_IN'));
+      grid.appendChild(slot('Obsesses', 'AMPED'));
+      grid.appendChild(slot('Crashes', 'CRASHES'));
+      grid.appendChild(slot('Spirals', 'SPIRALS'));
+      right.appendChild(grid);
 
       row.appendChild(left);
       row.appendChild(right);
@@ -1013,35 +1100,72 @@
       }
       updateAuthUI(els);
 
-      // Editable player name (saved to Firestore under ui.playerName)
-      if (els.authPlayerName && !els.authPlayerName._ecBound) {
-        els.authPlayerName._ecBound = true;
-        const commit = () => {
+      // Editable player name (saved to Firestore under ui.playerName + ui.playerNameCustom)
+      if ((els.authPlayerName || els.authPlayerNameDisplay) && !((els.authPlayerName && els.authPlayerName._ecNameEditBound) || (els.authPlayerNameDisplay && els.authPlayerNameDisplay._ecNameEditBound))) {
+        if (els.authPlayerName) els.authPlayerName._ecNameEditBound = true;
+        if (els.authPlayerNameDisplay) els.authPlayerNameDisplay._ecNameEditBound = true;
+
+        const beginEdit = () => {
           try {
             const u = (EC.AUTH && EC.AUTH.user) ? EC.AUTH.user : null;
             if (!u) return;
             const UI = _snap().UI;
-            const prev = (UI && typeof UI._playerName === 'string') ? UI._playerName.trim() : '';
-            const next = String(els.authPlayerName.value || '').trim();
-            if (!next) {
-              // Revert to previous (or auth profile) if cleared.
-              els.authPlayerName.value = prev || (u.displayName ? String(u.displayName) : '');
-              return;
-            }
-            if (next === prev) return;
-            UI._playerName = next;
-            if (EC.SAVE && typeof EC.SAVE._writeCurrentPat === 'function') {
-              EC.SAVE._writeCurrentPat('playerName');
+            const cur = (UI && typeof UI._playerName === 'string') ? UI._playerName.trim() : '';
+            const fallback = (u && u.displayName) ? String(u.displayName) : (u && u.email ? String(u.email) : '');
+
+            if (els.authPlayerNameDisplay) els.authPlayerNameDisplay.style.display = 'none';
+            if (els.authPlayerName) {
+              els.authPlayerName.style.display = '';
+              els.authPlayerName.disabled = false;
+              els.authPlayerName.value = cur || fallback;
+              try { els.authPlayerName.focus(); } catch (_) {}
+              try { els.authPlayerName.select(); } catch (_) {}
             }
           } catch (_) {}
         };
-        els.authPlayerName.addEventListener('keydown', (e) => {
-          if (e && e.key === 'Enter') {
-            try { e.preventDefault(); } catch (_) {}
-            try { els.authPlayerName.blur(); } catch (_) {}
-          }
-        });
-        els.authPlayerName.addEventListener('blur', commit);
+
+        const endEdit = (doCommit) => {
+          try {
+            const u = (EC.AUTH && EC.AUTH.user) ? EC.AUTH.user : null;
+            if (!u) return;
+            const UI = _snap().UI;
+
+            if (doCommit && els.authPlayerName) {
+              const prev = (UI && typeof UI._playerName === 'string') ? UI._playerName.trim() : '';
+              const next = String(els.authPlayerName.value || '').trim();
+              if (next && next !== prev) {
+                UI._playerName = next;
+                UI._playerNameCustom = true;
+                if (EC.SAVE && typeof EC.SAVE._writeCurrentPat === 'function') {
+                  EC.SAVE._writeCurrentPat('playerName');
+                }
+              }
+            }
+
+            if (els.authPlayerName) els.authPlayerName.style.display = 'none';
+            if (els.authPlayerNameDisplay) els.authPlayerNameDisplay.style.display = '';
+            try { updateAuthUI(els); } catch (_) {}
+          } catch (_) {}
+        };
+
+        if (els.authPlayerNameDisplay) {
+          els.authPlayerNameDisplay.addEventListener('click', beginEdit);
+          els.authPlayerNameDisplay.addEventListener('touchend', (e) => { try { e.preventDefault(); } catch (_) {} beginEdit(); }, { passive: false });
+        }
+
+        if (els.authPlayerName) {
+          els.authPlayerName.addEventListener('keydown', (e) => {
+            if (!e) return;
+            if (e.key === 'Enter') {
+              try { e.preventDefault(); } catch (_) {}
+              endEdit(true);
+            } else if (e.key === 'Escape') {
+              try { e.preventDefault(); } catch (_) {}
+              endEdit(false);
+            }
+          });
+          els.authPlayerName.addEventListener('blur', () => endEdit(true));
+        }
       }
     } catch (_) {}
 
@@ -1380,6 +1504,7 @@ function render() {
       const resumable = !!(SIM._patientActive && !isWin && !isLose);
       if (els.resumeBtn) {
         els.resumeBtn.style.display = resumable ? '' : 'none';
+        try { els.resumeBtn.classList.toggle('resumePulse', !!resumable); } catch (_) {}
       }
       if (els.startBtn) {
         els.startBtn.textContent = resumable ? 'Start New Session' : 'Start Session';
@@ -1389,7 +1514,7 @@ function render() {
         const subEl = els.overlay.querySelector('.sub');
         if (subEl && subEl.tagName && subEl.tagName.toLowerCase() === 'div') {
           if (resumable) {
-            subEl.textContent = 'Session paused. Resume or start a new patient.';
+            subEl.textContent = 'Session paused.\nResume or start a new patient.';
             subEl.style.display = '';
           } else {
             subEl.textContent = '';

@@ -265,6 +265,12 @@
       UI._playerName = String(data.ui.playerName || '');
     }
 
+    // Persisted UI-only flag: whether the player chose a custom name.
+    if (v >= 2 && data.ui && typeof data.ui === 'object' && typeof data.ui.playerNameCustom === 'boolean') {
+      const UI = EC.UI_STATE || (EC.UI_STATE = {});
+      UI._playerNameCustom = !!data.ui.playerNameCustom;
+    }
+
     if (v >= 2 && data.pat && typeof data.pat === 'object') {
       SAVE._pendingDoc = data;
       // Try immediately; if patients system not ready yet, retry a few times.
@@ -294,19 +300,30 @@
       const seenFirstPopups = Object.assign({}, (UI && UI._seenFirstPopups) || {});
       const seenIntroBAP = !!(UI && UI._seenIntroBAP);
       const seenIntroBAP_v3 = !!(UI && UI._seenIntroBAP_v3);
-      // Include playerName in ui map so merge writes don't wipe it.
-      let playerName = '';
-      try { if (UI && typeof UI._playerName === 'string' && UI._playerName.trim()) playerName = UI._playerName.trim(); } catch (_) {}
-      if (!playerName) {
-        try {
-          const last = SAVE._lastLoadedDoc;
-          if (last && last.ui && typeof last.ui.playerName === 'string' && last.ui.playerName.trim()) playerName = last.ui.playerName.trim();
-        } catch (_) {}
+      // Include playerName/playerNameCustom only when known to avoid wiping older docs.
+      let playerNameCustom = false;
+      let customKnown = false;
+      let last = null;
+      try { last = SAVE._lastLoadedDoc; } catch (_) { last = null; }
+
+      try {
+        if (typeof UI._playerNameCustom === 'boolean') { playerNameCustom = !!UI._playerNameCustom; customKnown = true; }
+        else if (last && last.ui && typeof last.ui.playerNameCustom === 'boolean') { playerNameCustom = !!last.ui.playerNameCustom; customKnown = true; }
+      } catch (_) {}
+
+      const uiOut = { seenFirstPopups, seenIntroBAP, seenIntroBAP_v3 };
+      if (customKnown) uiOut.playerNameCustom = playerNameCustom;
+
+      if (playerNameCustom) {
+        let playerName = '';
+        try { if (UI && typeof UI._playerName === 'string' && UI._playerName.trim()) playerName = UI._playerName.trim(); } catch (_) {}
+        if (!playerName) {
+          try { if (last && last.ui && typeof last.ui.playerName === 'string' && last.ui.playerName.trim()) playerName = last.ui.playerName.trim(); } catch (_) {}
+        }
+        if (playerName) uiOut.playerName = playerName;
       }
-      if (!playerName) {
-        try { if (AUTH.user && AUTH.user.displayName) playerName = String(AUTH.user.displayName); } catch (_) {}
-      }
-      return SAVE.debouncedWrite({ schemaVersion: 2, ui: { seenFirstPopups, seenIntroBAP, seenIntroBAP_v3, playerName } }, { merge: true });
+
+      return SAVE.debouncedWrite({ schemaVersion: 2, ui: uiOut }, { merge: true });
     }
 
     SAVE._patWriteAttempts = 0;
@@ -315,19 +332,30 @@
     const seenFirstPopups = Object.assign({}, (UI && UI._seenFirstPopups) || {});
     const seenIntroBAP = !!(UI && UI._seenIntroBAP);
     const seenIntroBAP_v3 = !!(UI && UI._seenIntroBAP_v3);
-    // Include playerName in ui map so merge writes don't wipe it.
-    let playerName = '';
-    try { if (UI && typeof UI._playerName === 'string' && UI._playerName.trim()) playerName = UI._playerName.trim(); } catch (_) {}
-    if (!playerName) {
-      try {
-        const last = SAVE._lastLoadedDoc;
-        if (last && last.ui && typeof last.ui.playerName === 'string' && last.ui.playerName.trim()) playerName = last.ui.playerName.trim();
-      } catch (_) {}
+    // Include playerName/playerNameCustom only when known to avoid wiping older docs.
+    let playerNameCustom = false;
+    let customKnown = false;
+    let last = null;
+    try { last = SAVE._lastLoadedDoc; } catch (_) { last = null; }
+
+    try {
+      if (typeof UI._playerNameCustom === 'boolean') { playerNameCustom = !!UI._playerNameCustom; customKnown = true; }
+      else if (last && last.ui && typeof last.ui.playerNameCustom === 'boolean') { playerNameCustom = !!last.ui.playerNameCustom; customKnown = true; }
+    } catch (_) {}
+
+    const uiOut = { seenFirstPopups, seenIntroBAP, seenIntroBAP_v3 };
+    if (customKnown) uiOut.playerNameCustom = playerNameCustom;
+
+    if (playerNameCustom) {
+      let playerName = '';
+      try { if (UI && typeof UI._playerName === 'string' && UI._playerName.trim()) playerName = UI._playerName.trim(); } catch (_) {}
+      if (!playerName) {
+        try { if (last && last.ui && typeof last.ui.playerName === 'string' && last.ui.playerName.trim()) playerName = last.ui.playerName.trim(); } catch (_) {}
+      }
+      if (playerName) uiOut.playerName = playerName;
     }
-    if (!playerName) {
-      try { if (AUTH.user && AUTH.user.displayName) playerName = String(AUTH.user.displayName); } catch (_) {}
-    }
-    return SAVE.debouncedWrite({ schemaVersion: 2, pat, ui: { seenFirstPopups, seenIntroBAP, seenIntroBAP_v3, playerName } }, { merge: true });
+
+    return SAVE.debouncedWrite({ schemaVersion: 2, pat, ui: uiOut }, { merge: true });
   };
 
   SAVE._touchOnSignIn = SAVE._touchOnSignIn || function _touchOnSignIn() {

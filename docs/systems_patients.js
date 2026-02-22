@@ -519,6 +519,8 @@ function _uniq(arr) {
         zenDone: false,
         tranquilityDone: false,
         lastOutcome: '—',
+        // UI metadata only (no gameplay effect)
+        treatmentHistory: [],
       };
     });
 
@@ -766,6 +768,7 @@ function _uniq(arr) {
         zenDone: !!p.zenDone,
         tranquilityDone: !!p.tranquilityDone,
         lastOutcome: (typeof p.lastOutcome === 'string') ? p.lastOutcome : '—',
+        treatmentHistory: Array.isArray(p.treatmentHistory) ? p.treatmentHistory.slice() : [],
         quirkCount: Array.isArray(p.quirks) ? p.quirks.length : 0,
       });
     }
@@ -882,12 +885,24 @@ function _uniq(arr) {
         const isLose = !!((SIM && (SIM.levelState === 'lose')) || (SIM && SIM.mvpLose) || (SIM && SIM.gameOver));
         const reason = (SIM && typeof SIM.gameOverReason === 'string') ? SIM.gameOverReason : '';
 
+        const addHist = (label, outcome) => {
+          try {
+            if (!label || !outcome) return;
+            if (!Array.isArray(p.treatmentHistory)) p.treatmentHistory = [];
+            const line = `${label} — ${outcome}`;
+            p.treatmentHistory.push(line);
+            // Keep history bounded (UI-only).
+            if (p.treatmentHistory.length > 60) p.treatmentHistory = p.treatmentHistory.slice(p.treatmentHistory.length - 60);
+          } catch (_) {}
+        };
+
 
 // INTAKE progression: on win, unlock plans.
 if (pk === 'INTAKE') {
   if (isWin) {
     p.intakeDone = true;
     p.lastOutcome = 'Intake complete.';
+    addHist('Intake', 'success.');
 
     // Return to rotation.
     if (!isTranscended(p.id)) {
@@ -902,9 +917,11 @@ if (pk === 'INTAKE') {
     // Hold out of rotation until reward is chosen.
     STATE.pendingWeeklyRewardId = p.id;
     p.lastOutcome = 'Weekly success.';
+    addHist('Weekly', 'success.');
     // Do not return to queue yet.
   } else if (isLose) {
     p.lastOutcome = 'Weekly failed.';
+    addHist('Weekly', 'failed.');
     const inSlots = STATE.lobbySlots.indexOf(p.id) >= 0;
     const inQueue = STATE.poolQueue.indexOf(p.id) >= 0;
     if (!inSlots && !inQueue && !isTranscended(p.id)) STATE.poolQueue.push(p.id);
@@ -917,6 +934,7 @@ if (pk === 'INTAKE') {
     p.zenDone = true;
     if (!wasZenDone) STATE.points = (STATE.points|0) + 1;
     p.lastOutcome = 'Zen complete.';
+    addHist('Zen', 'success.');
     // Return to rotation like a normal session.
     const inSlots = STATE.lobbySlots.indexOf(p.id) >= 0;
     const inQueue = STATE.poolQueue.indexOf(p.id) >= 0;
@@ -926,6 +944,7 @@ if (pk === 'INTAKE') {
   } else if (isLose) {
     if (reason === 'Time expired.') p.lastOutcome = 'Zen failed: time expired.';
     else p.lastOutcome = 'Zen failed.';
+    addHist('Zen', (reason === 'Time expired.') ? 'failed: time expired.' : 'failed.');
     const inSlots = STATE.lobbySlots.indexOf(p.id) >= 0;
     const inQueue = STATE.poolQueue.indexOf(p.id) >= 0;
     if (!inSlots && !inQueue && !isTranscended(p.id)) STATE.poolQueue.push(p.id);
@@ -936,6 +955,7 @@ if (pk === 'INTAKE') {
   if (isWin) {
     p.tranquilityDone = true;
     p.lastOutcome = 'Tranquility complete.';
+    addHist('Tranquility', 'success.');
     const inSlots = STATE.lobbySlots.indexOf(p.id) >= 0;
     const inQueue = STATE.poolQueue.indexOf(p.id) >= 0;
     if (!inSlots && !inQueue && !isTranscended(p.id)) STATE.poolQueue.push(p.id);
@@ -944,6 +964,7 @@ if (pk === 'INTAKE') {
   } else if (isLose) {
     if (reason === 'Time expired.') p.lastOutcome = 'Tranquility failed: time expired.';
     else p.lastOutcome = 'Tranquility failed.';
+    addHist('Tranquility', (reason === 'Time expired.') ? 'failed: time expired.' : 'failed.');
     const inSlots = STATE.lobbySlots.indexOf(p.id) >= 0;
     const inQueue = STATE.poolQueue.indexOf(p.id) >= 0;
     if (!inSlots && !inQueue && !isTranscended(p.id)) STATE.poolQueue.push(p.id);
@@ -953,6 +974,7 @@ if (pk === 'INTAKE') {
 } else if (pk === 'TRANSCENDENCE') {
   if (isWin) {
     p.lastOutcome = 'Transcended.';
+    addHist('Transcendence', 'success.');
     // Permanently remove.
     const wasTranscended = isTranscended(p.id);
     transcendPatient(p.id);
@@ -963,6 +985,7 @@ if (pk === 'INTAKE') {
   } else if (isLose) {
     if (reason === 'Time expired.') p.lastOutcome = 'Transcendence failed: time expired.';
     else p.lastOutcome = 'Transcendence failed.';
+    addHist('Transcendence', (reason === 'Time expired.') ? 'failed: time expired.' : 'failed.');
     const inSlots = STATE.lobbySlots.indexOf(p.id) >= 0;
     const inQueue = STATE.poolQueue.indexOf(p.id) >= 0;
     if (!inSlots && !inQueue && !isTranscended(p.id)) STATE.poolQueue.push(p.id);
@@ -974,6 +997,8 @@ if (pk === 'INTAKE') {
           const label = planKeyRaw || 'Session';
           if (isWin) p.lastOutcome = `${label} success.`;
           else if (isLose) p.lastOutcome = `${label} failed.`;
+          if (isWin) addHist(label, 'success.');
+          else if (isLose) addHist(label, 'failed.');
           const inSlots = STATE.lobbySlots.indexOf(p.id) >= 0;
           const inQueue = STATE.poolQueue.indexOf(p.id) >= 0;
           if (!inSlots && !inQueue && !isTranscended(p.id)) STATE.poolQueue.push(p.id);
@@ -1072,6 +1097,9 @@ function openLobbyPause() {
               .filter((q) => q && typeof q.type === 'string')
               .map((q) => ({ type: q.type, intensityTier: (typeof q.intensityTier === 'number') ? q.intensityTier : 0 }))
           : [],
+        treatmentHistory: Array.isArray(p.treatmentHistory)
+          ? p.treatmentHistory.filter((x) => typeof x === 'string').slice(0, 60)
+          : [],
       };
     });
 
@@ -1115,6 +1143,10 @@ function openLobbyPause() {
         if (typeof src.zenDone === 'boolean') dst.zenDone = src.zenDone;
         if (typeof src.tranquilityDone === 'boolean') dst.tranquilityDone = src.tranquilityDone;
         if (typeof src.lastOutcome === 'string') dst.lastOutcome = src.lastOutcome;
+
+        if (Array.isArray(src.treatmentHistory)) {
+          dst.treatmentHistory = src.treatmentHistory.filter((x) => typeof x === 'string').slice(0, 60);
+        }
 
         if (Array.isArray(src.traits)) {
           dst.traits = src.traits.filter((x) => typeof x === 'string');

@@ -260,8 +260,13 @@
     overlay.appendChild(hint);
 
     // Input handling (block + skip)
+    function isSkipTarget(ev) {
+      return !!(btn && ev && ev.target && (ev.target === btn || (btn.contains && btn.contains(ev.target))));
+    }
     function onAny(ev) {
       if (!MOD._playing) return;
+      // Let Skip receive input reliably (do not treat it as "tap anywhere").
+      if (isSkipTarget(ev)) return;
       try { ev.preventDefault(); ev.stopPropagation(); } catch (_) {}
       // Tap/click anywhere advances to the next shot (not full skip).
       if (typeof MOD.advance === 'function') MOD.advance('tap');
@@ -276,7 +281,12 @@
     overlay.addEventListener('pointerdown', onAny, { capture: true, passive: false });
     overlay.addEventListener('pointerup', onAny, { capture: true, passive: false });
     overlay.addEventListener('pointermove', (ev) => { if (!MOD._playing) return; try { ev.preventDefault(); ev.stopPropagation(); } catch (_) {} }, { capture: true, passive: false });
-    overlay.addEventListener('click', (ev) => { if (!MOD._playing) return; try { ev.preventDefault(); ev.stopPropagation(); } catch (_) {} }, { capture: true, passive: false });
+    overlay.addEventListener('click', (ev) => {
+      if (!MOD._playing) return;
+      if (isSkipTarget(ev)) return;
+      try { ev.preventDefault(); ev.stopPropagation(); } catch (_) {}
+    }, { capture: true, passive: false });
+    btn.addEventListener('pointerdown', onBtn, { capture: true, passive: false });
     btn.addEventListener('click', onBtn, { capture: true, passive: false });
 
     // Escape to skip (desktop)
