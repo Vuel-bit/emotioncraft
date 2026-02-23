@@ -979,8 +979,6 @@ if (pk === 'INTAKE') {
     const wasTranscended = isTranscended(p.id);
     transcendPatient(p.id);
     if (!wasTranscended) STATE.points = (STATE.points|0) + 1;
-    // Reuse the existing transcend congrats modal wiring.
-    STATE.pendingZenCongratsId = p.id;
     try { requestSave('transcendence_win'); } catch (_) {}
   } else if (isLose) {
     if (reason === 'Time expired.') p.lastOutcome = 'Transcendence failed: time expired.';

@@ -269,3 +269,10 @@ Pass A31: BAP intro cutscene polish — fixed framing so shots start in full fit
 === PASS A49 (2026-02-22) — Intro Skip reliability + gold goal ring palette ===
 - UI (Intro): Skip button input is no longer hijacked by overlay tap-to-advance handlers; Skip now triggers immediately on pointerdown and reliably returns to Lobby (intro still marked seen; no tutorial auto-launch).
 - Visual (Psyche): Goal-satisfied wedge ring palette tweaked toward deeper metallic gold (darker bronze shadow + near-white champagne highlight) to avoid reading as the Yellow hue wedge.
+
+
+=== PASS A50 (2026-02-22) — Lobby new-patient Last label + remove Transcend popup + white goal ring ===
+- UI (Lobby profile): Patients with empty treatment history now display Last: New Patient (instead of —).
+- UI (Patients): Removed the Transcendence 'removed from rotation' modal trigger; Transcendence HUD announcement and rotation removal remain unchanged.
+- Visual (Psyche): Goal-satisfied wedge ring changed from gold to neutral white (with subtle glint) so it stays distinct from the Yellow hue wedge.
+

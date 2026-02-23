@@ -766,13 +766,16 @@
       const vibe = p.vibeLabel || (p.vibe && p.vibe.label) || 'Mid';
       const traits = (p.traits && p.traits.length) ? p.traits.join(', ') : 'none';
       const last = (typeof p.lastOutcome === 'string' && p.lastOutcome.length) ? p.lastOutcome : '—';
+      const hist = Array.isArray(p.treatmentHistory) ? p.treatmentHistory : [];
+      const isNew = (hist.length === 0) && (last === '—' || !last);
+      const lastLabel = isNew ? 'New Patient' : last;
 
       if (els.detailsMeta) {
         els.detailsMeta.innerHTML = [
           `Mood: ${mood}`,
           `Vibe: ${vibe}`,
           `Traits: ${traits}`,
-          `Last: ${last}`,
+          `Last: ${lastLabel}`,
         ].join('<br>');
       }
 

@@ -1,3 +1,3 @@
-Build: emotioncraft_v0_2_103_passD_passA49_introSkipFull_goldGoalRing.zip
+Build: emotioncraft_v0_2_103_passD_passA50_newPatientLast_noTranscendPopup_whiteGoalRing.zip
 Date: 2026-02-22
-Notes: PASS A49 — Intro Skip button now reliably skips the entire intro and returns to Lobby (tap-anywhere still advances panels). Goal-satisfied wedge ring palette adjusted to read as metallic gold (less lemon-yellow) while keeping layered strokes/glint.
+Notes: PASS A50 — Lobby profile shows Last: New Patient for patients with empty treatment history. Removed the Transcendence 'removed from rotation' modal popup (patient removal behavior unchanged). Goal-satisfied wedge outline ring changed to neutral white (distinct from Yellow hue).

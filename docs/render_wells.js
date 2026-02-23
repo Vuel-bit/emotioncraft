@@ -504,7 +504,7 @@ function renderPsyche() {
   }
 
 
-  // Per-wedge satisfied indicator (gold ring) + numeric readouts.
+  // Per-wedge satisfied indicator (white ring) + numeric readouts.
   // Uses the same per-hue objective evaluation logic already present in SIM.goalViz.
   // (goalPerHue already resolved above)
   const ringG = EC.RENDER.psycheGoalRingG;
@@ -529,17 +529,17 @@ function renderPsyche() {
   }
 
   // Position text and draw satisfied rings in the same wedge geometry.
-  // PASS A44: make the satisfied indicator read as metallic gold (not flat yellow) and add a subtle glint.
-  const goldBase = 0xB8872A;
-  const goldShadow = 0x5B3E12;
-  const goldHighlight = 0xFFF7E6;
+  // PASS A50: satisfied indicator uses a neutral white ring (distinct from all hues), with a subtle glint.
+  const ringBase = 0xFFFFFF;
+  const ringShadow = 0x0B1020;
+  const ringHighlight = 0xEAF2FF;
 
   const ringW = Math.max(2, Math.min(6, safeR * 0.03));
   const textR = r0 + (r1 - r0) * 0.62;
   const fontSize = Math.max(12, Math.min(22, safeR * 0.16));
 
   // Reuse a single lineStyle object to avoid per-wedge allocations in the hot loop.
-  const ringLS = { width: ringW, color: goldBase, alpha: 1.0 };
+  const ringLS = { width: ringW, color: ringBase, alpha: 1.0 };
 
   // UI-only flash when a treatment hold completes
   const flashDur = (EC.TUNE && typeof EC.TUNE.PLAN_STEP_FLASH_SEC === 'number') ? EC.TUNE.PLAN_STEP_FLASH_SEC : 0.45;
@@ -566,7 +566,7 @@ function renderPsyche() {
       t.visible = true;
     }
 
-    // Gold ring if this wedge currently satisfies its objective condition
+    // White ring if this wedge currently satisfies its objective condition
     const ok = goalPerHue ? goalOk(goalPerHue[i], vv) : false;
     if (ok && ringG) {
       // Layered metallic stroke (shadow → base → highlight).
@@ -576,19 +576,19 @@ function renderPsyche() {
       const aHi = clamp(0.55 + 0.25 * flash, 0, 1);
 
       ringLS.width = ringW;
-      ringLS.color = goldShadow;
+      ringLS.color = ringShadow;
       ringLS.alpha = aShadow;
       ringG.lineStyle(ringLS);
       drawAnnularWedge(ringG, 0, 0, r0, r1, start, end);
 
       ringLS.width = ringW * 0.78;
-      ringLS.color = goldBase;
+      ringLS.color = ringBase;
       ringLS.alpha = aBase;
       ringG.lineStyle(ringLS);
       drawAnnularWedge(ringG, 0, 0, r0, r1, start, end);
 
       ringLS.width = ringW * 0.36;
-      ringLS.color = goldHighlight;
+      ringLS.color = ringHighlight;
       ringLS.alpha = aHi;
       ringG.lineStyle(ringLS);
       drawAnnularWedge(ringG, 0, 0, r0, r1, start, end);
@@ -606,7 +606,7 @@ function renderPsyche() {
         const bandW = Math.max(2, ringW * 1.25);
         const rin = Math.max(r0 + 1, r1 - bandW);
         ringG.lineStyle(0);
-        ringG.beginFill(goldHighlight, glA);
+        ringG.beginFill(ringHighlight, glA);
         drawAnnularWedge(ringG, 0, 0, rin, r1, a0, a1);
         ringG.endFill && ringG.endFill();
       } catch (_) { /* ignore */ }
