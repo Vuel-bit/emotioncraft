@@ -411,6 +411,11 @@ BREAK_WARN_FLASH_SEC: 1.0,
     // Geometry
     anchorArcDeg: 70,
     corridorMarginRad: (2.0 * Math.PI) / 180,
+    // Bridge/well flow (PASS A56)
+    bridgePad: 10,
+    wellInnerFrac: 0.35,
+    handoffSplit: 0.52,
+    wellFadeMin: 0.35,
     // Activity caps (within existing pool sizes) + gain for ~2× prominence (PASS A55).
     particlesMax: 18,
     wispsMax: 10,

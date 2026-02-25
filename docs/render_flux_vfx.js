@@ -1,7 +1,7 @@
 // Emotioncraft render_flux_vfx.js — Psyche↔Well Flux VFX (visual-only) (PASS A52)
 // Amorphous wisps + particles + tiny eddies between each well and its matching psyche wedge.
 // Hard constraints:
-// - Masked to ONLY its own wedge annulus + its own well circle (no bleeding)
+// - Masked to its own lane corridor (wedge + bridge + its own well) (no bleeding into other lanes/wells)
 // - Lives in EC.RENDER.psycheFluxLayer inserted between psycheFxLayer and goal/text layers
 // - Toggleable via EC.TUNE.FLUX_VFX.enabled
 (() => {
@@ -40,6 +40,8 @@
     _p0: { x: 0, y: 0 },
     _p1: { x: 0, y: 0 },
     _p2: { x: 0, y: 0 },
+    _p3: { x: 0, y: 0 },
+    _p4: { x: 0, y: 0 },
     _tmp: { x: 0, y: 0 },
     _tmpD: { x: 0, y: 0 },
   };
@@ -380,6 +382,41 @@ lanes[i] = { wrap, view, maskG, particles, wisps, eddies };
     return out;
   }
 
+  function _smoothstep(a, b, x) {
+    if (x <= a) return 0;
+    if (x >= b) return 1;
+    const t = (x - a) / (b - a);
+    return t * t * (3 - 2 * t);
+  }
+
+  // Sample a 2-segment quadratic path:
+  //   Segment B: inner -> handoff (bends inside well)
+  //   Segment A: handoff -> fillEdge (biased corridor)
+  // Returns segIdx: 0 for B, 1 for A.
+  function _samplePiecewise(u, split, pInner, cB, pHand, cA, pFill, outPos, outDeriv) {
+    if (u <= split) {
+      const ub = (split > 0.0001) ? (u / split) : 1;
+      _bezier2(pInner, cB, pHand, ub, outPos);
+      if (outDeriv) {
+        _bezier2Deriv(pInner, cB, pHand, ub, outDeriv);
+        const inv = (split > 0.0001) ? (1 / split) : 1;
+        outDeriv.x *= inv;
+        outDeriv.y *= inv;
+      }
+      return 0;
+    }
+    const den = (1 - split);
+    const ua = (den > 0.0001) ? ((u - split) / den) : 1;
+    _bezier2(pHand, cA, pFill, ua, outPos);
+    if (outDeriv) {
+      _bezier2Deriv(pHand, cA, pFill, ua, outDeriv);
+      const inv = (den > 0.0001) ? (1 / den) : 1;
+      outDeriv.x *= inv;
+      outDeriv.y *= inv;
+    }
+    return 1;
+  }
+
   function _clampPointToCorridor(p, edgeU, centerU, marginRad) {
     const r = Math.hypot(p.x, p.y);
     if (!isFinite(r) || r <= 0.0001) return p;
@@ -401,6 +438,27 @@ lanes[i] = { wrap, view, maskG, particles, wisps, eddies };
       if (aU > hi) aU = hi;
     }
 
+    const aW = _wrapPi(aU);
+    p.x = Math.cos(aW) * r;
+    p.y = Math.sin(aW) * r;
+    return p;
+  }
+
+  function _clampPointToCorridorUpTo(p, edgeU, centerU, marginRad, maxR) {
+    const r = Math.hypot(p.x, p.y);
+    if (!isFinite(r) || r <= 0.0001) return p;
+    if (typeof maxR === 'number' && isFinite(maxR) && r > maxR) return p;
+
+    const ang = Math.atan2(p.y, p.x);
+    let aU = _unwrapToNear(ang, centerU);
+    const lo = Math.min(edgeU, centerU) + marginRad;
+    const hi = Math.max(edgeU, centerU) - marginRad;
+    if (hi <= lo) {
+      aU = centerU;
+    } else {
+      if (aU < lo) aU = lo;
+      if (aU > hi) aU = hi;
+    }
     const aW = _wrapPi(aU);
     p.x = Math.cos(aW) * r;
     p.y = Math.sin(aW) * r;
@@ -467,6 +525,12 @@ lanes[i] = { wrap, view, maskG, particles, wisps, eddies };
       const holdSec = _clamp((typeof T.holdSec === 'number') ? T.holdSec : 0.22, 0, 2.0);
       const smoothHz = _clamp((typeof T.smoothingHz === 'number') ? T.smoothingHz : 8.0, 0.1, 60);
       const corrMargin = _clamp((typeof T.corridorMarginRad === 'number') ? T.corridorMarginRad : (2.0 * DEG), 0.0, 0.40);
+
+      // Bridge + well flow tuning (visual-only)
+      const bridgePad = _clamp((typeof T.bridgePad === 'number') ? T.bridgePad : 10, 0, 80);
+      const innerFrac = _clamp((typeof T.wellInnerFrac === 'number') ? T.wellInnerFrac : 0.35, 0.15, 0.85);
+      const splitU = _clamp((typeof T.handoffSplit === 'number') ? T.handoffSplit : 0.52, 0.20, 0.85);
+      const wellFadeMin = _clamp((typeof T.wellFadeMin === 'number') ? T.wellFadeMin : 0.35, 0.0, 1.0);
 
       const dbgForceOn = !!(T && T.debugForceOn);
       const dbgShowMasks = !!(T && T.debugShowMasks);
@@ -566,18 +630,26 @@ lanes[i] = { wrap, view, maskG, particles, wisps, eddies };
         const ex = Math.cos(fluxCenterAng) * rf;
         const ey = Math.sin(fluxCenterAng) * rf;
 
+        // Lane corridor radii toward the well (allows FX in the bridge/buffer space).
+        const wellCenterR = Math.hypot(wxL, wyL);
+        const rToWellInner = wellCenterR - wr * 1.05;
+        const rBridgeOuter = Math.max(STATE.r1, rToWellInner + bridgePad);
+        const handoffR = Math.max(STATE.r1, STATE.r1 + (rBridgeOuter - STATE.r1) * 0.88);
+        const hxBase = Math.cos(fluxCenterAng) * handoffR;
+        const hyBase = Math.sin(fluxCenterAng) * handoffR;
+
         try {
           const mg = lane.maskG;
           mg.clear();
           mg.beginFill(0xffffff, 1);
           _drawAnnularWedge(mg, 0, 0, STATE.r0, STATE.r1, startAng, endAng);
-          // Bridge wedge to avoid clipping in the radial gap between wheel and well.
-          const wellCenterR = Math.hypot(wxL, wyL);
-          const rBridge = Math.max(STATE.r1, wellCenterR - wr + 6);
+          // Bridge wedge to cover the wheel↔well gap (still confined to this wedge angles).
+          const rBridge = rBridgeOuter;
           if (rBridge > STATE.r1 + 0.5) {
             _drawAnnularWedge(mg, 0, 0, STATE.r1, rBridge, startAng, endAng);
           }
-          mg.drawCircle(wxL, wyL, wr * 1.05);
+          // Well region (slightly expanded for fuzzy edges / AA seams).
+          mg.drawCircle(wxL, wyL, wr * 1.15);
           mg.endFill();
           // Masks must remain renderable; keep alpha > 0. Debug can reveal mask region.
           mg.visible = true;
@@ -618,7 +690,7 @@ lanes[i] = { wrap, view, maskG, particles, wisps, eddies };
         // Double alpha contribution (PASS A55) while keeping a hard translucency cap.
         const baseAlpha = Math.min(alphaCap, (alphaMax * intensity) * alphaGain);
 
-        // Particles
+        // Particles (piecewise path: fillEdge ↔ handoff ↔ well interior)
         const parts = lane.particles;
         for (let k = 0; k < parts.length; k++) {
           const s = parts[k];
@@ -636,38 +708,75 @@ lanes[i] = { wrap, view, maskG, particles, wisps, eddies };
           }
           const u = _clamp(s._u || 0, 0, 1);
 
+          // Anchor ray on the 70° arc; start inside the well (not at rim) to avoid hard cutoff.
           const wob = 0.06 * Math.sin((STATE.t * 1.7) + (s._ph || 0));
           const theta = inwardAng - (s._sOff || 0) * arcSpan + wob;
-          const sx = wxL + wr * Math.cos(theta);
-          const sy = wyL + wr * Math.sin(theta);
+          const cth = Math.cos(theta);
+          const sth = Math.sin(theta);
 
-          const p0 = STATE._p0; p0.x = sx; p0.y = sy;
-          const p2 = STATE._p2; p2.x = ex; p2.y = ey;
-          const dx = p2.x - p0.x;
-          const dy = p2.y - p0.y;
-          const dlen = Math.hypot(dx, dy) || 1;
-          const px = (-dy / dlen) * side;
-          const py = (dx / dlen) * side;
-          const curv = dlen * _mix(0.06, 0.16, intensity);
-          const p1 = STATE._p1;
-          p1.x = _mix(p0.x, p2.x, 0.46) + px * curv;
-          p1.y = _mix(p0.y, p2.y, 0.46) + py * curv;
+          const pInner = STATE._p0;
+          pInner.x = wxL + (wr * innerFrac) * cth;
+          pInner.y = wyL + (wr * innerFrac) * sth;
 
+          const pFill = STATE._p4;
+          pFill.x = ex;
+          pFill.y = ey;
+
+          const pHand = STATE._p2;
+          const jR = (2.5 * Math.sin(STATE.t * 1.0 + (s._ph || 0))) * (0.25 + 0.75 * intensity);
+          pHand.x = hxBase + Math.cos(fluxCenterAng) * jR;
+          pHand.y = hyBase + Math.sin(fluxCenterAng) * jR;
+
+          // Control points
+          const cA = STATE._p3;
+          const dxA = pFill.x - pHand.x;
+          const dyA = pFill.y - pHand.y;
+          const dA = Math.hypot(dxA, dyA) || 1;
+          const pxA = (-dyA / dA) * side;
+          const pyA = (dxA / dA) * side;
+          const curvA = Math.min(26, dA * _mix(0.03, 0.11, intensity));
+          cA.x = _mix(pHand.x, pFill.x, 0.50) + pxA * curvA;
+          cA.y = _mix(pHand.y, pFill.y, 0.50) + pyA * curvA;
+
+          const cB = STATE._p1;
+          const tx = -sth;
+          const ty = cth;
+          const swirl = wr * _mix(0.12, 0.26, intensity) * side * (dir >= 0 ? 1 : -1);
+          cB.x = _mix(pInner.x, pHand.x, 0.32) + tx * swirl;
+          cB.y = _mix(pInner.y, pHand.y, 0.32) + ty * swirl;
+          cB.x = _mix(cB.x, wxL, 0.12);
+          cB.y = _mix(cB.y, wyL, 0.12);
+
+          // Sample piecewise path and apply organic drift.
           const out = STATE._tmp;
-          _bezier2(p0, p1, p2, u, out);
+          const deriv = STATE._tmpD;
+          const seg = _samplePiecewise(u, splitU, pInner, cB, pHand, cA, pFill, out, deriv);
+
+          const dD = Math.hypot(deriv.x, deriv.y) || 1;
+          const px = (-deriv.y / dD) * side;
+          const py = (deriv.x / dD) * side;
           const drift = (0.55 + 0.45 * intensity) * Math.sin((s._ph || 0) + STATE.t * _mix(2.2, 4.2, intensity) + u * 6.0);
-          out.x += px * drift * _mix(2.0, 6.0, intensity);
-          out.y += py * drift * _mix(2.0, 6.0, intensity);
-          _clampPointToCorridor(out, edgeU, centerU, corrMargin);
+          const driftAmp = _mix(1.8, 6.0, intensity) * (seg ? 1.0 : 0.60);
+          out.x += px * drift * driftAmp;
+          out.y += py * drift * driftAmp;
+
+          // Keep Segment A constrained to the biased half-slice corridor (including bridge space).
+          if (seg === 1) _clampPointToCorridorUpTo(out, edgeU, centerU, corrMargin, rBridgeOuter * 1.02);
+
           s.position.set(out.x, out.y);
 
+          // Fade subtly as particles enter the well interior.
+          const dW = Math.hypot(out.x - wxL, out.y - wyL);
+          const tW = _clamp((dW - (wr * innerFrac)) / (wr * Math.max(0.001, 1 - innerFrac)), 0, 1);
+          const wellFade = _mix(wellFadeMin, 1.0, _smoothstep(0.0, 1.0, tW));
+
           const aPulse = 0.72 + 0.28 * Math.sin((s._ph || 0) + STATE.t * 3.5);
-          s.alpha = baseAlpha * 0.55 * aPulse;
+          s.alpha = baseAlpha * 0.55 * aPulse * wellFade;
           const sc = _mix(0.20, 0.60, intensity) * _mix(0.75, 1.25, (k / Math.max(1, pActive - 1)));
           s.scale.set(sc);
         }
 
-        // Wisps
+        // Wisps (piecewise path + corridor enforcement in wheel/bridge)
         const wisps = lane.wisps;
         for (let k = 0; k < wisps.length; k++) {
           const w = wisps[k];
@@ -687,35 +796,63 @@ lanes[i] = { wrap, view, maskG, particles, wisps, eddies };
 
           const wob = 0.04 * Math.sin((STATE.t * 1.2) + (w._ph || 0));
           const theta = inwardAng - (w._sOff || 0) * arcSpan + wob;
-          const sx = wxL + wr * Math.cos(theta);
-          const sy = wyL + wr * Math.sin(theta);
+          const cth = Math.cos(theta);
+          const sth = Math.sin(theta);
 
-          const p0 = STATE._p0; p0.x = sx; p0.y = sy;
-          const p2 = STATE._p2; p2.x = ex; p2.y = ey;
-          const dx = p2.x - p0.x;
-          const dy = p2.y - p0.y;
-          const dlen = Math.hypot(dx, dy) || 1;
-          const px = (-dy / dlen) * side;
-          const py = (dx / dlen) * side;
-          const curv = dlen * _mix(0.05, 0.14, intensity);
-          const p1 = STATE._p1;
-          p1.x = _mix(p0.x, p2.x, 0.48) + px * curv;
-          p1.y = _mix(p0.y, p2.y, 0.48) + py * curv;
+          const pInner = STATE._p0;
+          pInner.x = wxL + (wr * innerFrac) * cth;
+          pInner.y = wyL + (wr * innerFrac) * sth;
+
+          const pFill = STATE._p4;
+          pFill.x = ex;
+          pFill.y = ey;
+
+          const pHand = STATE._p2;
+          const jR = (2.0 * Math.sin(STATE.t * 0.9 + (w._ph || 0))) * (0.25 + 0.75 * intensity);
+          pHand.x = hxBase + Math.cos(fluxCenterAng) * jR;
+          pHand.y = hyBase + Math.sin(fluxCenterAng) * jR;
+
+          const cA = STATE._p3;
+          const dxA = pFill.x - pHand.x;
+          const dyA = pFill.y - pHand.y;
+          const dA = Math.hypot(dxA, dyA) || 1;
+          const pxA = (-dyA / dA) * side;
+          const pyA = (dxA / dA) * side;
+          const curvA = Math.min(24, dA * _mix(0.03, 0.10, intensity));
+          cA.x = _mix(pHand.x, pFill.x, 0.52) + pxA * curvA;
+          cA.y = _mix(pHand.y, pFill.y, 0.52) + pyA * curvA;
+
+          const cB = STATE._p1;
+          const tx = -sth;
+          const ty = cth;
+          const swirl = wr * _mix(0.12, 0.26, intensity) * side * (dir >= 0 ? 1 : -1);
+          cB.x = _mix(pInner.x, pHand.x, 0.30) + tx * swirl;
+          cB.y = _mix(pInner.y, pHand.y, 0.30) + ty * swirl;
+          cB.x = _mix(cB.x, wxL, 0.12);
+          cB.y = _mix(cB.y, wyL, 0.12);
 
           const out = STATE._tmp;
-          _bezier2(p0, p1, p2, u, out);
-          const drift = Math.sin((w._ph || 0) + STATE.t * _mix(1.4, 2.6, intensity) + u * 4.0);
-          out.x += px * drift * _mix(1.0, 4.0, intensity);
-          out.y += py * drift * _mix(1.0, 4.0, intensity);
-          _clampPointToCorridor(out, edgeU, centerU, corrMargin);
-          w.position.set(out.x, out.y);
-
           const deriv = STATE._tmpD;
-          _bezier2Deriv(p0, p1, p2, u, deriv);
+          const seg = _samplePiecewise(u, splitU, pInner, cB, pHand, cA, pFill, out, deriv);
+
+          const dD = Math.hypot(deriv.x, deriv.y) || 1;
+          const px = (-deriv.y / dD) * side;
+          const py = (deriv.x / dD) * side;
+          const drift = Math.sin((w._ph || 0) + STATE.t * _mix(1.4, 2.6, intensity) + u * 4.0);
+          const driftAmp = _mix(1.0, 4.0, intensity) * (seg ? 1.0 : 0.60);
+          out.x += px * drift * driftAmp;
+          out.y += py * drift * driftAmp;
+
+          if (seg === 1) _clampPointToCorridorUpTo(out, edgeU, centerU, corrMargin, rBridgeOuter * 1.02);
+          w.position.set(out.x, out.y);
           w.rotation = Math.atan2(deriv.y, deriv.x);
 
+          const dW = Math.hypot(out.x - wxL, out.y - wyL);
+          const tW = _clamp((dW - (wr * innerFrac)) / (wr * Math.max(0.001, 1 - innerFrac)), 0, 1);
+          const wellFade = _mix(wellFadeMin, 1.0, _smoothstep(0.0, 1.0, tW));
+
           const pulse = 0.65 + 0.35 * Math.sin((w._ph || 0) + STATE.t * 1.6);
-          w.alpha = baseAlpha * 0.72 * pulse;
+          w.alpha = baseAlpha * 0.72 * pulse * wellFade;
           const len = _mix(0.36, 0.78, intensity) * (w._len || 0.55);
           const wid = _mix(0.22, 0.55, intensity) * (w._wid || 0.35);
           w.scale.set(len * _mix(0.90, 1.15, intensity), wid);
@@ -733,8 +870,9 @@ lanes[i] = { wrap, view, maskG, particles, wisps, eddies };
           e.visible = true;
           let px0 = 0, py0 = 0;
           if (k === 0) {
-            px0 = wxL + wr * 0.84 * Math.cos(inwardAng);
-            py0 = wyL + wr * 0.84 * Math.sin(inwardAng);
+            // Place first eddy inside the well (reduces the "invisible boundary" feel).
+            px0 = wxL + wr * 0.58 * Math.cos(inwardAng);
+            py0 = wyL + wr * 0.58 * Math.sin(inwardAng);
           } else {
             px0 = ex;
             py0 = ey;
