@@ -411,6 +411,9 @@ BREAK_WARN_FLASH_SEC: 1.0,
     particlesMax: 16,
     wispsMax: 8,
     eddiesMax: 2,
+    // Debug toggles (default off)
+    debugForceOn: false,
+    debugShowMasks: false,
   }, EC.TUNE.FLUX_VFX || {});
 
   // Shared naming helpers (presentation-only)

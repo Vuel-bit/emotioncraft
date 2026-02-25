@@ -277,3 +277,9 @@ Pass A31: BAP intro cutscene polish — fixed framing so shots start in full fit
 - UI (Patients): Removed the Transcendence 'removed from rotation' modal trigger; Transcendence HUD announcement and rotation removal remain unchanged.
 - Visual (Psyche): Goal-satisfied wedge ring changed from gold to neutral white (with subtle glint) so it stays distinct from the Yellow hue wedge.
 - Pass A53 Flux VFX fixes (corridor unwrap, bridge mask, lane tint)
+
+
+=== PASS A54 (2026-02-25) — Flux VFX Android mask fix + debug toggles ===
+- Visual (Flux VFX): Lane mask Graphics are no longer set invisible; kept renderable with tiny nonzero alpha for Android Chrome mask pipeline reliability.
+- Visual (Flux VFX): Added EC.TUNE.FLUX_VFX debugForceOn/debugShowMasks toggles (default off) for fast mobile validation; debugShowMasks reveals the mask region at low alpha.
+- Debug: Flux VFX update now emits a one-time console.warn if an exception occurs (still fail-safe; no spam).

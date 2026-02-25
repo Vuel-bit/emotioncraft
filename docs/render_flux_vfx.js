@@ -13,6 +13,7 @@
   const DEG = Math.PI / 180;
 
   const STATE = {
+    _errOnce: false,
     inited: false,
     layer: null,
     lanes: null,
@@ -272,7 +273,8 @@
       const maskG = new PIXI.Graphics();
       maskG.eventMode = 'none';
       maskG.interactiveChildren = false;
-      maskG.visible = false;
+      // Keep masks renderable (Android Chrome can skip invisible/zero-alpha masks).
+      maskG.alpha = 0.001;
       maskG.name = 'fluxLaneMask_' + i;
       view.mask = maskG;
 
@@ -463,6 +465,10 @@ lanes[i] = { wrap, view, maskG, particles, wisps, eddies };
       const smoothHz = _clamp((typeof T.smoothingHz === 'number') ? T.smoothingHz : 8.0, 0.1, 60);
       const corrMargin = _clamp((typeof T.corridorMarginRad === 'number') ? T.corridorMarginRad : (2.0 * DEG), 0.0, 0.40);
 
+      const dbgForceOn = !!(T && T.debugForceOn);
+      const dbgShowMasks = !!(T && T.debugShowMasks);
+      const dbgTinySpin = (typeof T.debugTinySpin === 'number' && isFinite(T.debugTinySpin)) ? Math.max(0, T.debugTinySpin) : 0.02;
+
       const pCountMax = _clamp((typeof T.particlesMax === 'number') ? T.particlesMax : 16, 4, 24) | 0;
       const wCountMax = _clamp((typeof T.wispsMax === 'number') ? T.wispsMax : 8, 2, 12) | 0;
       const eCountMax = _clamp((typeof T.eddiesMax === 'number') ? T.eddiesMax : 2, 0, 3) | 0;
@@ -498,7 +504,7 @@ lanes[i] = { wrap, view, maskG, particles, wisps, eddies };
 
         const sign = (flux >= 0) ? 1 : -1;
         if (intenRaw > (dead01 + 0.03)) STATE.dir[i] = sign;
-        const dir = (STATE.dir[i] === 0) ? sign : STATE.dir[i];
+        let dir = (STATE.dir[i] === 0) ? sign : STATE.dir[i];
 
         if (target > 0) {
           STATE.hold[i] = holdSec;
@@ -512,7 +518,15 @@ lanes[i] = { wrap, view, maskG, particles, wisps, eddies };
 
         const a = (_dt > 0) ? (1 - Math.exp(-_dt * smoothHz)) : 0;
         const sm = STATE.intenSm[i] = (STATE.intenSm[i] || 0) + (target - (STATE.intenSm[i] || 0)) * a;
-        const intensity = _clamp(sm, 0, 1);
+        let intensity = _clamp(sm, 0, 1);
+
+        const dbgLaneOn = dbgForceOn && (Math.abs(S) > dbgTinySpin);
+        if (dbgLaneOn) {
+          // Force-on for mobile validation: keep geometry/masks/layering visible.
+          intensity = Math.max(intensity, 0.70);
+          dir = (S >= 0) ? 1 : -1;
+          STATE.dir[i] = dir;
+        }
 
         if (intensity <= 0.001) {
           lane.wrap.visible = false;
@@ -562,6 +576,9 @@ lanes[i] = { wrap, view, maskG, particles, wisps, eddies };
           }
           mg.drawCircle(wxL, wyL, wr * 1.05);
           mg.endFill();
+          // Masks must remain renderable; keep alpha > 0. Debug can reveal mask region.
+          mg.visible = true;
+          mg.alpha = dbgShowMasks ? 0.06 : 0.001;
         } catch (_) {}
 
         // curve bias side
@@ -728,7 +745,14 @@ lanes[i] = { wrap, view, maskG, particles, wisps, eddies };
           e.scale.set(_mix(0.06, 0.14, intensity));
         }
       }
-    } catch (_) {}
+    } catch (e) {
+      if (!STATE._errOnce) {
+        STATE._errOnce = true;
+        try {
+          console.warn('FluxVFX update failed:', (e && e.message) ? e.message : e);
+        } catch (_) {}
+      }
+    }
   }
 
   MOD.ensure = ensure;
