@@ -292,3 +292,8 @@ Pass A31: BAP intro cutscene polish — fixed framing so shots start in full fit
 - Visual (Flux VFX): Extended/bent particle + wisp paths into the well interior (piecewise path with well fade) to avoid the hard cutoff near the well rim.
 - Visual (Flux VFX): Expanded per-lane mask to include the wheel↔well bridge/buffer space while still hard-preventing leakage into other wedges or other wells.
 
+
+=== PASS A57 (2026-02-25) — Flux VFX single lane spine (remove ghost bridge vector) ===
+- Visual (Flux VFX): Enforced a single shared lane “spine” per lane (shared anchor theta + shared handoff/control points) so particles/wisps no longer fan-out into multiple spines.
+- Visual (Flux VFX): Applied corridor-clamp rules to bridge-space points (not deep inside the well) to keep the bridge segment aligned with the same biased half-slice corridor.
+- Visual (Flux VFX): Re-anchored eddies to evalSpine(u) + lateral offset (no free-floating bridge placements). Masking/layer order unchanged.

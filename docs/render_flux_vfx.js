@@ -36,7 +36,11 @@
     centerU: new Float32Array(6),
     // per-lane side sign for curve bias (+1/-1)
     curveSide: new Int8Array(6),
-    // scratch
+        // lane-level shared spine (single stream per lane; prevents ghost vectors)
+    laneTheta: new Float32Array(6),
+    laneSeed: new Float32Array(6),
+    _laneInit: false,
+// scratch
     _p0: { x: 0, y: 0 },
     _p1: { x: 0, y: 0 },
     _p2: { x: 0, y: 0 },
@@ -354,6 +358,17 @@ lanes[i] = { wrap, view, maskG, particles, wisps, eddies };
 
     STATE.lanes = lanes;
     STATE.inited = true;
+
+    // Initialize lane spine seeds once (shared theta per lane to avoid fan-out / ghost vectors).
+    if (!STATE._laneInit) {
+      try {
+        for (let i = 0; i < 6; i++) {
+          STATE.laneSeed[i] = (Math.random() * 1000) + (i * 17.123);
+          STATE.laneTheta[i] = NaN;
+        }
+      } catch (_) {}
+      STATE._laneInit = true;
+    }
     return true;
   }
 
@@ -607,6 +622,21 @@ lanes[i] = { wrap, view, maskG, particles, wisps, eddies };
 
         const inwardAng = Math.atan2(-wyL, -wxL);
         const arcSpan = (typeof T.anchorArcDeg === 'number' ? T.anchorArcDeg : 70) * DEG;
+
+        // Lane-level shared anchor theta (single spine per lane). Drift slowly within the 70° arc.
+        const seed = (STATE.laneSeed && STATE.laneSeed[i]) ? STATE.laneSeed[i] : (i * 17.123);
+        let laneTheta = STATE.laneTheta[i];
+        if (!isFinite(laneTheta)) laneTheta = inwardAng - arcSpan * 0.5;
+        const thetaMid = inwardAng - arcSpan * 0.5;
+        const thetaAmp = arcSpan * 0.30;
+        const thetaTarget = thetaMid + Math.sin(STATE.t * 0.35 + seed) * thetaAmp;
+        const kTheta = (_dt > 0) ? (1 - Math.exp(-_dt * 1.4)) : 0;
+        laneTheta = laneTheta + (thetaTarget - laneTheta) * kTheta;
+        const thetaMin = inwardAng - arcSpan;
+        const thetaMax = inwardAng;
+        if (laneTheta < thetaMin) laneTheta = thetaMin;
+        if (laneTheta > thetaMax) laneTheta = thetaMax;
+        STATE.laneTheta[i] = laneTheta;
         const midAng = inwardAng - arcSpan * 0.5;
         const ax = wxL + wr * Math.cos(midAng);
         const ay = wyL + wr * Math.sin(midAng);
@@ -675,6 +705,53 @@ lanes[i] = { wrap, view, maskG, particles, wisps, eddies };
         } catch (_) {}
         STATE.curveSide[i] = side;
 
+        // ---- Lane spine (shared by all sprites in this lane) ----
+        const thetaLane = STATE.laneTheta[i];
+        const cthLane = Math.cos(thetaLane);
+        const sthLane = Math.sin(thetaLane);
+
+        const pInner = STATE._p0;
+        pInner.x = wxL + (wr * innerFrac) * cthLane;
+        pInner.y = wyL + (wr * innerFrac) * sthLane;
+
+        const pFill = STATE._p4;
+        pFill.x = ex;
+        pFill.y = ey;
+
+        const pHand = STATE._p2;
+        const handJ = (2.6 * Math.sin(STATE.t * 0.95 + seed * 0.73)) * (0.25 + 0.75 * intensity);
+        pHand.x = hxBase + Math.cos(fluxCenterAng) * handJ;
+        pHand.y = hyBase + Math.sin(fluxCenterAng) * handJ;
+
+        // Control for Segment A (handoff -> fill), biased inside the half-slice corridor.
+        const cA = STATE._p3;
+        {
+          const dxA = pFill.x - pHand.x;
+          const dyA = pFill.y - pHand.y;
+          const dA = Math.hypot(dxA, dyA) || 1;
+          const pxA = (-dyA / dA) * side;
+          const pyA = (dxA / dA) * side;
+          const curvA = Math.min(26, dA * _mix(0.03, 0.11, intensity));
+          cA.x = _mix(pHand.x, pFill.x, 0.50) + pxA * curvA;
+          cA.y = _mix(pHand.y, pFill.y, 0.50) + pyA * curvA;
+        }
+
+        // Control for Segment B (inner -> handoff). Match tangents at the handoff to avoid a visible kink.
+        const cB = STATE._p1;
+        {
+          const kMatch = splitU / Math.max(0.001, (1 - splitU));
+          cB.x = pHand.x + (pHand.x - cA.x) * kMatch;
+          cB.y = pHand.y + (pHand.y - cA.y) * kMatch;
+          const tx = -sthLane;
+          const ty = cthLane;
+          const swirl = wr * _mix(0.10, 0.22, intensity) * side * (dir >= 0 ? 1 : -1);
+          cB.x += tx * swirl;
+          cB.y += ty * swirl;
+          // Pull slightly toward the well center so the bend reads as into-the-well.
+          cB.x = _mix(cB.x, wxL, 0.14);
+          cB.y = _mix(cB.y, wyL, 0.14);
+        }
+
         const pFloor = (intensity < 0.20) ? 0 : ((intensity < 0.40) ? 1 : 2);
         const pCap = Math.min(pCountMax, (lane.particles ? lane.particles.length : pCountMax));
         const pActive = Math.max(0, Math.min(pCap, Math.round(_mix(pFloor, pCap, intensity) * activityGain)));
@@ -707,47 +784,7 @@ lanes[i] = { wrap, view, maskG, particles, wisps, eddies };
             if (s._u < 0) s._u += 1;
           }
           const u = _clamp(s._u || 0, 0, 1);
-
-          // Anchor ray on the 70° arc; start inside the well (not at rim) to avoid hard cutoff.
-          const wob = 0.06 * Math.sin((STATE.t * 1.7) + (s._ph || 0));
-          const theta = inwardAng - (s._sOff || 0) * arcSpan + wob;
-          const cth = Math.cos(theta);
-          const sth = Math.sin(theta);
-
-          const pInner = STATE._p0;
-          pInner.x = wxL + (wr * innerFrac) * cth;
-          pInner.y = wyL + (wr * innerFrac) * sth;
-
-          const pFill = STATE._p4;
-          pFill.x = ex;
-          pFill.y = ey;
-
-          const pHand = STATE._p2;
-          const jR = (2.5 * Math.sin(STATE.t * 1.0 + (s._ph || 0))) * (0.25 + 0.75 * intensity);
-          pHand.x = hxBase + Math.cos(fluxCenterAng) * jR;
-          pHand.y = hyBase + Math.sin(fluxCenterAng) * jR;
-
-          // Control points
-          const cA = STATE._p3;
-          const dxA = pFill.x - pHand.x;
-          const dyA = pFill.y - pHand.y;
-          const dA = Math.hypot(dxA, dyA) || 1;
-          const pxA = (-dyA / dA) * side;
-          const pyA = (dxA / dA) * side;
-          const curvA = Math.min(26, dA * _mix(0.03, 0.11, intensity));
-          cA.x = _mix(pHand.x, pFill.x, 0.50) + pxA * curvA;
-          cA.y = _mix(pHand.y, pFill.y, 0.50) + pyA * curvA;
-
-          const cB = STATE._p1;
-          const tx = -sth;
-          const ty = cth;
-          const swirl = wr * _mix(0.12, 0.26, intensity) * side * (dir >= 0 ? 1 : -1);
-          cB.x = _mix(pInner.x, pHand.x, 0.32) + tx * swirl;
-          cB.y = _mix(pInner.y, pHand.y, 0.32) + ty * swirl;
-          cB.x = _mix(cB.x, wxL, 0.12);
-          cB.y = _mix(cB.y, wyL, 0.12);
-
-          // Sample piecewise path and apply organic drift.
+          // Sample lane spine (shared by all sprites in this lane) and apply organic drift.
           const out = STATE._tmp;
           const deriv = STATE._tmpD;
           const seg = _samplePiecewise(u, splitU, pInner, cB, pHand, cA, pFill, out, deriv);
@@ -760,8 +797,16 @@ lanes[i] = { wrap, view, maskG, particles, wisps, eddies };
           out.x += px * drift * driftAmp;
           out.y += py * drift * driftAmp;
 
-          // Keep Segment A constrained to the biased half-slice corridor (including bridge space).
-          if (seg === 1) _clampPointToCorridorUpTo(out, edgeU, centerU, corrMargin, rBridgeOuter * 1.02);
+          // Corridor clamp: enforce half-slice inside the wheel, and also keep the bridge portion aligned
+          // (prevents a secondary ghost vector forming in the gap).
+          _clampPointToCorridor(out, edgeU, centerU, corrMargin);
+          {
+            const rr = Math.hypot(out.x, out.y);
+            const dWell = Math.hypot(out.x - wxL, out.y - wyL);
+            if (rr > STATE.r1 * 0.90 && dWell > wr * 0.60) {
+              _clampPointToCorridorUpTo(out, edgeU, centerU, corrMargin, rBridgeOuter * 1.02);
+            }
+          }
 
           s.position.set(out.x, out.y);
 
@@ -793,44 +838,6 @@ lanes[i] = { wrap, view, maskG, particles, wisps, eddies };
             if (w._u < 0) w._u += 1;
           }
           const u = _clamp(w._u || 0, 0, 1);
-
-          const wob = 0.04 * Math.sin((STATE.t * 1.2) + (w._ph || 0));
-          const theta = inwardAng - (w._sOff || 0) * arcSpan + wob;
-          const cth = Math.cos(theta);
-          const sth = Math.sin(theta);
-
-          const pInner = STATE._p0;
-          pInner.x = wxL + (wr * innerFrac) * cth;
-          pInner.y = wyL + (wr * innerFrac) * sth;
-
-          const pFill = STATE._p4;
-          pFill.x = ex;
-          pFill.y = ey;
-
-          const pHand = STATE._p2;
-          const jR = (2.0 * Math.sin(STATE.t * 0.9 + (w._ph || 0))) * (0.25 + 0.75 * intensity);
-          pHand.x = hxBase + Math.cos(fluxCenterAng) * jR;
-          pHand.y = hyBase + Math.sin(fluxCenterAng) * jR;
-
-          const cA = STATE._p3;
-          const dxA = pFill.x - pHand.x;
-          const dyA = pFill.y - pHand.y;
-          const dA = Math.hypot(dxA, dyA) || 1;
-          const pxA = (-dyA / dA) * side;
-          const pyA = (dxA / dA) * side;
-          const curvA = Math.min(24, dA * _mix(0.03, 0.10, intensity));
-          cA.x = _mix(pHand.x, pFill.x, 0.52) + pxA * curvA;
-          cA.y = _mix(pHand.y, pFill.y, 0.52) + pyA * curvA;
-
-          const cB = STATE._p1;
-          const tx = -sth;
-          const ty = cth;
-          const swirl = wr * _mix(0.12, 0.26, intensity) * side * (dir >= 0 ? 1 : -1);
-          cB.x = _mix(pInner.x, pHand.x, 0.30) + tx * swirl;
-          cB.y = _mix(pInner.y, pHand.y, 0.30) + ty * swirl;
-          cB.x = _mix(cB.x, wxL, 0.12);
-          cB.y = _mix(cB.y, wyL, 0.12);
-
           const out = STATE._tmp;
           const deriv = STATE._tmpD;
           const seg = _samplePiecewise(u, splitU, pInner, cB, pHand, cA, pFill, out, deriv);
@@ -843,7 +850,14 @@ lanes[i] = { wrap, view, maskG, particles, wisps, eddies };
           out.x += px * drift * driftAmp;
           out.y += py * drift * driftAmp;
 
-          if (seg === 1) _clampPointToCorridorUpTo(out, edgeU, centerU, corrMargin, rBridgeOuter * 1.02);
+          _clampPointToCorridor(out, edgeU, centerU, corrMargin);
+          {
+            const rr = Math.hypot(out.x, out.y);
+            const dWell = Math.hypot(out.x - wxL, out.y - wyL);
+            if (rr > STATE.r1 * 0.90 && dWell > wr * 0.60) {
+              _clampPointToCorridorUpTo(out, edgeU, centerU, corrMargin, rBridgeOuter * 1.02);
+            }
+          }
           w.position.set(out.x, out.y);
           w.rotation = Math.atan2(deriv.y, deriv.x);
 
@@ -857,8 +871,7 @@ lanes[i] = { wrap, view, maskG, particles, wisps, eddies };
           const wid = _mix(0.22, 0.55, intensity) * (w._wid || 0.35);
           w.scale.set(len * _mix(0.90, 1.15, intensity), wid);
         }
-
-        // Eddies
+        // Eddies (anchored to the lane spine; no free-floating bridge elements)
         const eds = lane.eddies;
         for (let k = 0; k < eds.length; k++) {
           const e = eds[k];
@@ -868,28 +881,38 @@ lanes[i] = { wrap, view, maskG, particles, wisps, eddies };
             continue;
           }
           e.visible = true;
-          let px0 = 0, py0 = 0;
-          if (k === 0) {
-            // Place first eddy inside the well (reduces the "invisible boundary" feel).
-            px0 = wxL + wr * 0.58 * Math.cos(inwardAng);
-            py0 = wyL + wr * 0.58 * Math.sin(inwardAng);
-          } else {
-            px0 = ex;
-            py0 = ey;
+
+          // Anchor eddies to the shared lane spine at fixed u positions (near-well / mid / near-fill).
+          const uE = (k === 0) ? Math.max(0.02, splitU * 0.35) : (k === 1 ? _mix(splitU, 0.70, 0.55) : 0.92);
+          const out = STATE._tmp;
+          const deriv = STATE._tmpD;
+          _samplePiecewise(uE, splitU, pInner, cB, pHand, cA, pFill, out, deriv);
+
+          const dD = Math.hypot(deriv.x, deriv.y) || 1;
+          const nx = (-deriv.y / dD) * side;
+          const ny = (deriv.x / dD) * side;
+
+          const wobR = _mix(1.2, 4.6, intensity) * (e._rad || 1);
+          const angW = (e._ph || 0) + STATE.t * _mix(0.9, 1.7, intensity) * (dir >= 0 ? 1 : -1);
+          const wob = Math.sin(angW);
+          out.x += nx * wob * wobR;
+          out.y += ny * wob * wobR;
+
+          _clampPointToCorridor(out, edgeU, centerU, corrMargin);
+          {
+            const rr = Math.hypot(out.x, out.y);
+            const dWell = Math.hypot(out.x - wxL, out.y - wyL);
+            if (rr > STATE.r1 * 0.90 && dWell > wr * 0.60) {
+              _clampPointToCorridorUpTo(out, edgeU, centerU, corrMargin, rBridgeOuter * 1.02);
+            }
           }
 
-          const wobR = _mix(1.5, 5.0, intensity) * (e._rad || 1);
-          const angW = (e._ph || 0) + STATE.t * _mix(0.9, 1.7, intensity) * (dir >= 0 ? 1 : -1);
-          const out = STATE._tmp;
-          out.x = px0 + Math.cos(angW) * wobR;
-          out.y = py0 + Math.sin(angW) * wobR;
-          _clampPointToCorridor(out, edgeU, centerU, corrMargin);
           e.position.set(out.x, out.y);
 
           if (_dt > 0) {
             e.rotation = (e.rotation || 0) + _dt * (dir >= 0 ? 1 : -1) * _mix(0.7, 2.2, intensity) * (e._spd || 1);
           }
-          e.alpha = baseAlpha * _mix(0.22, 0.45, intensity);
+          e.alpha = baseAlpha * _mix(0.18, 0.40, intensity);
           e.scale.set(_mix(0.06, 0.14, intensity));
         }
       }
