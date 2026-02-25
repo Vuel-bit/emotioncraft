@@ -1,3 +1,4 @@
-Build: emotioncraft_v0_2_103_passD_passA50_newPatientLast_noTranscendPopup_whiteGoalRing.zip
-Date: 2026-02-22
-Notes: PASS A50 — Lobby profile shows Last: New Patient for patients with empty treatment history. Removed the Transcendence 'removed from rotation' modal popup (patient removal behavior unchanged). Goal-satisfied wedge outline ring changed to neutral white (distinct from Yellow hue).
+Build: emotioncraft_v0_2_103_passD_passA52_fluxVfx.zip
+Date: 2026-02-25
+Notes: PASS A52 — Added Flux VFX between each well and its matching psyche wedge (wisps + particles + tiny eddies). VFX is strictly visual-only, masked to its own wedge+well, layered below goal bands and numbers, and toggleable via EC.TUNE.FLUX_VFX.enabled.
+- Pass A53 Flux VFX fixes (corridor unwrap, bridge mask, lane tint)

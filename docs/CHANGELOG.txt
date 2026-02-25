@@ -1,4 +1,5 @@
 ## v0_2_103_passD (2026-02-12)
+- passA52 — Visual-only: added Psyche↔Well Flux VFX (wisps + particles + tiny eddies) between each well and its matching psyche wedge. Masked to its own wedge annulus + its own well circle (no bleeding), corridor biased to keep half-slice clean, layered above wedge fills but below goal bands and numeric text. Toggle via EC.TUNE.FLUX_VFX.enabled.
 - passA40c — Hotfix (input restore): hardened input hit-testing so swipe/drag/long-press + selection never regress. systems_input.js now falls back to layout.mvpGeom to compute well hit targets when EC.RENDER.wellGeom isn't ready.
 - passA40b — Hotfix (UI/visual only): fixed a boot crash in render_wells.js (cx undefined) by using local psyche-space centers and correct palette for psyche FX.
 - passA39 — Hotfix (UI/visual only): fixed ui_controls spin button cost label crash; forced energy/timer HUD anchors to auto (prevents stretched right-side shading); fully hid legacy ctrlPanel strip. No mechanics changes.
@@ -275,4 +276,4 @@ Pass A31: BAP intro cutscene polish — fixed framing so shots start in full fit
 - UI (Lobby profile): Patients with empty treatment history now display Last: New Patient (instead of —).
 - UI (Patients): Removed the Transcendence 'removed from rotation' modal trigger; Transcendence HUD announcement and rotation removal remain unchanged.
 - Visual (Psyche): Goal-satisfied wedge ring changed from gold to neutral white (with subtle glint) so it stays distinct from the Yellow hue wedge.
-
+- Pass A53 Flux VFX fixes (corridor unwrap, bridge mask, lane tint)

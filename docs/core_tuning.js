@@ -393,6 +393,26 @@ BREAK_WARN_FLASH_SEC: 1.0,
 
   };
 
+  // Flux VFX (visual-only) — amorphous wisps/particles between well and matching psyche wedge.
+  // Easy off-switch (PASS A52): set enabled:false.
+  EC.TUNE.FLUX_VFX = Object.assign({
+    enabled: true,
+    // Normalize flux intensity by psyche delta rate: rateAbs = abs(A*S)/PSY_FLUX_NORM.
+    // rateRef is the rate that maps to full intensity (1.0).
+    rateRef: 8.0,
+    deadzone01: 0.05,
+    holdSec: 0.22,
+    smoothingHz: 8.0,
+    alphaMax: 0.35,
+    // Geometry
+    anchorArcDeg: 70,
+    corridorMarginRad: (2.0 * Math.PI) / 180,
+    // Activity caps (mobile-friendly)
+    particlesMax: 16,
+    wispsMax: 8,
+    eddiesMax: 2,
+  }, EC.TUNE.FLUX_VFX || {});
+
   // Shared naming helpers (presentation-only)
   // Single source of truth for hue/well names across UI/logging.
   // Canonical APIs:

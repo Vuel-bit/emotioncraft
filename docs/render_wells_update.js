@@ -1066,6 +1066,14 @@
       }
     } catch (e) {}
 
+    // Flux VFX (visual-only): wisps/particles between each well and matching psyche wedge.
+    // Single guarded call-site for easy removal.
+    try {
+      if (EC.RENDER_FLUX_VFX && typeof EC.RENDER_FLUX_VFX.update === 'function') {
+        EC.RENDER_FLUX_VFX.update(snap, geom, dt, MVP_GEOM);
+      }
+    } catch (_) {}
+
     // Finalize authoritative geometry + debug line (always-visible in snapshot)
     try {
       WG.ready = _wgAnyValid ? 1 : 0;
