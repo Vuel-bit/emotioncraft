@@ -459,8 +459,11 @@ lanes[i] = { wrap, view, maskG, particles, wisps, eddies };
       const PSY_NORM = (EC.TUNE && typeof EC.TUNE.PSY_FLUX_NORM === 'number') ? EC.TUNE.PSY_FLUX_NORM : 1000;
 
       const rateRef = (typeof T.rateRef === 'number' && isFinite(T.rateRef) && T.rateRef > 0) ? T.rateRef : 8.0;
-      const dead01 = _clamp((typeof T.deadzone01 === 'number') ? T.deadzone01 : 0.05, 0, 0.80);
+      const dead01 = _clamp((typeof T.deadzone01 === 'number') ? T.deadzone01 : 0.025, 0, 0.80);
       const alphaMax = _clamp((typeof T.alphaMax === 'number') ? T.alphaMax : 0.35, 0, 0.75);
+      const alphaGain = _clamp((typeof T.alphaGain === 'number') ? T.alphaGain : 2.0, 0, 6.0);
+      const alphaCap = _clamp((typeof T.alphaCap === 'number') ? T.alphaCap : 0.50, 0, 0.95);
+      const activityGain = _clamp((typeof T.activityGain === 'number') ? T.activityGain : 2.0, 0.5, 4.0);
       const holdSec = _clamp((typeof T.holdSec === 'number') ? T.holdSec : 0.22, 0, 2.0);
       const smoothHz = _clamp((typeof T.smoothingHz === 'number') ? T.smoothingHz : 8.0, 0.1, 60);
       const corrMargin = _clamp((typeof T.corridorMarginRad === 'number') ? T.corridorMarginRad : (2.0 * DEG), 0.0, 0.40);
@@ -601,12 +604,19 @@ lanes[i] = { wrap, view, maskG, particles, wisps, eddies };
         STATE.curveSide[i] = side;
 
         const pFloor = (intensity < 0.20) ? 0 : ((intensity < 0.40) ? 1 : 2);
-        const pActive = Math.max(0, Math.min(pCountMax, Math.round(_mix(pFloor, pCountMax, intensity))));
+        const pCap = Math.min(pCountMax, (lane.particles ? lane.particles.length : pCountMax));
+        const pActive = Math.max(0, Math.min(pCap, Math.round(_mix(pFloor, pCap, intensity) * activityGain)));
+
         const wFloor = (intensity < 0.25) ? 0 : ((intensity < 0.45) ? 1 : 2);
-        const wActive = Math.max(0, Math.min(wCountMax, Math.round(_mix(wFloor, wCountMax, intensity))));
+        const wCap = Math.min(wCountMax, (lane.wisps ? lane.wisps.length : wCountMax));
+        const wActive = Math.max(0, Math.min(wCap, Math.round(_mix(wFloor, wCap, intensity) * activityGain)));
+
         const eFloor = (intensity < 0.55) ? 0 : 1;
-        const eActive = Math.max(0, Math.min(eCountMax, Math.round(_mix(eFloor, eCountMax, intensity))));
-        const baseAlpha = alphaMax * intensity;
+        const eCap = Math.min(eCountMax, (lane.eddies ? lane.eddies.length : eCountMax));
+        const eActive = Math.max(0, Math.min(eCap, Math.round(_mix(eFloor, eCap, intensity) * activityGain)));
+
+        // Double alpha contribution (PASS A55) while keeping a hard translucency cap.
+        const baseAlpha = Math.min(alphaCap, (alphaMax * intensity) * alphaGain);
 
         // Particles
         const parts = lane.particles;

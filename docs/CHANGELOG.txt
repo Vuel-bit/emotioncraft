@@ -283,3 +283,8 @@ Pass A31: BAP intro cutscene polish — fixed framing so shots start in full fit
 - Visual (Flux VFX): Lane mask Graphics are no longer set invisible; kept renderable with tiny nonzero alpha for Android Chrome mask pipeline reliability.
 - Visual (Flux VFX): Added EC.TUNE.FLUX_VFX debugForceOn/debugShowMasks toggles (default off) for fast mobile validation; debugShowMasks reveals the mask region at low alpha.
 - Debug: Flux VFX update now emits a one-time console.warn if an exception occurs (still fail-safe; no spam).
+
+=== PASS A55 (2026-02-25) — Flux VFX prominence 2× ===
+- Visual (Flux VFX): Increased prominence ~2× by doubling alpha contribution (with hard translucency cap) and ~2× per-lane activity at low/mid flux (within existing sprite pool sizes).
+- Visual (Flux VFX): Reduced deadzone for easier low-flux readability. No geometry/masking/layering changes.
+

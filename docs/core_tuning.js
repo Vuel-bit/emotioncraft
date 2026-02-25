@@ -400,17 +400,22 @@ BREAK_WARN_FLASH_SEC: 1.0,
     // Normalize flux intensity by psyche delta rate: rateAbs = abs(A*S)/PSY_FLUX_NORM.
     // rateRef is the rate that maps to full intensity (1.0).
     rateRef: 8.0,
-    deadzone01: 0.05,
+    // Reduced deadzone for better low-flux readability (PASS A55).
+    deadzone01: 0.025,
     holdSec: 0.22,
     smoothingHz: 8.0,
+    // Alpha mapping: baseAlpha = alphaMax * intensity; then multiplied by alphaGain and capped by alphaCap.
     alphaMax: 0.35,
+    alphaGain: 2.0,
+    alphaCap: 0.50,
     // Geometry
     anchorArcDeg: 70,
     corridorMarginRad: (2.0 * Math.PI) / 180,
-    // Activity caps (mobile-friendly)
-    particlesMax: 16,
-    wispsMax: 8,
-    eddiesMax: 2,
+    // Activity caps (within existing pool sizes) + gain for ~2× prominence (PASS A55).
+    particlesMax: 18,
+    wispsMax: 10,
+    eddiesMax: 3,
+    activityGain: 2.0,
     // Debug toggles (default off)
     debugForceOn: false,
     debugShowMasks: false,
