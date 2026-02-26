@@ -858,6 +858,57 @@ if (btnZeroPairEl) {
           objectiveSummaryEl.textContent = 'Next: ' + nextTxt;
         }
       }
+
+      // Tutorial-only bottom drawer modes (Instruction vs Plan vs Done)
+      try {
+        const drawerEl = document.getElementById('drawer');
+        const tutOn = !!(SIM && SIM.tutorialActive);
+        if (drawerEl) drawerEl.classList.toggle('tutDrawer', tutOn);
+
+        if (!tutOn) {
+          if (objectiveSummaryEl) objectiveSummaryEl.style.display = '';
+        }
+
+        // Safe formatting helper: escape all text, then apply minimal tutorial markup.
+        const esc = (s) => String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+        const tutFmt = (s) => {
+          let out = esc(s);
+          out = out.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+          out = out.replace(/\n/g, '<br>');
+          out = out.replace(/\bNerves\b/g, '<span class="goalHue goalGreen">Nerves</span>');
+          return out;
+        };
+
+        if (tutOn) {
+          const mode = String(SIM._tutDrawerMode || 'INSTRUCT').toUpperCase();
+
+          if (mode === 'PLAN') {
+            if (goalLineEl) {
+              const cur = String(SIM._tutPlanCurrent || '');
+              goalLineEl.innerHTML = 'Current: ' + tutFmt(cur);
+            }
+            if (objectiveSummaryEl) {
+              objectiveSummaryEl.style.display = '';
+              const nxt = String(SIM._tutPlanNext || '—');
+              objectiveSummaryEl.innerHTML = 'Next: ' + tutFmt(nxt);
+            }
+          } else {
+            // INSTRUCT + DONE: single instruction area (no labels, no next line)
+            let raw = '';
+            try {
+              raw = (EC.UI_HUD && typeof EC.UI_HUD.getObjectiveSummaryText === 'function')
+                ? String(EC.UI_HUD.getObjectiveSummaryText() || '')
+                : '';
+            } catch (_) { raw = ''; }
+            raw = raw.replace(/^\s*Goal:\s*/i, '').trim();
+            if (goalLineEl) goalLineEl.innerHTML = tutFmt(raw);
+            if (objectiveSummaryEl) {
+              objectiveSummaryEl.style.display = 'none';
+              objectiveSummaryEl.textContent = '';
+            }
+          }
+        }
+      } catch (_) {}
     } catch (_) {}
 
     

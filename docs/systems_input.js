@@ -709,6 +709,19 @@
               if (eng && typeof eng.dispatch === 'function') eng.dispatch('selectWell', w);
               else if (EC.ACTIONS && typeof EC.ACTIONS.selectWell === 'function') EC.ACTIONS.selectWell(w);
             } catch (_) {}
+
+            // Tutorial instrumentation: TAP-select event (used for "tap Nerves" step).
+            try {
+              const snapTap = _snap();
+              const SIMtap = snapTap.SIM;
+              if (SIMtap && SIMtap.tutorialActive) {
+                const payload = { kind: 'TAP_SELECT', well: w };
+                try {
+                  if (EC.ENGINE && typeof EC.ENGINE.dispatch === 'function') EC.ENGINE.dispatch('recordTutLastAction', payload);
+                  else if (EC.ACTIONS && typeof EC.ACTIONS.recordTutLastAction === 'function') EC.ACTIONS.recordTutLastAction(payload);
+                } catch (_) {}
+              }
+            } catch (_) {}
           }
         } else if (tutGateSwipe) {
           applied = '0';

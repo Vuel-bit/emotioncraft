@@ -1058,6 +1058,34 @@
         });
         spinText.anchor.set(0.5);
         spinText.eventMode = 'none';
+
+
+        // Tutorial-only mini labels under the A/S numbers (SIZE / SPIN)
+        const asSizeTag = new Text('SIZE', {
+          fontFamily: 'system-ui, -apple-system, Segoe UI, Roboto, Arial',
+          fontSize: 10,
+          fontWeight: '800',
+          fill: 0xffffff,
+          stroke: 0x000000,
+          strokeThickness: 3,
+          align: 'center',
+        });
+        asSizeTag.anchor.set(0.5);
+        asSizeTag.eventMode = 'none';
+        asSizeTag.visible = false;
+
+        const asSpinTag = new Text('SPIN', {
+          fontFamily: 'system-ui, -apple-system, Segoe UI, Roboto, Arial',
+          fontSize: 10,
+          fontWeight: '800',
+          fill: 0xffffff,
+          stroke: 0x000000,
+          strokeThickness: 3,
+          align: 'center',
+        });
+        asSpinTag.anchor.set(0.5);
+        asSpinTag.eventMode = 'none';
+        asSpinTag.visible = false;
   
         // Disposition FX (telegraph/active marker) — created once, updated in render_wells_update
         const dispHalo = new Graphics();
@@ -1079,6 +1107,8 @@
         g.addChild(asPlate);
         g.addChild(amountLabel);
         g.addChild(spinText);
+        g.addChild(asSizeTag);
+        g.addChild(asSpinTag);
 
         EC.RENDER.mvpWellLayer.addChild(g);
         EC.RENDER.mvpWellLayer.addChild(spinG);
@@ -1114,6 +1144,8 @@
           asPlate,
           amountLabel,
           spinText,
+          asSizeTag,
+          asSpinTag,
           _swirlAng: 0,
           _sheenAng: 0,
           _ripT: 0,

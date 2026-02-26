@@ -78,7 +78,8 @@
     const S1t = clamp(S0 + (dS || 0), -S_SOFT, S_SOFT);
 
     const prev = AM.computeApplyPreview(i, A1t, S1t);
-    const res = AM.applyPreviewToSim(i, prev);
+    // Gesture-driven apply path (tutorial may suppress opposite push during early spin lesson).
+    const res = AM.applyPreviewToSim(i, prev, { isFlick: true });
     if (res && res.ok) _stampControlsSync(i);
     return res;
   };

@@ -235,14 +235,25 @@
     const SIM = EC.SIM || {};
     const isWin = (SIM.levelState === 'win') || !!SIM.mvpWin;
     const inLobby = !!SIM.inLobby;
+    const tutWin = !!(SIM.tutorialActive && SIM._tutSuccessFxOn);
     const runStamp = String((typeof SIM._mvpInitStamp === 'number') ? SIM._mvpInitStamp : 0) + '|' + String(SIM._patientLevelId || SIM._patientId || '');
 
     // Leaving WIN/lobby/new run: clear the effect.
-    if (!isWin || inLobby || !SIM._patientActive) {
+    if (inLobby) {
       reset();
       return;
     }
-    if (STATE.stamp && runStamp && runStamp !== STATE.stamp) {
+
+    // Normal sessions require a real WIN + active patient; tutorial can keep the FX alive briefly.
+    if (!isWin && !tutWin) {
+      reset();
+      return;
+    }
+    if (!SIM._patientActive && !tutWin) {
+      reset();
+      return;
+    }
+    if (!tutWin && STATE.stamp && runStamp && runStamp !== STATE.stamp) {
       reset();
       return;
     }

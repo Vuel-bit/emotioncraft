@@ -1,3 +1,10 @@
+
+
+=== PASS A59 (2026-02-26) — Tutorial TUT-2 fixes ===
+- Tutorial Step 4 (Tap Nerves): highlight Nerves but do NOT auto-select; advances only on tap-select.
+- Tutorial-only SIZE/SPIN mini labels under A/S readouts (visible early tutorial steps only).
+- Goal shaded regions pulse during goal step until Ego/Focus selected.
+- Step 7 copy now prompts tapping Ego/Focus.
 ## v0_2_103_passD (2026-02-12)
 - passA52 — Visual-only: added Psyche↔Well Flux VFX (wisps + particles + tiny eddies) between each well and its matching psyche wedge. Masked to its own wedge annulus + its own well circle (no bleeding), corridor biased to keep half-slice clean, layered above wedge fills but below goal bands and numeric text. Toggle via EC.TUNE.FLUX_VFX.enabled.
 - passA40c — Hotfix (input restore): hardened input hit-testing so swipe/drag/long-press + selection never regress. systems_input.js now falls back to layout.mvpGeom to compute well hit targets when EC.RENDER.wellGeom isn't ready.

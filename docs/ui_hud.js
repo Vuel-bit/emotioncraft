@@ -864,7 +864,16 @@
       const selAS = (i >= 0) ? ` A:${A.toFixed(0)} S:${(S>=0?'+':'')}${S.toFixed(0)}` : '';
       const spillTxt = spillOn ? '  |  Spill: ON' : '';
       const loseTxt = lost ? (`  |  GAME OVER: ${SIM.gameOverReason || 'Mind Shattered'}`) : '';
-      mvpHudEl.textContent = `Hold: ${hold.toFixed(1)} / ${holdReq}s  |  Error: ${err.toFixed(3)}  |  Selected: ${selTxt}${selAS}  |  E: ${(SIM.energy||0).toFixed(1)}/${E_CAP} (+${regen.toFixed(2)}/s)${spillTxt}${won ? '  |  WIN' : ''}${loseTxt}${msg}`;
+      const line = `Hold: ${hold.toFixed(1)} / ${holdReq}s  |  Error: ${err.toFixed(3)}  |  Selected: ${selTxt}${selAS}  |  E: ${(SIM.energy||0).toFixed(1)}/${E_CAP} (+${regen.toFixed(2)}/s)${spillTxt}${won ? '  |  WIN' : ''}${loseTxt}${msg}`;
+
+      // Tutorial-only: color "Nerves" in the top bar.
+      if (SIM && SIM.tutorialActive) {
+        const esc = (s) => String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+        const html = esc(line).replace(/\bNerves\b/g, '<span class="goalHue goalGreen">Nerves</span>');
+        mvpHudEl.innerHTML = html;
+      } else {
+        mvpHudEl.textContent = line;
+      }
     }
 
     // Objective panel (data-driven: uses SIM.goalViz / EC.LEVELS)

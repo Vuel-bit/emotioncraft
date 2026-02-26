@@ -132,7 +132,8 @@
     // One-time opposite push (spin only; amount unchanged)
     const push = prev.push || 0;
     const j = OPP[i];
-    if (j != null && j >= 0 && j < 6 && Math.abs(push) > 1e-9) {
+    const tutSuppress = !!(SIM && SIM.tutorialActive && SIM._tutSuppressOppPush && opts && opts.isFlick);
+    if (!tutSuppress && j != null && j >= 0 && j < 6 && Math.abs(push) > 1e-9) {
       const Aj = (SIM.wellsA[j] || 0);
       if (Aj > 0.001) {
         const Sj0 = (SIM.wellsS[j] || 0);

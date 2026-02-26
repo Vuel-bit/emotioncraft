@@ -777,7 +777,8 @@
       const tutStep = (typeof SIM._tutStep === 'number') ? (SIM._tutStep|0) : 0;
       const tutFocus = (typeof SIM._tutFocusWell === 'number') ? (SIM._tutFocusWell|0) : -1;
       const tutOpp = (typeof SIM._tutFocusOpp === 'number') ? (SIM._tutFocusOpp|0) : -1;
-      const isTutTarget = tutOn && (i === tutFocus || (tutStep === 5 && i === tutOpp));
+      const pulseOpp = !!(SIM && SIM._tutPulseOpp);
+      const isTutTarget = tutOn && (i === tutFocus || (pulseOpp && i === tutOpp));
 
       // Baseline rim strokes removed (PASS A26): user requested NO solid line border.
       // Edge definition is handled via water FX rim sprite + subtle inner edge shading, while selG remains the strong ring.
@@ -992,7 +993,24 @@
       }
       amountLabel.position.set(-totalW * 0.5 + wA * 0.5, yAS);
       spinText.position.set(-totalW * 0.5 + wA + wS * 0.5, yAS);
-  
+
+      // Tutorial-only SIZE/SPIN mini tags under the A/S readout (early tutorial).
+      const asSizeTag = view && view.asSizeTag;
+      const asSpinTag = view && view.asSpinTag;
+      if (asSizeTag && asSpinTag) {
+        const showTags = !!(SIM && SIM.tutorialActive && ((SIM._tutStep|0) <= 3));
+        asSizeTag.visible = showTags;
+        asSpinTag.visible = showTags;
+        if (showTags) {
+          const fsTag = clamp(Math.round(fsAS * 0.55), 9, 12);
+          if (asSizeTag.style && asSizeTag.style.fontSize !== fsTag) asSizeTag.style.fontSize = fsTag;
+          if (asSpinTag.style && asSpinTag.style.fontSize !== fsTag) asSpinTag.style.fontSize = fsTag;
+          const yTag = yAS + fsAS * 0.85;
+          asSizeTag.position.set(amountLabel.position.x, yTag);
+          asSpinTag.position.set(spinText.position.x, yTag);
+        }
+      }
+
     }
 
     // ------------------------------------------------------------

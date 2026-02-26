@@ -809,6 +809,12 @@
   .ctrl{ margin-top: 6px; padding: 8px; }
   .ctrlRow{ gap: 8px; }
   .ctrlRow label{ gap: 6px; }
+
+  /* Tutorial-only: taller drawer + larger instruction text (does not affect normal play). */
+  .drawer.tutDrawer{ padding: 14px 14px; min-height: 168px; }
+  .drawer.tutDrawer .sub{ font-size: 15px; line-height: 1.28; color: rgba(232,238,252,0.92); }
+  .drawer.tutDrawer #goalLine{ font-size: 16px; color: rgba(232,238,252,0.96); }
+  .drawer.tutDrawer #objectiveSummary{ font-size: 14px; color: rgba(232,238,252,0.86); }
   .energyHud{ position: fixed; left: 12px; bottom: 180px; z-index: 25; font-size: 13px; padding: 6px 10px; border-radius: 999px; background: rgba(18,22,35,0.70); border: 1px solid rgba(255,255,255,0.10); color: rgba(232,238,252,0.92); font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; pointer-events:none; }
 
   /* Zen timer HUD (upper-right) */

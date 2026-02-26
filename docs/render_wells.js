@@ -432,7 +432,12 @@ function renderPsyche() {
   const shadeG = EC.RENDER.psycheGoalShadeG;
   if (shadeG) shadeG.clear();
   if (goalPerHue && shadeG) {
-    const shadeAlpha = 0.18;
+    const pulsing = !!(SIM && SIM.tutorialActive && SIM._tutPulseGoals);
+    let shadeAlpha = 0.18;
+    if (pulsing) {
+      const pulse = 0.6 + 0.4 * Math.sin((tNow || 0) * 3.2);
+      shadeAlpha = (0.12 + 0.10 * pulse);
+    }
     const lineAlpha = 0.26;
     const lineW = Math.max(1, Math.min(4, safeR * 0.022));
 

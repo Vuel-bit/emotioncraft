@@ -43,6 +43,7 @@
   let _stepStarted = false;
   let _psySnap = 0;
   let _didShowDone = false;
+  let _altFocusT = 0;
 
   function _setBtnPulse(spin0On, pairOn) {
     const b1 = _btn('btnSpinZero');
@@ -53,6 +54,13 @@
     if (b2) {
       if (pairOn) b2.classList.add('tutPulse'); else b2.classList.remove('tutPulse');
     }
+  }
+
+  function _setLobbyPulse(on) {
+    const b = _btn('btnLobby');
+    if (!b) return;
+    if (on) b.classList.add('tutPulse');
+    else b.classList.remove('tutPulse');
   }
 
   function _setBtnsEnabled(canSpin0, canPair0) {
@@ -135,6 +143,13 @@
     SIM._tutFocusOpp = OPP[SIM._tutFocusWell] || 3;
     SIM._tutAllowWell = SIM._tutFocusWell;
     SIM._tutBlockSwipes = false;
+    SIM._tutDrawerMode = 'INSTRUCT';
+    SIM._tutPlanCurrent = '';
+    SIM._tutPlanNext = '';
+    SIM._tutSuppressOppPush = false;
+    SIM._tutPulseOpp = false;
+    SIM._tutPulseGoals = false;
+    SIM._tutSuccessFxOn = false;
     // Strict safety: tutorial must never trigger spill or mental breaks.
     SIM._tutNoHazards = true;
     _forceSelect(SIM._tutFocusWell);
@@ -147,6 +162,8 @@
 
     _stepStarted = false;
     _didShowDone = false;
+    _altFocusT = 0;
+    _setLobbyPulse(false);
     _clearLastAction();
 
     // Clear any lingering UI pause.
@@ -160,10 +177,24 @@
     SIM._tutFocusOpp = null;
     SIM._tutAllowWell = null;
     SIM._tutBlockSwipes = false;
+    SIM._tutDrawerMode = '';
+    SIM._tutPlanCurrent = '';
+    SIM._tutPlanNext = '';
+    SIM._tutSuppressOppPush = false;
+    SIM._tutPulseOpp = false;
+    SIM._tutPulseGoals = false;
+    SIM._tutSuccessFxOn = false;
     SIM._tutNoHazards = false;
     try { delete SIM._tutNoHazards; } catch (_) {}
     try { delete SIM._tutCanSpin0; } catch (_) {}
     try { delete SIM._tutCanPair0; } catch (_) {}
+    try { delete SIM._tutDrawerMode; } catch (_) {}
+    try { delete SIM._tutPlanCurrent; } catch (_) {}
+    try { delete SIM._tutPlanNext; } catch (_) {}
+    try { delete SIM._tutSuppressOppPush; } catch (_) {}
+    try { delete SIM._tutPulseOpp; } catch (_) {}
+    try { delete SIM._tutPulseGoals; } catch (_) {}
+    try { delete SIM._tutSuccessFxOn; } catch (_) {}
     // Clear any goal viz from tutorial so it never leaks into normal play.
     try {
       if (SIM.goalViz && Array.isArray(SIM.goalViz.perHue)) {
@@ -172,10 +203,12 @@
     } catch (_) {}
     _setBtnPulse(false, false);
     _setBtnsEnabled(false, false);
+    _setLobbyPulse(false);
     _clearLastAction();
     _def = null;
     _stepStarted = false;
     _didShowDone = false;
+    _altFocusT = 0;
   };
 
   function _setObjective(text) {
@@ -191,16 +224,6 @@
       if (!op || !op.type) continue;
       if (op.type === 'SNAPSHOT_PSY_FOCUS') {
         _psySnap = (SIM.psyP && typeof SIM.psyP[i] === 'number') ? SIM.psyP[i] : 0;
-      } else if (op.type === 'SET_FOCUS_SPIN') {
-        try { if (SIM.wellsS) SIM.wellsS[i] = op.value; } catch(_) {}
-      } else if (op.type === 'FORCE_PAIR_SPINS') {
-        try {
-          const j = (OPP && typeof OPP[i] === 'number') ? (OPP[i]|0) : ((i + 3) % 6);
-          if (SIM.wellsS) {
-            SIM.wellsS[i] = op.a;
-            if (j >= 0 && j < 6) SIM.wellsS[j] = op.b;
-          }
-        } catch(_) {}
       } else if (op.type === 'SET_GOALVIZ_FINAL') {
         try {
           SIM.goalViz = SIM.goalViz || { perHue: new Array(6).fill(null) };
@@ -218,6 +241,7 @@
   function _onStepEnter(step) {
     _stepStarted = true;
     _clearLastAction();
+    _altFocusT = 0;
 
     const TD = _tutData();
     const steps = TD && Array.isArray(TD.STEPS) ? TD.STEPS : null;
@@ -239,10 +263,30 @@
       };
     }
 
-    // Apply common fields from the step spec.
+    // Focus target (drives highlight ring + tutorial gating).
+    if (spec && typeof spec.focusWell === 'number' && spec.focusWell >= 0 && spec.focusWell < 6) {
+      SIM._tutFocusWell = spec.focusWell|0;
+    }
+    SIM._tutFocusOpp = OPP[SIM._tutFocusWell|0] || ((SIM._tutFocusWell|0) + 3) % 6;
+
     const focus = SIM._tutFocusWell|0;
+
     SIM._tutAllowWell = (spec.allowWellMode === 'ALL') ? null : focus;
     SIM._tutBlockSwipes = !!spec.blockSwipes;
+
+    // Drawer mode (tutorial-only)
+    SIM._tutDrawerMode = (spec && typeof spec.drawerMode === 'string') ? spec.drawerMode : 'INSTRUCT';
+    SIM._tutPlanCurrent = (spec && typeof spec.planCurrent === 'string') ? spec.planCurrent : '';
+    SIM._tutPlanNext = (spec && typeof spec.planNext === 'string') ? spec.planNext : '';
+
+    // Tutorial-only mechanics exception: suppress opposite push during first spin lesson.
+    SIM._tutSuppressOppPush = !!(spec && spec.suppressOppPush);
+
+    // Highlight both focus + opposite (used in the pair-zero lesson).
+    SIM._tutPulseOpp = !!(spec && spec.pulseOpp);
+
+    // Pulse goal shading during goal instruction step (tutorial-only).
+    SIM._tutPulseGoals = !!(spec && spec.pulseGoals);
 
     // Tutorial button gating source-of-truth (ui_controls reads these flags).
     SIM._tutCanSpin0 = !!spec.canSpin0;
@@ -262,8 +306,14 @@
     // Enter ops (logic remains here; data is declarative).
     _applyEnterOps(step, spec);
 
-    // Keep selection locked to focus well during early steps.
-    if (step <= 5) _forceSelect(SIM._tutFocusWell|0);
+    // Keep selection aligned with focus for tutorial clarity,
+    // except for steps that require explicit tap selection (e.g., "tap Nerves").
+    const noAutoSelect = !!(spec && spec.noAutoSelect);
+    if (!noAutoSelect) _forceSelect(SIM._tutFocusWell|0);
+
+    // Done step: pulse Lobby.
+    if (SIM._tutDrawerMode === 'DONE') _setLobbyPulse(true);
+    else _setLobbyPulse(false);
   }
 
   function _advance() {
@@ -276,57 +326,92 @@
     if (!_def) return;
 
     const TD = _tutData();
-    const stepsLen = (TD && Array.isArray(TD.STEPS)) ? TD.STEPS.length : 7;
-    const finalStep = Math.max(0, (stepsLen|0) - 1);
+    const stepsLen = (TD && Array.isArray(TD.STEPS)) ? TD.STEPS.length : 1;
 
     const step = (SIM._tutStep|0);
     if (!_stepStarted) _onStepEnter(step);
 
-    // Keep selection stable during early steps.
-    if (step <= 5) _forceSelect(SIM._tutFocusWell|0);
-
-    const i = SIM._tutFocusWell|0;
-    const j = SIM._tutFocusOpp|0;
+    const i = (typeof SIM._tutFocusWell === 'number') ? (SIM._tutFocusWell|0) : 0;
+    const j = (typeof SIM._tutFocusOpp === 'number') ? (SIM._tutFocusOpp|0) : ((i + 3) % 6);
     const last = SIM._tutLastAction || null;
 
-    // Step checks
+    // Step checks (tutorial progresses by doing actions)
     if (step === 0) {
+      // Amount lesson
       if (last && last.kind === 'SWIPE' && last.well === i && Math.abs(last.dA || 0) > 1e-9) {
         _advance();
       }
     } else if (step === 1) {
+      // Spin lesson (first-spin exception: no opposite push)
       if (last && last.kind === 'SWIPE' && last.well === i && Math.abs(last.dS || 0) > 1e-9) {
         _advance();
       }
     } else if (step === 2) {
+      // Flux definition (watch psyche move)
       const now = (SIM.psyP && typeof SIM.psyP[i] === 'number') ? SIM.psyP[i] : 0;
-      if (Math.abs(now - _psySnap) >= 3) {
+      if (Math.abs(now - _psySnap) >= 2) {
         _advance();
       }
     } else if (step === 3) {
-      if (last && last.kind === 'SWIPE' && last.well === i) {
-        const b = (typeof last.oppSpinBefore === 'number') ? last.oppSpinBefore : null;
-        const a = (typeof last.oppSpinAfter === 'number') ? last.oppSpinAfter : null;
-        if (b != null && a != null && Math.abs(a - b) >= 0.25) {
-          _advance();
-        }
-      }
-    } else if (step === 4) {
+      // Set Spin 0
       if (last && last.kind === 'SPIN_ZERO' && last.well === i) {
         const s = (SIM.wellsS && typeof SIM.wellsS[i] === 'number') ? SIM.wellsS[i] : 999;
         if (Math.abs(s) <= 0.01) _advance();
       }
+    } else if (step === 4) {
+      // Tap-select Nerves
+      if (last && last.kind === 'TAP_SELECT' && last.well === i) {
+        _advance();
+      }
     } else if (step === 5) {
+      // Set Nerves spin to +10
+      if (last && last.kind === 'SWIPE' && last.well === i && (last.dS || 0) > 0) {
+        const s = (SIM.wellsS && typeof SIM.wellsS[i] === 'number') ? SIM.wellsS[i] : 0;
+        if (s >= 9.5) _advance();
+      }
+    } else if (step === 6) {
+      // Pair-zero lesson
       if (last && last.kind === 'PAIR_ZERO' && last.well === i) {
         const s0 = (SIM.wellsS && typeof SIM.wellsS[i] === 'number') ? SIM.wellsS[i] : 999;
         const s1 = (SIM.wellsS && typeof SIM.wellsS[j] === 'number') ? SIM.wellsS[j] : 999;
         if (Math.abs(s0) <= 0.01 && Math.abs(s1) <= 0.01) _advance();
       }
-    } else if (step === finalStep) {
-      // Win conditions: Psyche[0] >= 300, Psyche[3] <= 200, and all spins are zero.
+    } else if (step === 7) {
+      // Goals instruction: wait for selecting Ego or Focus.
+      // Optional: pulse focus between Ego and Focus by toggling the tut focus ring.
+      _altFocusT += (typeof dt === 'number' && isFinite(dt) ? dt : 0);
+      if (_altFocusT >= 0.85) {
+        _altFocusT = 0;
+        try {
+          const cur = (SIM._tutFocusWell|0);
+          const next = (cur === 1) ? 4 : 1;
+          SIM._tutFocusWell = next;
+          SIM._tutFocusOpp = OPP[next] || ((next + 3) % 6);
+        } catch (_) {}
+      }
+
+      if (last && (last.kind === 'TAP_SELECT' || last.kind === 'SWIPE')) {
+        const w = last.well|0;
+        if (w === 1 || w === 4) {
+          // Keep focus on whichever goal well the player selected.
+          try {
+            SIM._tutFocusWell = w;
+            SIM._tutFocusOpp = OPP[w] || ((w + 3) % 6);
+          } catch (_) {}
+          _advance();
+        }
+      }
+    } else if (step === 8) {
+      // Brief plan intro line, then switch the drawer into Plan Mode.
+      _altFocusT += (typeof dt === 'number' && isFinite(dt) ? dt : 0);
+      if (_altFocusT >= 1.05) {
+        _advance();
+      }
+    } else if (step === 9) {
+      // Plan Mode: Ego >= 300 AND Focus <= 200, then stop all spin.
       const eps = (EC.TUNE && typeof EC.TUNE.PAT_SPIN_ZERO_EPS === 'number') ? EC.TUNE.PAT_SPIN_ZERO_EPS : 0.01;
-      const p0 = (SIM.psyP && typeof SIM.psyP[0] === 'number') ? SIM.psyP[0] : 0;
-      const p3 = (SIM.psyP && typeof SIM.psyP[3] === 'number') ? SIM.psyP[3] : 0;
+      const pEgo = (SIM.psyP && typeof SIM.psyP[1] === 'number') ? SIM.psyP[1] : 0;
+      const pFoc = (SIM.psyP && typeof SIM.psyP[4] === 'number') ? SIM.psyP[4] : 0;
       let allZero = true;
       if (SIM.wellsS) {
         for (let k = 0; k < 6; k++) {
@@ -334,44 +419,18 @@
           if (Math.abs(s) > eps) { allZero = false; break; }
         }
       }
-      if (!_didShowDone && p0 >= 300 && p3 <= 200 && allZero) {
+      if (!_didShowDone && pEgo >= 300 && pFoc <= 200 && allZero) {
         _didShowDone = true;
-        // Pause + show completion modal with button.
+        // Trigger success FX (tutorial-only hold)
         try {
-          SIM._breakPaused = true;
-          SIM._breakModal = {
-            title: 'Tutorial complete',
-            lines: [
-              'Nice work.',
-              'You met the win conditions and stopped all spin.'
-            ],
-            okText: 'Back to Lobby',
-            onOk: function () {
-              try { MOD.stop(); } catch (_) {}
-              try {
-                let did = false;
-                try {
-                  if (EC.ENGINE && typeof EC.ENGINE.dispatch === 'function') {
-                    EC.ENGINE.dispatch('patBackToLobby');
-                    did = true;
-                  } else if (EC.ACTIONS && typeof EC.ACTIONS.patBackToLobby === 'function') {
-                    EC.ACTIONS.patBackToLobby();
-                    did = true;
-                  } else if (EC.PAT && typeof EC.PAT.backToLobby === 'function') {
-                    EC.PAT.backToLobby();
-                    did = true;
-                  }
-                } catch (_) {}
-                if (!did) {
-                  _setInLobby(true);
-                  const ov = document.getElementById('lobbyOverlay');
-                  if (ov) ov.classList.add('show');
-                }
-              } catch (_) {}
-            }
-          };
+          SIM._tutSuccessFxOn = true;
+          const stamp = 'TUT|' + String((typeof SIM._mvpInitStamp === 'number') ? SIM._mvpInitStamp : Date.now());
+          if (EC.RENDER_SUCCESS_FX && typeof EC.RENDER_SUCCESS_FX.trigger === 'function') EC.RENDER_SUCCESS_FX.trigger(stamp);
         } catch (_) {}
+        _advance();
       }
+    } else {
+      // DONE: wait for Lobby (or any exit)
     }
 
     // Transition into newly entered step.
