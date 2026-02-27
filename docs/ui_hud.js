@@ -398,10 +398,15 @@
       function setLog(on) {
         const snap = (EC.ENGINE && EC.ENGINE.getSnapshot) ? EC.ENGINE.getSnapshot() : { SIM: (EC.SIM||{}), UI: (EC.UI_STATE||{}), RENDER: (EC.RENDER_STATE||{}) };
         const SIM = (snap && snap.SIM) ? snap.SIM : {};
-        function _setUiPaused(flag) {
+        function _setLogPause(flag) {
           try {
-            if (EC.ENGINE && typeof EC.ENGINE.dispatch === 'function') return EC.ENGINE.dispatch('setUiPaused', !!flag);
-            if (EC.ACTIONS && typeof EC.ACTIONS.setUiPaused === 'function') return EC.ACTIONS.setUiPaused(!!flag);
+            if (flag) {
+              if (EC.ENGINE && typeof EC.ENGINE.dispatch === 'function') return EC.ENGINE.dispatch('pushUiPause', 'logOverlay');
+              if (EC.ACTIONS && typeof EC.ACTIONS.pushUiPause === 'function') return EC.ACTIONS.pushUiPause('logOverlay');
+            } else {
+              if (EC.ENGINE && typeof EC.ENGINE.dispatch === 'function') return EC.ENGINE.dispatch('popUiPause', 'logOverlay');
+              if (EC.ACTIONS && typeof EC.ACTIONS.popUiPause === 'function') return EC.ACTIONS.popUiPause('logOverlay');
+            }
           } catch (_) {}
           return { ok: false, reason: 'missing_action' };
         }
@@ -410,12 +415,12 @@
         // If the overlay isn't in the DOM yet (it lives after scripts), don't toggle pause.
         if (!overlay) {
           _logOpen = false;
-          _setUiPaused(false);
+          _setLogPause(false);
           return;
         }
 
         _logOpen = !!on;
-        _setUiPaused(_logOpen ? true : false);
+        _setLogPause(_logOpen ? true : false);
         overlay.classList.toggle('show', _logOpen);
         overlay.setAttribute('aria-hidden', _logOpen ? 'false' : 'true');
         if (_logOpen) _renderLogBody();

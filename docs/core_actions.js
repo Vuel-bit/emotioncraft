@@ -168,11 +168,37 @@
 
 
 MOD.setUiPaused = function setUiPaused(flag) {
-  const SIM = EC.SIM;
-  if (!SIM) return { ok: false, reason: 'missing_sim' };
-  SIM._uiPaused = !!flag;
-  return { ok: true, paused: !!SIM._uiPaused };
+  if (flag) return MOD.pushUiPause('legacy');
+  return MOD.clearUiPause();
 };
+
+  MOD.pushUiPause = function pushUiPause(reason) {
+    const SIM = EC.SIM;
+    if (!SIM) return { ok: false, reason: 'missing_sim' };
+    const key = (reason == null || reason === '') ? 'legacy' : String(reason);
+    if (!SIM._uiPauseReasons || typeof SIM._uiPauseReasons !== 'object') SIM._uiPauseReasons = {};
+    SIM._uiPauseReasons[key] = true;
+    SIM._uiPaused = true;
+    return { ok: true, paused: true, reason: key, count: Object.keys(SIM._uiPauseReasons).length };
+  };
+
+  MOD.popUiPause = function popUiPause(reason) {
+    const SIM = EC.SIM;
+    if (!SIM) return { ok: false, reason: 'missing_sim' };
+    const key = (reason == null || reason === '') ? 'legacy' : String(reason);
+    if (!SIM._uiPauseReasons || typeof SIM._uiPauseReasons !== 'object') SIM._uiPauseReasons = {};
+    if (SIM._uiPauseReasons[key]) delete SIM._uiPauseReasons[key];
+    SIM._uiPaused = Object.keys(SIM._uiPauseReasons).length > 0;
+    return { ok: true, paused: !!SIM._uiPaused, reason: key, count: Object.keys(SIM._uiPauseReasons).length };
+  };
+
+  MOD.clearUiPause = function clearUiPause() {
+    const SIM = EC.SIM;
+    if (!SIM) return { ok: false, reason: 'missing_sim' };
+    SIM._uiPauseReasons = {};
+    SIM._uiPaused = false;
+    return { ok: true, paused: false, count: 0 };
+  };
 
 
   MOD.ackBreakModal = function ackBreakModal() {
