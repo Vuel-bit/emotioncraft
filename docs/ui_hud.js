@@ -903,7 +903,8 @@
 
         // Line 3: Announcements (single line, hidden when empty or not in-run)
         const inRun = !SIM.inLobby && !!SIM._patientActive;
-        const annText = (inRun && UI_STATE && UI_STATE._hudAnnounceText) ? String(UI_STATE._hudAnnounceText) : '';
+        const coachActive = !!(SIM && SIM._coach && SIM._coach.active);
+        const annText = (inRun && !coachActive && UI_STATE && UI_STATE._hudAnnounceText) ? String(UI_STATE._hudAnnounceText) : '';
         const annCls = annText ? '' : ' hidden';
         const annHtml = `<div class=\"hudAnnounceLine${annCls}\">${esc(annText)}</div>`;
 

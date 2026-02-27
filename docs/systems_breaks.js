@@ -161,7 +161,7 @@
 
     // PASS A40f: announce mental breaks in the HUD (no auto-log; detailed log entry is appended below)
     try {
-      if (EC.UI_HUD && typeof EC.UI_HUD.setAnnouncement === 'function') {
+      if (!(sim && sim._coach && sim._coach.active) && EC.UI_HUD && typeof EC.UI_HUD.setAnnouncement === 'function') {
         const short = (announceShort != null && String(announceShort).trim()) ? String(announceShort).trim() : '';
         const base = short ? short : String(titleLine || '').trim();
         EC.UI_HUD.setAnnouncement('Mental Break — ' + base, { log: false });
