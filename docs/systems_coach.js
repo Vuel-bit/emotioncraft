@@ -27,8 +27,6 @@
       key: '',
       steps: [],
       stepIdx: 0,
-      tNextMs: 0,
-      autoSec: 10,
       focusMask: [false, false, false, false, false, false],
       wellIdx: -1,
       kind: '',
@@ -73,8 +71,6 @@
     c.key = '';
     c.steps = [];
     c.stepIdx = 0;
-    c.tNextMs = 0;
-    c.autoSec = 10;
     c.focusMask = [false, false, false, false, false, false];
     c.wellIdx = -1;
     c.kind = '';
@@ -97,16 +93,13 @@
       return;
     }
     _applyStepFocus(SIM);
-    c.tNextMs = c.autoSec * 1000;
   };
 
   MOD.update = function update(dt) {
     const SIM = _sim();
     if (!SIM || !SIM._coach || !SIM._coach.active) return;
-    const c = _ensureCoachObj(SIM);
-    const dtSec = (typeof dt === 'number' && isFinite(dt) && dt > 0) ? dt : 0;
-    c.tNextMs -= dtSec * 1000;
-    if (c.tNextMs <= 0) MOD.tapAdvance();
+    // Coach progression is tap-only; keep update as a no-op for HUD tick compatibility.
+    void dt;
   };
 
   MOD.startOnce = function startOnce(key, spec) {
@@ -141,8 +134,6 @@
     c.key = k;
     c.steps = steps;
     c.stepIdx = 0;
-    c.autoSec = (spec && typeof spec.autoSec === 'number' && spec.autoSec > 0) ? spec.autoSec : 10;
-    c.tNextMs = c.autoSec * 1000;
     c.wellIdx = (spec && typeof spec.wellIdx === 'number') ? (spec.wellIdx | 0) : -1;
     c.kind = (spec && spec.kind != null) ? String(spec.kind) : '';
     c.dir = (spec && spec.dir != null) ? String(spec.dir) : '';
