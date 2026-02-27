@@ -271,6 +271,39 @@ function ensurePsycheView() {
 }
 
 
+function ensureCoachOverlayView() {
+  if (!EC.RENDER || !EC.RENDER.root) return;
+  const root = EC.RENDER.root;
+
+  if (!EC.RENDER.coachOverlayLayer) {
+    const layer = new Container();
+    layer.eventMode = 'none';
+    layer.interactiveChildren = false;
+    layer.visible = false;
+    EC.RENDER.coachOverlayLayer = layer;
+  }
+
+  const overlay = EC.RENDER.coachOverlayLayer;
+  if (!overlay.parent) {
+    root.addChild(overlay);
+  }
+
+  if (!EC.RENDER.coachDimG) {
+    const g = new Graphics();
+    g.eventMode = 'none';
+    EC.RENDER.coachDimG = g;
+    overlay.addChild(g);
+  }
+
+  if (!EC.RENDER.coachRingG) {
+    const g = new Graphics();
+    g.eventMode = 'none';
+    EC.RENDER.coachRingG = g;
+    overlay.addChild(g);
+  }
+}
+
+
 function _trendGlyph(ratePerSec) {
   const r = (typeof ratePerSec === 'number' && isFinite(ratePerSec)) ? ratePerSec : 0;
   const dead = 0.03; // deadzone to prevent flicker
@@ -731,6 +764,7 @@ function renderPsyche() {
 
 
 EC.ensurePsycheView = ensurePsycheView;
+EC.ensureCoachOverlayView = ensureCoachOverlayView;
 EC.renderPsyche = renderPsyche;
 EC.updatePsycheView = renderPsyche;
 
@@ -750,6 +784,7 @@ function layout() {
 
   // Ensure psyche exists before laying out other items.
   if (EC.ensurePsycheView) EC.ensurePsycheView();
+  if (EC.ensureCoachOverlayView) EC.ensureCoachOverlayView();
 
   const app = EC.RENDER.app;
   const snap = _snap();
@@ -858,5 +893,5 @@ function scheduleRelayout() {
   EC.resize = scheduleRelayout;
 
   // Hardening: module registry (no gameplay impact)
-  EC._registerModule && EC._registerModule('render_wells', { provides: ["EC.layout", "EC.scheduleRelayout", "EC.drawBackground", "EC.ensurePsycheView", "EC.renderPsyche", "EC.updatePsycheView", "EC.RENDER"] });
+  EC._registerModule && EC._registerModule('render_wells', { provides: ["EC.layout", "EC.scheduleRelayout", "EC.drawBackground", "EC.ensurePsycheView", "EC.ensureCoachOverlayView", "EC.renderPsyche", "EC.updatePsycheView", "EC.RENDER"] });
 })();

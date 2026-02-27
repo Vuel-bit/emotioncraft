@@ -20,7 +20,7 @@
   function setText(el, cacheKey, value) {
     try {
       if (!el) return;
-      const st = UI_STATE;
+      const st = (EC.UI_STATE || (EC.UI_STATE = {}));
       const prev = (st.prev = st.prev || {});
       const k = 'hud:' + String(cacheKey || '');
       const v = (value == null) ? '' : String(value);
@@ -33,7 +33,7 @@
   function setHTML(el, cacheKey, value) {
     try {
       if (!el) return;
-      const st = UI_STATE;
+      const st = (EC.UI_STATE || (EC.UI_STATE = {}));
       const prev = (st.prev = st.prev || {});
       const k = 'hud:' + String(cacheKey || '');
       const v = (value == null) ? '' : String(value);
@@ -734,13 +734,19 @@
         if (notifyBarEl) notifyBarEl.classList.remove('breakMode');
         setText(notifyTextEl, 'notifyText', 'Treatment Failed.');
       } else if (SIM._coach && SIM._coach.active) {
-        if (notifyBarEl) notifyBarEl.classList.add('breakMode');
+        if (notifyBarEl) {
+          notifyBarEl.classList.add('breakMode');
+          notifyBarEl.classList.add('coachMode');
+        }
         const c = SIM._coach || {};
         const st = (Array.isArray(c.steps) && c.steps[c.stepIdx]) ? c.steps[c.stepIdx] : null;
         const txt = st && st.text ? String(st.text) : '';
         setText(notifyTextEl, 'notifyText', txt ? (txt + "\nTap to continue") : 'Tap to continue');
       } else {
-        if (notifyBarEl) notifyBarEl.classList.remove('breakMode');
+        if (notifyBarEl) {
+          notifyBarEl.classList.remove('breakMode');
+          notifyBarEl.classList.remove('coachMode');
+        }
         // Normal mode: show disposition HUD or short message + gesture debug line.
         // Hide disposition telegraph/active text from HUD; keep only UI messages.
         const short = ((UI_STATE.uiMsgT > 0 && UI_STATE.uiMsg) ? UI_STATE.uiMsg : '');

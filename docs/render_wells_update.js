@@ -370,6 +370,10 @@
     const geom = (layout && layout.mvpGeom) ? layout.mvpGeom : SIM.mvpGeom;
     if (!geom) return;
 
+    const coachActive = !!(SIM && SIM._coach && SIM._coach.active);
+    const coachMask = (coachActive && SIM._coach && Array.isArray(SIM._coach.focusMask)) ? SIM._coach.focusMask : null;
+    const coachTargets = [];
+
     // ------------------------------------------------------------
     // Authoritative well geometry for DOM hit-testing (mobile)
     // Stored in canvas-local coordinates (Pixi screen coords)
@@ -779,9 +783,8 @@
       const tutOpp = (typeof SIM._tutFocusOpp === 'number') ? (SIM._tutFocusOpp|0) : -1;
       const pulseOpp = !!(SIM && SIM._tutPulseOpp);
       const isTutTarget = tutOn && (i === tutFocus || (pulseOpp && i === tutOpp));
-      const coachActive = !!(SIM && SIM._coach && SIM._coach.active);
-      const coachMask = (coachActive && SIM._coach && Array.isArray(SIM._coach.focusMask)) ? SIM._coach.focusMask : null;
       const isCoachTarget = !!(coachMask && coachMask[i]);
+      if (isCoachTarget) coachTargets.push({ cx, cy, r });
 
       // Baseline rim strokes removed (PASS A26): user requested NO solid line border.
       // Edge definition is handled via water FX rim sprite + subtle inner edge shading, while selG remains the strong ring.
@@ -790,10 +793,22 @@
         selG.clear();
         if (isSel || isTutTarget || isCoachTarget) {
           const pulse = 0.55 + 0.45 * Math.sin((tNow || 0) * 3.2 + ((isTutTarget || isCoachTarget) ? 0.6 : 0));
-          const w = Math.max(2, r * 0.055);
-          const aBase = isCoachTarget ? (0.30 + 0.34 * pulse) : (isTutTarget ? (0.24 + 0.30 * pulse) : (0.18 + 0.22 * pulse));
-          selG.lineStyle(w, 0xffffff, aBase, 0.5);
-          selG.drawCircle(0, 0, r + Math.max(6, r * 0.12));
+          if (isCoachTarget) {
+            const pad = Math.max(8, r * 0.16);
+            const outerR = r + pad;
+            const innerR = r + Math.max(4, r * 0.08);
+            const wOuter = Math.max(4, r * 0.11);
+            const wInner = Math.max(2.5, r * 0.07);
+            selG.lineStyle(wOuter, 0xffffff, 0.16 + 0.20 * pulse, 0.5);
+            selG.drawCircle(0, 0, outerR);
+            selG.lineStyle(wInner, 0xffffff, 0.68 + 0.24 * pulse, 0.5);
+            selG.drawCircle(0, 0, innerR);
+          } else {
+            const w = Math.max(2, r * 0.055);
+            const aBase = isTutTarget ? (0.24 + 0.30 * pulse) : (0.18 + 0.22 * pulse);
+            selG.lineStyle(w, 0xffffff, aBase, 0.5);
+            selG.drawCircle(0, 0, r + Math.max(6, r * 0.12));
+          }
         }
       }
 
@@ -1097,6 +1112,52 @@
     try {
       if (EC.RENDER_FLUX_VFX && typeof EC.RENDER_FLUX_VFX.update === 'function') {
         EC.RENDER_FLUX_VFX.update(snap, geom, dt, MVP_GEOM);
+      }
+    } catch (_) {}
+
+    // Coach spotlight overlay (visual-only): dim board except focused wells.
+    try {
+      if (EC.ensureCoachOverlayView) EC.ensureCoachOverlayView();
+      const overlay = EC.RENDER && EC.RENDER.coachOverlayLayer;
+      const dimG = EC.RENDER && EC.RENDER.coachDimG;
+      const ringG = EC.RENDER && EC.RENDER.coachRingG;
+      if (overlay && dimG && ringG) {
+        if (coachActive && coachTargets.length) {
+          const app = EC.RENDER && EC.RENDER.app;
+          const screen = app && app.screen ? app.screen : null;
+          const sw = screen ? screen.width : 0;
+          const sh = screen ? screen.height : 0;
+          const pulse = 0.5 + 0.5 * Math.sin((tNow || 0) * 2.4);
+          overlay.visible = true;
+          dimG.visible = true;
+          ringG.visible = true;
+
+          dimG.clear();
+          dimG.beginFill(0x000000, 0.44);
+          dimG.drawRect(0, 0, sw, sh);
+          for (let j = 0; j < coachTargets.length; j++) {
+            const t = coachTargets[j];
+            const hr = t.r + t.r * 0.35;
+            dimG.beginHole();
+            dimG.drawCircle(t.cx, t.cy, hr);
+            dimG.endHole();
+          }
+          dimG.endFill();
+
+          ringG.clear();
+          for (let j = 0; j < coachTargets.length; j++) {
+            const t = coachTargets[j];
+            const hr = t.r + t.r * 0.35;
+            ringG.lineStyle(Math.max(3, t.r * 0.09), 0xffffff, 0.22 + 0.14 * pulse, 0.5);
+            ringG.drawCircle(t.cx, t.cy, hr + Math.max(4, t.r * 0.08));
+            ringG.lineStyle(Math.max(2, t.r * 0.05), 0xffffff, 0.62 + 0.22 * pulse, 0.5);
+            ringG.drawCircle(t.cx, t.cy, hr - Math.max(2, t.r * 0.03));
+          }
+        } else {
+          overlay.visible = false;
+          dimG.clear();
+          ringG.clear();
+        }
       }
     } catch (_) {}
 
