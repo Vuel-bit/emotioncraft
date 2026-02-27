@@ -148,6 +148,14 @@
   // Canonical DOM touchstart arming wrapper (keeps main.js thin)
   EC.INPUT.armGestureFromDomTouchStart = function armGestureFromDomTouchStart(te){
     try {
+      const snap0 = _snap();
+      const SIM0 = snap0.SIM;
+      if (SIM0 && (SIM0._uiPaused || SIM0._breakPaused)) {
+        const why = SIM0._breakPaused ? 'modal_pause' : 'ui_pause';
+        EC.INPUT.dbgLog('TOUCHSTART_RETURN: reason=' + why);
+        return false;
+      }
+
       const oe = te;
       const touchesN0 = (oe && oe.touches) ? oe.touches.length : 0;
       if (touchesN0 > 1) {
@@ -696,6 +704,13 @@
         const allow = tutOn && (typeof SIM._tutAllowWell === 'number') ? (SIM._tutAllowWell|0) : -1;
         const blockSwipes = tutOn ? !!SIM._tutBlockSwipes : false;
 
+        const pausedByModal = !!(SIM && SIM._breakPaused);
+        const pausedByUi = !!(SIM && SIM._uiPaused);
+        if (pausedByModal || pausedByUi) {
+          applied = '0';
+          applyReason = pausedByModal ? 'modal_pause' : 'ui_pause';
+        } else {
+
         const tutGateTap = tutOn && (allow >= 0) && (w !== allow);
         const tutGateSwipe = tutOn && ((blockSwipes && cls !== 'TAP') || ((allow >= 0) && (w !== allow)));
 
@@ -837,6 +852,7 @@
               applyReason = 'apply_throw';
             }
         }
+      }
       }
 
       status = (cls === 'FLICK') ? 'resolved_ok_flick' : ((cls === 'DRAG') ? 'resolved_ok_drag' : 'resolved_ok_tap');
