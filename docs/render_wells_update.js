@@ -779,17 +779,20 @@
       const tutOpp = (typeof SIM._tutFocusOpp === 'number') ? (SIM._tutFocusOpp|0) : -1;
       const pulseOpp = !!(SIM && SIM._tutPulseOpp);
       const isTutTarget = tutOn && (i === tutFocus || (pulseOpp && i === tutOpp));
+      const coachActive = !!(SIM && SIM._coach && SIM._coach.active);
+      const coachMask = (coachActive && SIM._coach && Array.isArray(SIM._coach.focusMask)) ? SIM._coach.focusMask : null;
+      const isCoachTarget = !!(coachMask && coachMask[i]);
 
       // Baseline rim strokes removed (PASS A26): user requested NO solid line border.
       // Edge definition is handled via water FX rim sprite + subtle inner edge shading, while selG remains the strong ring.
       if (rimG) rimG.clear();
       if (selG) {
         selG.clear();
-        if (isSel || isTutTarget) {
-          const pulse = 0.55 + 0.45 * Math.sin((tNow || 0) * 3.2 + (isTutTarget ? 0.6 : 0));
+        if (isSel || isTutTarget || isCoachTarget) {
+          const pulse = 0.55 + 0.45 * Math.sin((tNow || 0) * 3.2 + ((isTutTarget || isCoachTarget) ? 0.6 : 0));
           const w = Math.max(2, r * 0.055);
-          const a = isTutTarget ? (0.24 + 0.30 * pulse) : (0.18 + 0.22 * pulse);
-          selG.lineStyle(w, 0xffffff, a, 0.5);
+          const aBase = isCoachTarget ? (0.30 + 0.34 * pulse) : (isTutTarget ? (0.24 + 0.30 * pulse) : (0.18 + 0.22 * pulse));
+          selG.lineStyle(w, 0xffffff, aBase, 0.5);
           selG.drawCircle(0, 0, r + Math.max(6, r * 0.12));
         }
       }

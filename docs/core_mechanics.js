@@ -816,9 +816,9 @@ instability: 0,
       // PASS 2 (Spin)
       const sRes = propagateScalar(SIM.wellsS, S_MIN, S_MAX, S_RATE, dt, 'S');
 
-      // First-time informational popups for spill events (normal gameplay only).
+      // First-time informational coaching for spill events (normal gameplay only).
       try {
-        if (!SIM._tutNoHazards && EC.BREAK && typeof EC.BREAK.showInfoOnce === 'function') {
+        if (!SIM._tutNoHazards && EC.COACH && typeof EC.COACH.startOnce === 'function') {
           const wellName = (idx) => {
             try {
               if (typeof EC.wellLabel === 'function') return EC.wellLabel(idx);
@@ -827,32 +827,40 @@ instability: 0,
             return 'Hue ' + idx;
           };
 
-          if (aRes && aRes.didPos) {
-            const wi = (typeof aRes.posIdx === 'number') ? aRes.posIdx : 0;
-            EC.BREAK.showInfoOnce('spill_amount_up', 'Spill: Amount Overflow', [
-              `The ${wellName(wi)} well is being pushed over ${A_MAX}. The excess is spilling into neighboring wells.`
-            ]);
-          }
-          if (!SIM._breakPaused && aRes && aRes.didNeg) {
-            const wi = (typeof aRes.negIdx === 'number') ? aRes.negIdx : 0;
-            EC.BREAK.showInfoOnce('spill_amount_down', 'Spill: Amount Underflow', [
-              `The ${wellName(wi)} well is being pulled below ${A_MIN}. The deficit is pulling from neighboring wells.`
-            ]);
-          }
-          if (!SIM._breakPaused && sRes && sRes.didPos) {
-            const wi = (typeof sRes.posIdx === 'number') ? sRes.posIdx : 0;
-            EC.BREAK.showInfoOnce('spill_spin_up', 'Spill: Spin Overflow', [
-              `The ${wellName(wi)} well is being pushed over +${S_MAX}. The excess spin is spilling into neighboring wells.`
-            ]);
-          }
-          if (!SIM._breakPaused && sRes && sRes.didNeg) {
-            const wi = (typeof sRes.negIdx === 'number') ? sRes.negIdx : 0;
-            EC.BREAK.showInfoOnce('spill_spin_down', 'Spill: Spin Underflow', [
-              `The ${wellName(wi)} well is being pulled under ${S_MIN}. The deficit is pulling spin from neighboring wells.`
-            ]);
+          let flavor = null;
+          if (aRes && aRes.didPos) flavor = { kind: 'Amount', dir: 'Overflow', wi: (typeof aRes.posIdx === 'number') ? aRes.posIdx : 0 };
+          else if (aRes && aRes.didNeg) flavor = { kind: 'Amount', dir: 'Underflow', wi: (typeof aRes.negIdx === 'number') ? aRes.negIdx : 0 };
+          else if (sRes && sRes.didPos) flavor = { kind: 'Spin', dir: 'Overflow', wi: (typeof sRes.posIdx === 'number') ? sRes.posIdx : 0 };
+          else if (sRes && sRes.didNeg) flavor = { kind: 'Spin', dir: 'Underflow', wi: (typeof sRes.negIdx === 'number') ? sRes.negIdx : 0 };
+
+          if (flavor) {
+            const wi = ((flavor.wi | 0) + 6) % 6;
+            const leftNeighbor = (wi + 5) % 6;
+            const rightNeighbor = (wi + 1) % 6;
+            EC.COACH.startOnce('coach_spill', {
+              type: 'spill',
+              wellIdx: wi,
+              kind: flavor.kind,
+              dir: flavor.dir,
+              steps: [
+                {
+                  focus: [wi],
+                  text: `Spill (1/3): ${wellName(wi)} crossed a safe limit (${flavor.kind} ${flavor.dir}).`
+                },
+                {
+                  focus: [leftNeighbor, rightNeighbor],
+                  text: 'Spill (2/3): Overflow pushes into neighbors. Underflow pulls from neighbors.'
+                },
+                {
+                  focus: [wi],
+                  text: 'Spill (3/3): Spills can ripple around the ring until everything is back in range.'
+                }
+              ]
+            });
           }
         }
-      } catch (_) {}  // Pause immediately if a first-time spill popup fired.
+      } catch (_) {}
+      // Pause immediately if first-time spill coaching fired.
       if (SIM._breakPaused) return;
 
       // Debug-only spill summary (helps tune jam thresholds)
