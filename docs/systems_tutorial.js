@@ -437,14 +437,24 @@
       // Goals active: wait for both goals satisfied, then start the 10s hold step.
       const pEgo = (SIM.psyP && typeof SIM.psyP[1] === 'number') ? SIM.psyP[1] : 0;
       const pFoc = (SIM.psyP && typeof SIM.psyP[4] === 'number') ? SIM.psyP[4] : 0;
-      if (pEgo >= 300 && pFoc <= 200) {
+      const gv = (SIM.goalViz && Array.isArray(SIM.goalViz.perHue)) ? SIM.goalViz.perHue : null;
+      const gOver = gv ? gv[1] : null;
+      const gUnder = gv ? gv[4] : null;
+      const tEgo = (gOver && gOver.type === 'OVER' && typeof gOver.target === 'number') ? gOver.target : 200;
+      const tFoc = (gUnder && gUnder.type === 'UNDER' && typeof gUnder.target === 'number') ? gUnder.target : 150;
+      if (pEgo >= tEgo && pFoc <= tFoc) {
         _advance();
       }
     } else if (sid === 'HOLD_GOALS_10S') {
       // Hold goals for 10 seconds (center countdown).
       const pEgo = (SIM.psyP && typeof SIM.psyP[1] === 'number') ? SIM.psyP[1] : 0;
       const pFoc = (SIM.psyP && typeof SIM.psyP[4] === 'number') ? SIM.psyP[4] : 0;
-      const okGoals = (pEgo >= 300 && pFoc <= 200);
+      const gv = (SIM.goalViz && Array.isArray(SIM.goalViz.perHue)) ? SIM.goalViz.perHue : null;
+      const gOver = gv ? gv[1] : null;
+      const gUnder = gv ? gv[4] : null;
+      const tEgo = (gOver && gOver.type === 'OVER' && typeof gOver.target === 'number') ? gOver.target : 200;
+      const tFoc = (gUnder && gUnder.type === 'UNDER' && typeof gUnder.target === 'number') ? gUnder.target : 150;
+      const okGoals = (pEgo >= tEgo && pFoc <= tFoc);
       const dt0 = (typeof dt === 'number' && isFinite(dt) ? dt : 0);
       try {
         SIM._planHoldReqSec = 10;

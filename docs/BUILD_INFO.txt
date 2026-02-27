@@ -1,3 +1,3 @@
-Build: emotioncraft_v0_2_103_passD_passA66_tutorialTapOnlyGoalStep_shortNudgeCopy.zip
-Date: 2026-02-26
-Notes: PASS A66 — Tutorial fixes: shortened nudge lesson copy to avoid clamp truncation, and goal reveal step now advances ONLY on TAP_SELECT (swipes no longer advance).
+Build: emotioncraft_v0_2_103_passD_passA67_planTargets200_150_nudgeScrollDrawer.zip
+Date: 2026-02-27
+Notes: PASS A67 — Tutorial-only: nudge lesson copy updated; tutorial drawer height capped w/ scrollable goalLine to prevent covering wells; Princess plan targets updated (Ego>200, Focus<150) + plan/DONE copy updated; tutorial goal-hold checks now read targets from goalViz.

@@ -817,30 +817,31 @@
     padding: 10px 12px 12px;
     height: auto;
     min-height: 92px;
-    max-height: 20vh;
-    overflow: visible;
+    max-height: 22vh;
+    overflow: hidden;
   }
   #drawer.tutDrawer .sub{ font-size: 15px; line-height: 1.28; color: rgba(232,238,252,0.92); }
-  #drawer.tutDrawer #goalLine{ font-size: 15px; color: rgba(232,238,252,0.96); 
-    display: -webkit-box;
-    -webkit-box-orient: vertical;
-    -webkit-line-clamp: 6;
-    overflow: hidden;}
+  #drawer.tutDrawer #goalLine{ font-size: 14px; line-height: 1.28; color: rgba(232,238,252,0.96);
+    display: block;
+    max-height: calc(22vh - 62px);
+    overflow-y: auto;
+    overflow-x: hidden; }
   #drawer.tutDrawer #objectiveSummary{ font-size: 13px; color: rgba(232,238,252,0.86); }
 
   /* Keep tutorial instruction text clear of the fixed spin/pair buttons. */
   #drawer.tutDrawer #goalLine,
   #drawer.tutDrawer #objectiveSummary{
-    padding: 0 clamp(86px, 20vw, 120px) 0 clamp(64px, 16vw, 90px);
+    padding: 0 118px 0 88px;
   }
 
+
   @media (max-height: 760px){
-    #drawer.tutDrawer{ max-height: 18vh; min-height: 88px; padding: 9px 11px 11px; }
+    #drawer.tutDrawer{ max-height: 20vh; min-height: 88px; padding: 9px 11px 11px; }
     #drawer.tutDrawer .sub{ font-size: 13px; }
-    #drawer.tutDrawer #goalLine{ font-size: 14px; }
+    #drawer.tutDrawer #goalLine{ font-size: 13px; max-height: calc(20vh - 62px); }
     #drawer.tutDrawer #objectiveSummary{ font-size: 12px; }
     #drawer.tutDrawer #goalLine,
-    #drawer.tutDrawer #objectiveSummary{ padding: 0 clamp(72px, 18vw, 104px) 0 clamp(54px, 14vw, 78px); }
+    #drawer.tutDrawer #objectiveSummary{ padding: 0 104px 0 72px; }
   }
   .energyHud{ position: fixed; left: 12px; bottom: 180px; z-index: 25; font-size: 13px; padding: 6px 10px; border-radius: 999px; background: rgba(18,22,35,0.70); border: 1px solid rgba(255,255,255,0.10); color: rgba(232,238,252,0.92); font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; pointer-events:none; }
 

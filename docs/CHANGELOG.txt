@@ -342,3 +342,9 @@ Pass A31: BAP intro cutscene polish — fixed framing so shots start in full fit
 - Tutorial (Hold): Added two end steps driven by the existing center countdown fields: hold goals for 10s, then set all Spin to zero and hold for 3s before success FX.
 - Tutorial (Safety): Plan-hold countdown fields are cleared outside the hold steps and hard-reset on tutorial stop so nothing leaks into Lobby/normal play.
 - Tutorial (Copy): Tightened flux / 0 Spin / pair instruction copy to shorter multi-line variants for mobile readability.
+
+=== PASS A67 (2026-02-27) — Tutorial nudge copy + capped scroll drawer + closer Princess targets ===
+- Tutorial (Nudge): Updated nudge lesson copy (still colors Nerves/Grit) and kept clear call-to-action for 0 Pair Spin.
+- UI (Tutorial drawer): Capped tutorial drawer height and made the instruction text area scrollable to prevent the drawer from expanding upward and covering wells.
+- Tutorial (Goals): Princess goalViz targets updated to Ego > 200 and Focus < 150; plan copy updated to match; DONE copy updated.
+- Tutorial (Hold): Goal-satisfied checks now read targets from SIM.goalViz (so hold steps automatically follow the current tutorial goalViz targets).

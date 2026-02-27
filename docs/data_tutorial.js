@@ -120,7 +120,7 @@
         drawerMode: 'INSTRUCT',
         focusWell: 3,
         pulseOpp: true,
-	        objectiveText: 'Nerves’ positive Spin nudged Grit—the other way.\n**Size or Spin always nudges the opposite well’s Spin the other direction.**\nPress 0 Pair Spin now.',
+	        objectiveText: 'Increasing Nerves’ Spin nudged its opposite, Grit, the other way.\n**Changing a well’s Spin or Size nudges the opposite well’s Spin in the opposite direction.**\nPress 0 Pair Spin now to set the Spin of both wells to 0.',
         blockSwipes: false,
         allowWellMode: 'FOCUS',
         canSpin0: false,
@@ -145,12 +145,12 @@
         minEnergy: 50,
         enterOps: [
           // Princess plan goals (display-only goal viz)
-          { type: 'SET_GOALVIZ_FINAL', over: { hue: 1, target: 300 }, under: { hue: 4, target: 200 } },
+          { type: 'SET_GOALVIZ_FINAL', over: { hue: 1, target: 200 }, under: { hue: 4, target: 150 } },
         ],
       },
       {
         drawerMode: 'INSTRUCT',
-	        objectiveText: 'Princess\u2019s plan (short version):\n\u2022 Ego above 300\n\u2022 Focus below 200\nGet them in the shaded wedges.',
+	        objectiveText: 'Princess\u2019s plan:\n\u2022 Ego above 200\n\u2022 Focus below 150\nAdjust the Size and/or Spin of the wells to move Princess\u2019 psyche into the goal areas for Ego and Focus.',
         blockSwipes: false,
         allowWellMode: 'ALL',
         canSpin0: true,
@@ -188,7 +188,7 @@
 	      },
 	      {
 	        drawerMode: 'DONE',
-	        objectiveText: 'All green. Tap Lobby.',
+	        objectiveText: 'Great job! You\u2019re ready for some real patients now.\nThere are a few waiting in the Lobby.',
 	        blockSwipes: false,
 	        allowWellMode: 'ALL',
 	        canSpin0: true,
