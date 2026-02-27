@@ -722,21 +722,36 @@
         }
         // PASS A42: Loss message must read exactly "Treatment Failed." in the notifyText region.
         // (Keep reason available elsewhere; do not replace the required message.)
-        if (notifyBarEl) notifyBarEl.classList.remove('breakMode');
+        if (notifyBarEl) {
+          notifyBarEl.classList.remove('breakMode');
+          notifyBarEl.classList.remove('coachMode');
+          notifyBarEl.classList.remove('tutMode');
+        }
         setText(notifyTextEl, 'notifyText', 'Treatment Failed.');
       } else if (SIM._coach && SIM._coach.active) {
         if (notifyBarEl) {
           notifyBarEl.classList.add('breakMode');
           notifyBarEl.classList.add('coachMode');
+          notifyBarEl.classList.remove('tutMode');
         }
         const c = SIM._coach || {};
         const st = (Array.isArray(c.steps) && c.steps[c.stepIdx]) ? c.steps[c.stepIdx] : null;
         const txt = st && st.text ? String(st.text) : '';
         setText(notifyTextEl, 'notifyText', txt ? (txt + "\nTap to continue") : 'Tap to continue');
+      } else if (SIM && SIM.tutorialActive) {
+        if (notifyBarEl) {
+          notifyBarEl.classList.remove('breakMode');
+          notifyBarEl.classList.remove('coachMode');
+          notifyBarEl.classList.add('tutMode');
+        }
+        const def = (typeof EC.getActiveLevelDef === 'function') ? EC.getActiveLevelDef() : null;
+        const tutText = def ? String(def.objectiveText || def.name || '') : '';
+        setText(notifyTextEl, 'notifyText', tutText);
       } else {
         if (notifyBarEl) {
           notifyBarEl.classList.remove('breakMode');
           notifyBarEl.classList.remove('coachMode');
+          notifyBarEl.classList.remove('tutMode');
         }
         // Normal mode: show disposition HUD or short message + gesture debug line.
         // Hide disposition telegraph/active text from HUD; keep only UI messages.

@@ -12,7 +12,7 @@
       name: 'Tutorial',
       objectiveShort: 'Tutorial',
       // Initial bottom-panel instruction (Step 0)
-      objectiveText: 'Swipe up/down on the highlighted well to fill / empty it.\nThe left number is the well\u2019s Size.',
+      objectiveText: 'Swipe up/down on the highlighted well to fill/empty it.\nLeft number = Size.',
       dispositions: [],
       startState: {
         // Stable, tutorial-friendly state: clear spins, moderate amounts.
@@ -32,7 +32,7 @@
         drawerMode: 'INSTRUCT',
         focusWell: 0,
         suppressOppPush: true,
-        objectiveText: 'Swipe up/down on the highlighted well to fill / empty it.\nThe left number is the well\u2019s Size.',
+        objectiveText: 'Swipe up/down on the highlighted well to fill/empty it.\nLeft number = Size.',
         blockSwipes: false,
         allowWellMode: 'FOCUS',
         canSpin0: false,
