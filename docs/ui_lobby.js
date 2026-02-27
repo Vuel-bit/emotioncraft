@@ -8,11 +8,49 @@
   const EC = (window.EC = window.EC || {});
   const SIM = EC.SIM || {};
 
+  // ---------------------------------------------------------------------
+  // Screen-state visibility gate: spin controls must never appear in Lobby.
+  // These buttons are lifted to <body> for board play, so we must explicitly
+  // hide/show them on lobby transitions.
+  EC.UI = EC.UI || {};
+  if (typeof EC.UI.setSpinControlsVisible !== 'function') {
+    EC.UI.setSpinControlsVisible = function setSpinControlsVisible(isVisible) {
+      try {
+        const disp = isVisible ? '' : 'none';
+        const a = document.getElementById('btnSpinZero');
+        const b = document.getElementById('btnZeroPair');
+        if (a) a.style.display = disp;
+        if (b) b.style.display = disp;
+      } catch (_) {}
+    };
+  }
+
+  function _clearTutUiLeakage() {
+    try {
+      const d = document.getElementById('drawer');
+      if (d) d.classList.remove('tutDrawer');
+    } catch (_) {}
+    try {
+      const a = document.getElementById('btnSpinZero');
+      const b = document.getElementById('btnZeroPair');
+      const l = document.getElementById('btnLobby');
+      if (a) a.classList.remove('tutPulse');
+      if (b) b.classList.remove('tutPulse');
+      if (l) l.classList.remove('tutPulse');
+    } catch (_) {}
+  }
+
+
+
   // Plan-pick flow: when intake is done, Start opens plan choice without reserving/removing.
   let pendingPlanPickPatientId = null;
 
   // Plan choice overlay state: prevents render tick from auto-hiding while open.
   let _planChoiceOpen = false;
+
+  // Track lobby visibility transitions for UI gating.
+  let _lobbyWasVisible = false;
+
 
   // Post-run progression modals
   let _rewardShowingFor = null;
@@ -1480,6 +1518,23 @@ function render() {
     const RSTATE = snap.RSTATE;
     if (!els.overlay) return;
     const want = !!(SIM && SIM.inLobby);
+
+    // Screen-state UI gating: spin controls must never be visible in Lobby.
+    try {
+      if (EC.UI && typeof EC.UI.setSpinControlsVisible === 'function') {
+        EC.UI.setSpinControlsVisible(!want);
+      }
+    } catch (_) {}
+
+    // Clear any tutorial-only class leakage on lobby transitions.
+    if (want && !_lobbyWasVisible) {
+      _clearTutUiLeakage();
+    }
+    if (!want && _lobbyWasVisible) {
+      _clearTutUiLeakage();
+    }
+    _lobbyWasVisible = want;
+
     if (want) {
       // Keep auth UI fresh while lobby is visible.
       try { updateAuthUI(els); } catch (_) {}

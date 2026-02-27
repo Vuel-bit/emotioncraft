@@ -1,5 +1,11 @@
 
 
+
+=== PASS A63 (2026-02-26) — Hotfix: hide spin buttons in Lobby ===
+- Fixed regression where the lifted spin overlay buttons were visible above the Lobby overlay.
+- Added screen-state gate (SIM.inLobby) to hide/show btnSpinZero + btnZeroPair reliably.
+- Clears tutorial-only classes (tutDrawer/tutPulse) on lobby transitions to prevent UI leakage.
+
 === PASS A59 (2026-02-26) — Tutorial TUT-2 fixes ===
 - Tutorial Step 4 (Tap Nerves): highlight Nerves but do NOT auto-select; advances only on tap-select.
 - Tutorial-only SIZE/SPIN mini labels under A/S readouts (visible early tutorial steps only).
