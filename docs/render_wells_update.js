@@ -1005,9 +1005,14 @@
           const fsTag = clamp(Math.round(fsAS * 0.55), 9, 12);
           if (asSizeTag.style && asSizeTag.style.fontSize !== fsTag) asSizeTag.style.fontSize = fsTag;
           if (asSpinTag.style && asSpinTag.style.fontSize !== fsTag) asSpinTag.style.fontSize = fsTag;
-          const yTag = yAS + fsAS * 0.85;
-          asSizeTag.position.set(amountLabel.position.x, yTag);
-          asSpinTag.position.set(spinText.position.x, yTag);
+          // The A/S pill uses tight spacing; tags must be forced apart so "SIZE SPIN" reads instantly.
+          const yTag = yAS + fsAS * 1.05;
+          const cx = (amountLabel.position.x + spinText.position.x) * 0.5;
+          const padX = Math.max(6, Math.round(fsAS * 0.55));
+          const pillW = (totalW + padX * 2);
+          const dx = clamp(Math.round(Math.max(16, pillW * 0.25)), 16, 28);
+          asSizeTag.position.set(cx - dx, yTag);
+          asSpinTag.position.set(cx + dx, yTag);
         }
       }
 

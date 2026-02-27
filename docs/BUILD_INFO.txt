@@ -1,3 +1,3 @@
-Build: emotioncraft_v0_2_103_passD_passA59_tutorialTUT2.zip
+Build: emotioncraft_v0_2_103_passD_passA62_tutorialDrawerNoClip.zip
 Date: 2026-02-26
-Notes: PASS A59 (TUT-2) — Tutorial polish: Step 4 "Tap Nerves" no-auto-select, tutorial-only SIZE/SPIN mini labels under A/S readouts (early steps only), goal shaded regions pulse during goal step until Ego/Focus selected, and Step 7 copy now prompts tapping Ego/Focus. Tutorial-only flags/rendering only.
+Notes: PASS A62 — Tutorial drawer sizing tweak: remove overflow clipping/scrolling for tut drawer, reduce min-height and cap max-height lower so the drawer sizes to content on phones and pulsing buttons never appear clipped at the drawer edge. Tutorial-only CSS.

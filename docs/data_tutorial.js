@@ -31,6 +31,7 @@
       {
         drawerMode: 'INSTRUCT',
         focusWell: 0,
+        suppressOppPush: true,
         objectiveText: 'Swipe up/down on the highlighted well to fill / empty it.\nThe left number is the well\u2019s Size.',
         blockSwipes: false,
         allowWellMode: 'FOCUS',
@@ -60,6 +61,7 @@
       {
         drawerMode: 'INSTRUCT',
         focusWell: 0,
+        suppressOppPush: true,
         objectiveText: 'Flux = Size \u00d7 Spin. Keep some Spin and watch the psyche move.',
         blockSwipes: false,
         allowWellMode: 'FOCUS',
@@ -75,8 +77,9 @@
       {
         drawerMode: 'INSTRUCT',
         focusWell: 0,
+        suppressOppPush: true,
         objectiveText: 'Use Set to 0 to stop Spin on the selected well. Try it now.',
-        blockSwipes: true,
+        blockSwipes: false,
         allowWellMode: 'FOCUS',
         canSpin0: true,
         canPair0: false,
@@ -89,6 +92,7 @@
         drawerMode: 'INSTRUCT',
         focusWell: 3,
         noAutoSelect: true,
+        suppressOppPush: true,
         objectiveText: 'Great. Now tap Nerves to select it.',
         blockSwipes: true,
         allowWellMode: 'FOCUS',
@@ -117,7 +121,7 @@
         focusWell: 3,
         pulseOpp: true,
         objectiveText: 'That positive Spin nudged Grit\u2014its opposite\u2014the other way.\n\n**Changing a well\u2019s Size or Spin nudges its opposite well\u2019s Spin in the opposite direction.**\n\nWhen you want a well and its opposite at zero, press Set Pair 0. Do that now.',
-        blockSwipes: true,
+        blockSwipes: false,
         allowWellMode: 'FOCUS',
         canSpin0: true,
         canPair0: true,

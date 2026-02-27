@@ -344,6 +344,7 @@
       left: 12px;
       right: 12px;
       bottom: 12px;
+      z-index: 30;
       background: var(--panel);
       border: 1px solid rgba(255,255,255,0.10);
       border-radius: 18px;
@@ -509,10 +510,11 @@
     .lobbyBtn:active{ transform: translateY(1px); }
 
     @keyframes tutPulseKey {
-      0%, 100% { transform: translateY(0) scale(1.00); box-shadow: 0 0 0 rgba(255,255,255,0.0); }
-      50%      { transform: translateY(-1px) scale(1.03); box-shadow: 0 0 18px rgba(255,255,255,0.18); }
+      /* Use a base transform var so we can pulse elements that already rely on transform for layout (e.g. fixed overlay buttons). */
+      0%, 100% { transform: var(--tutBaseTransform, translate(0,0)) translateY(0) scale(1.00); box-shadow: 0 0 0 rgba(255,255,255,0.0); }
+      50%      { transform: var(--tutBaseTransform, translate(0,0)) translateY(-1px) scale(1.03); box-shadow: 0 0 18px rgba(255,255,255,0.18); }
     }
-    .tutPulse{ animation: tutPulseKey 0.95s ease-in-out infinite; }
+    .tutPulse{ --tutBaseTransform: translate(0,0); animation: tutPulseKey 0.95s ease-in-out infinite; position: relative; z-index: 80; }
     .drawer .row { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
     .drawer h3 { margin: 0; font-size: 14px; }
     .drawer .sub { font-size: 12px; color: var(--muted); margin-top: 2px; }
@@ -721,7 +723,7 @@
   #ctrlPanel #ctrlRow{ display:none !important; }
 
 /* PASS A37: two-line spin buttons overlaid on the board */
-  .spinOverlayBtn{ z-index: 26; }
+  .spinOverlayBtn{ z-index: 60; --tutBaseTransform: translate(-50%, -100%); }
   .spinOverlayBtn .btnLine1{ font-size: 12px; font-weight: 900; line-height: 1.05; }
   .spinOverlayBtn .btnLine2{ font-size: 11px; font-weight: 800; opacity: 0.92; line-height: 1.05; margin-top: 2px; }
 
@@ -810,11 +812,32 @@
   .ctrlRow{ gap: 8px; }
   .ctrlRow label{ gap: 6px; }
 
-  /* Tutorial-only: taller drawer + larger instruction text (does not affect normal play). */
-  .drawer.tutDrawer{ padding: 14px 14px; min-height: 168px; }
-  .drawer.tutDrawer .sub{ font-size: 15px; line-height: 1.28; color: rgba(232,238,252,0.92); }
-  .drawer.tutDrawer #goalLine{ font-size: 16px; color: rgba(232,238,252,0.96); }
-  .drawer.tutDrawer #objectiveSummary{ font-size: 14px; color: rgba(232,238,252,0.86); }
+  /* Tutorial-only: mobile-safe drawer sizing + larger instruction text (does not affect normal play). */
+  #drawer.tutDrawer{
+    padding: 10px 12px 12px;
+    height: auto;
+    min-height: 92px;
+    max-height: 20vh;
+    overflow: visible;
+  }
+  #drawer.tutDrawer .sub{ font-size: 15px; line-height: 1.28; color: rgba(232,238,252,0.92); }
+  #drawer.tutDrawer #goalLine{ font-size: 15px; color: rgba(232,238,252,0.96); }
+  #drawer.tutDrawer #objectiveSummary{ font-size: 13px; color: rgba(232,238,252,0.86); }
+
+  /* Keep tutorial instruction text clear of the fixed spin/pair buttons. */
+  #drawer.tutDrawer #goalLine,
+  #drawer.tutDrawer #objectiveSummary{
+    padding: 0 clamp(86px, 20vw, 120px) 0 clamp(64px, 16vw, 90px);
+  }
+
+  @media (max-height: 760px){
+    #drawer.tutDrawer{ max-height: 18vh; min-height: 88px; padding: 9px 11px 11px; }
+    #drawer.tutDrawer .sub{ font-size: 13px; }
+    #drawer.tutDrawer #goalLine{ font-size: 14px; }
+    #drawer.tutDrawer #objectiveSummary{ font-size: 12px; }
+    #drawer.tutDrawer #goalLine,
+    #drawer.tutDrawer #objectiveSummary{ padding: 0 clamp(72px, 18vw, 104px) 0 clamp(54px, 14vw, 78px); }
+  }
   .energyHud{ position: fixed; left: 12px; bottom: 180px; z-index: 25; font-size: 13px; padding: 6px 10px; border-radius: 999px; background: rgba(18,22,35,0.70); border: 1px solid rgba(255,255,255,0.10); color: rgba(232,238,252,0.92); font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; pointer-events:none; }
 
   /* Zen timer HUD (upper-right) */

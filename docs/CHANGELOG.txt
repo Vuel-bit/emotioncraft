@@ -304,3 +304,14 @@ Pass A31: BAP intro cutscene polish — fixed framing so shots start in full fit
 - Visual (Flux VFX): Enforced a single shared lane “spine” per lane (shared anchor theta + shared handoff/control points) so particles/wisps no longer fan-out into multiple spines.
 - Visual (Flux VFX): Applied corridor-clamp rules to bridge-space points (not deep inside the well) to keep the bridge segment aligned with the same biased half-slice corridor.
 - Visual (Flux VFX): Re-anchored eddies to evalSpine(u) + lateral offset (no free-floating bridge placements). Masking/layer order unchanged.
+
+
+=== PASS A60 (2026-02-26) — Tutorial UI mobile polish (drawer + tags + pulse stacking) ===
+- UI (Tutorial drawer): Reduced tutorial drawer vertical footprint on mobile (auto-height with max-height in vh + overflow scroll when needed) and added safe internal padding so text does not sit under the fixed Spin/Pair buttons.
+- UI (Tutorial pulse): Updated tutPulse animation to preserve elements' layout transforms via a base transform CSS var (prevents fixed overlay buttons from "dropping" during pulse) and ensured pulsing controls stay above the drawer via z-index.
+- UI (Tutorial A/S tags): Repositioned SIZE/SPIN mini labels under the A/S pill with explicit horizontal separation (no "SIZSPIN" mash).
+
+
+=== PASS A62 (2026-02-26) — Tutorial drawer no-clip + smaller footprint ===
+- UI (Tutorial drawer): Removed overflow scrolling/clipping on the tutorial drawer (overflow: visible) so pulsing controls never appear clipped at the drawer edge.
+- UI (Tutorial drawer): Reduced padding + lowered min-height; reduced max-height cap to keep drawer footprint smaller on short phone viewports.
