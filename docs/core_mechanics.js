@@ -672,6 +672,24 @@ instability: 0,
         let hitMax = false;
         let didPos = false;
         let didNeg = false;
+        let srcPosMax = 0, srcPosIdx = -1;
+        let srcNegMax = 0, srcNegIdx = -1;
+
+        // Capture the original source well(s) at spill start, before iterative propagation mutates state.
+        for (let i = 0; i < 6; i++) {
+          const v0 = (arr[i] || 0);
+          const v0C = clampV(v0, vMin, vMax);
+          const over0 = v0 - v0C;
+          if (over0 > EPS && over0 > srcPosMax) {
+            srcPosMax = over0;
+            srcPosIdx = i;
+          }
+          const under0 = -over0;
+          if (under0 > EPS && under0 > srcNegMax) {
+            srcNegMax = under0;
+            srcNegIdx = i;
+          }
+        }
 
         for (let iter = 0; iter < MAX_ITERS; iter++) {
           let movedThisIter = 0;
@@ -807,7 +825,21 @@ instability: 0,
           if (over > 0) posSum += over;
           else if (over < 0) negSum += -over;
         }
-        return { hitMaxIters: hitMax, posMax, posIdx, negMax, negIdx, posSum, negSum, didPos, didNeg };
+        return {
+          hitMaxIters: hitMax,
+          posMax,
+          posIdx,
+          negMax,
+          negIdx,
+          posSum,
+          negSum,
+          didPos,
+          didNeg,
+          srcPosIdx,
+          srcNegIdx,
+          srcPosMax,
+          srcNegMax
+        };
       }
 
       // PASS 1 (Amount)
@@ -828,10 +860,20 @@ instability: 0,
           };
 
           let flavor = null;
-          if (aRes && aRes.didPos) flavor = { kind: 'Amount', dir: 'Overflow', wi: (typeof aRes.posIdx === 'number') ? aRes.posIdx : 0 };
-          else if (aRes && aRes.didNeg) flavor = { kind: 'Amount', dir: 'Underflow', wi: (typeof aRes.negIdx === 'number') ? aRes.negIdx : 0 };
-          else if (sRes && sRes.didPos) flavor = { kind: 'Spin', dir: 'Overflow', wi: (typeof sRes.posIdx === 'number') ? sRes.posIdx : 0 };
-          else if (sRes && sRes.didNeg) flavor = { kind: 'Spin', dir: 'Underflow', wi: (typeof sRes.negIdx === 'number') ? sRes.negIdx : 0 };
+          if (aRes && aRes.didPos) flavor = { kind: 'Amount', dir: 'Overflow', wi: (typeof aRes.srcPosIdx === 'number') ? aRes.srcPosIdx : -1 };
+          else if (aRes && aRes.didNeg) flavor = { kind: 'Amount', dir: 'Underflow', wi: (typeof aRes.srcNegIdx === 'number') ? aRes.srcNegIdx : -1 };
+          else if (sRes && sRes.didPos) flavor = { kind: 'Spin', dir: 'Overflow', wi: (typeof sRes.srcPosIdx === 'number') ? sRes.srcPosIdx : -1 };
+          else if (sRes && sRes.didNeg) flavor = { kind: 'Spin', dir: 'Underflow', wi: (typeof sRes.srcNegIdx === 'number') ? sRes.srcNegIdx : -1 };
+
+          if (flavor) {
+            if (flavor.wi == null || flavor.wi < 0 || flavor.wi >= 6) {
+              if (flavor.kind === 'Amount' && flavor.dir === 'Overflow') flavor.wi = (typeof aRes.posIdx === 'number') ? aRes.posIdx : -1;
+              else if (flavor.kind === 'Amount' && flavor.dir === 'Underflow') flavor.wi = (typeof aRes.negIdx === 'number') ? aRes.negIdx : -1;
+              else if (flavor.kind === 'Spin' && flavor.dir === 'Overflow') flavor.wi = (typeof sRes.posIdx === 'number') ? sRes.posIdx : -1;
+              else if (flavor.kind === 'Spin' && flavor.dir === 'Underflow') flavor.wi = (typeof sRes.negIdx === 'number') ? sRes.negIdx : -1;
+            }
+            if (flavor.wi == null || flavor.wi < 0 || flavor.wi >= 6) flavor = null;
+          }
 
           if (flavor) {
             const wi = ((flavor.wi | 0) + 6) % 6;

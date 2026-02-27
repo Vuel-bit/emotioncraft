@@ -32,7 +32,8 @@
       focusMask: [false, false, false, false, false, false],
       wellIdx: -1,
       kind: '',
-      dir: ''
+      dir: '',
+      _lastAdvanceMs: 0
     };
     if (!Array.isArray(SIM._coach.focusMask) || SIM._coach.focusMask.length !== 6) {
       SIM._coach.focusMask = [false, false, false, false, false, false];
@@ -78,6 +79,7 @@
     c.wellIdx = -1;
     c.kind = '';
     c.dir = '';
+    c._lastAdvanceMs = 0;
     SIM._breakPaused = false;
   };
 
@@ -85,6 +87,10 @@
     const SIM = _sim();
     if (!SIM || !SIM._coach || !SIM._coach.active) return;
     const c = _ensureCoachObj(SIM);
+    const nowMs = (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
+    const lastMs = (typeof c._lastAdvanceMs === 'number') ? c._lastAdvanceMs : 0;
+    if (nowMs - lastMs < 150) return;
+    c._lastAdvanceMs = nowMs;
     c.stepIdx += 1;
     if (c.stepIdx >= c.steps.length) {
       MOD.finish();
@@ -140,6 +146,7 @@
     c.wellIdx = (spec && typeof spec.wellIdx === 'number') ? (spec.wellIdx | 0) : -1;
     c.kind = (spec && spec.kind != null) ? String(spec.kind) : '';
     c.dir = (spec && spec.dir != null) ? String(spec.dir) : '';
+    c._lastAdvanceMs = 0;
     _applyStepFocus(SIM);
 
     SIM._breakPaused = true;

@@ -150,6 +150,12 @@
     try {
       const snap0 = _snap();
       const SIM0 = snap0.SIM;
+      if (SIM0 && SIM0._coach && SIM0._coach.active) {
+        try {
+          if (EC.COACH && typeof EC.COACH.tapAdvance === 'function') EC.COACH.tapAdvance();
+        } catch (_) {}
+        return false;
+      }
       if (SIM0 && (SIM0._uiPaused || SIM0._breakPaused)) {
         const why = SIM0._breakPaused ? 'modal_pause' : 'ui_pause';
         EC.INPUT.dbgLog('TOUCHSTART_RETURN: reason=' + why);
@@ -258,6 +264,15 @@
   // DOM pointerdown bridge used by bootstrap (main.js).
   EC.INPUT.armGestureFromDomPointerDown = EC.INPUT.armGestureFromDomPointerDown || function armGestureFromDomPointerDown(domEv) {
     try {
+      const snap0 = _snap();
+      const SIM0 = snap0.SIM;
+      if (SIM0 && SIM0._coach && SIM0._coach.active) {
+        try {
+          if (EC.COACH && typeof EC.COACH.tapAdvance === 'function') EC.COACH.tapAdvance();
+        } catch (_) {}
+        return false;
+      }
+      if (SIM0 && (SIM0._uiPaused || SIM0._breakPaused)) return false;
       if (!EC.INPUT || typeof EC.INPUT.pickWellIndexFromClientXY !== 'function' || typeof EC.INPUT.armGestureFromPick !== 'function') return false;
       const pid = (domEv && domEv.pointerId != null) ? domEv.pointerId : 0;
       const cx = (domEv && domEv.clientX != null) ? domEv.clientX : 0;
