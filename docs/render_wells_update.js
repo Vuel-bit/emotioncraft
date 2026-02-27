@@ -30,6 +30,29 @@
     return (r << 16) | (g << 8) | bl;
   }
 
+  function getPrincessTexture() {
+    const R = (EC.RENDER = EC.RENDER || {});
+    if (R._princessTex) return R._princessTex;
+    const app = R.app;
+    if (!app || !app.renderer || typeof PIXI === 'undefined' || !PIXI.Graphics) return null;
+    try {
+      const g = new PIXI.Graphics();
+      const size = 96;
+      const c = size * 0.5;
+      g.beginFill(0xf6d9b8, 1); g.drawCircle(c, c, 34); g.endFill();
+      g.beginFill(0x2f2436, 1); g.drawCircle(c - 16, c - 8, 5); g.drawCircle(c + 16, c - 8, 5); g.endFill();
+      g.lineStyle(4, 0x2f2436, 1, 0.5); g.moveTo(c - 10, c + 10); g.quadraticCurveTo(c, c + 18, c + 10, c + 10);
+      g.beginFill(0xfafafa, 1); g.drawCircle(c - 22, c - 26, 10); g.drawCircle(c + 22, c - 26, 10); g.endFill();
+      g.lineStyle(3, 0x2f2436, 0.8, 0.5); g.drawCircle(c - 22, c - 26, 10); g.drawCircle(c + 22, c - 26, 10);
+      const tex = app.renderer.generateTexture(g);
+      g.destroy(true);
+      R._princessTex = tex;
+      return tex;
+    } catch (_) {
+      return null;
+    }
+  }
+
   // PASS A40: expose a reusable well-interior updater so other views (psyche wedges)
   // can animate the exact same interior stack (visual-only).
   // opts.minOmegaAbs can be used to keep subtle motion when spinRaw==0 (dir==0).
@@ -374,6 +397,7 @@
     const coachMask = (coachActive && SIM._coach && Array.isArray(SIM._coach.focusMask)) ? SIM._coach.focusMask : null;
     const coachTargets = [];
     const tutorialActive = !!(SIM && SIM.tutorialActive);
+    const tutSpotlightPsyche = !!(tutorialActive && SIM._tutSpotlightPsyche);
     const tutTargets = [];
 
     // ------------------------------------------------------------
@@ -1049,7 +1073,12 @@
         if (src) {
           if (spr._ecSrc !== src) {
             spr._ecSrc = src;
-            try { spr.texture = PIXI.Texture.from(src); } catch (e) {}
+            if (src === '__PRINCESS__') {
+              const tex = getPrincessTexture();
+              if (tex) spr.texture = tex;
+            } else {
+              try { spr.texture = PIXI.Texture.from(src); } catch (e) {}
+            }
           }
           spr.visible = true;
 
@@ -1118,6 +1147,11 @@
       }
     } catch (_) {}
 
+    if (tutorialActive && tutSpotlightPsyche && geom) {
+      const pr = Math.max(28, Math.min(120, (typeof geom.wellMaxR === 'number' ? geom.wellMaxR : 56) * 0.95));
+      tutTargets.push({ cx: geom.cx, cy: geom.cy, r: pr, holeR: pr + 10 });
+    }
+
     // Coach spotlight overlay (visual-only): dim board except focused wells.
     try {
       if (EC.ensureCoachOverlayView) EC.ensureCoachOverlayView();
@@ -1143,7 +1177,7 @@
           dimG.drawRect(0, 0, sw, sh);
           for (let j = 0; j < targets.length; j++) {
             const t = targets[j];
-            const hr = t.r + t.r * 0.35;
+            const hr = (typeof t.holeR === 'number') ? t.holeR : (t.r + t.r * 0.35);
             dimG.beginHole();
             dimG.drawCircle(t.cx, t.cy, hr);
             dimG.endHole();
@@ -1153,7 +1187,7 @@
           ringG.clear();
           for (let j = 0; j < targets.length; j++) {
             const t = targets[j];
-            const hr = t.r + t.r * 0.35;
+            const hr = (typeof t.holeR === 'number') ? t.holeR : (t.r + t.r * 0.35);
             ringG.lineStyle(Math.max(3, t.r * 0.09), 0xffffff, 0.22 + 0.14 * pulse, 0.5);
             ringG.drawCircle(t.cx, t.cy, hr + Math.max(4, t.r * 0.08));
             ringG.lineStyle(Math.max(2, t.r * 0.05), 0xffffff, 0.62 + 0.22 * pulse, 0.5);

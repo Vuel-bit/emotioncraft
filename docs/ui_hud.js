@@ -730,14 +730,15 @@
         setText(notifyTextEl, 'notifyText', 'Treatment Failed.');
       } else if (SIM._coach && SIM._coach.active) {
         if (notifyBarEl) {
-          notifyBarEl.classList.add('breakMode');
+          notifyBarEl.classList.remove('breakMode');
           notifyBarEl.classList.add('coachMode');
           notifyBarEl.classList.remove('tutMode');
         }
         const c = SIM._coach || {};
         const st = (Array.isArray(c.steps) && c.steps[c.stepIdx]) ? c.steps[c.stepIdx] : null;
         const txt = st && st.text ? String(st.text) : '';
-        setText(notifyTextEl, 'notifyText', txt ? (txt + "\nTap to continue") : 'Tap to continue');
+        const withHint = ((c.stepIdx | 0) === 0);
+        setText(notifyTextEl, 'notifyText', txt ? (withHint ? (txt + "\nTap to continue.") : txt) : (withHint ? 'Tap to continue.' : ''));
       } else if (SIM && SIM.tutorialActive) {
         if (notifyBarEl) {
           notifyBarEl.classList.remove('breakMode');
@@ -899,7 +900,7 @@
             gridBits.push(`<div class=\"hudQuirkSlot\"><span class=\"hudQuirkText hudQuirkVacant\">${esc(s.label)}</span></div>`);
           }
         }
-        const line2 = `<div class=\"hudQuirkGrid\">${gridBits.join('')}</div>`;
+        const line2 = (SIM && SIM.tutorialActive) ? '' : `<div class=\"hudQuirkGrid\">${gridBits.join('')}</div>`;
 
         // Line 3: Announcements (single line, hidden when empty or not in-run)
         const inRun = !SIM.inLobby && !!SIM._patientActive;
@@ -908,7 +909,7 @@
         const annCls = annText ? '' : ' hidden';
         const annHtml = `<div class=\"hudAnnounceLine${annCls}\">${esc(annText)}</div>`;
 
-        let html = `<div class=\"hudLine1\">${line1}</div><div class=\"hudLine2\">${line2}</div>${annHtml}`;
+        let html = `<div class=\"hudLine1\">${line1}</div>${line2 ? `<div class=\"hudLine2\">${line2}</div>` : ''}${annHtml}`;
         patientInfoEl.innerHTML = html;
       }
     }
