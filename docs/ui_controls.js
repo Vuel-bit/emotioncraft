@@ -881,14 +881,17 @@ if (btnZeroPairEl) {
         };
 
         if (tutOn) {
-          // Tutorial: ALWAYS show the tutorial def's objectiveText (never the HUD summary/progress).
-          const def = (typeof EC.getActiveLevelDef === 'function') ? EC.getActiveLevelDef() : null;
-          const raw = def ? String(def.objectiveText || '') : '';
-          if (goalLineEl) goalLineEl.innerHTML = tutFmt(raw);
+          // Tutorial instructions moved to top notify bar; keep drawer text area collapsed.
+          if (goalLineEl) {
+            goalLineEl.innerHTML = '';
+            goalLineEl.style.display = 'none';
+          }
           if (objectiveSummaryEl) {
             objectiveSummaryEl.style.display = 'none';
             objectiveSummaryEl.textContent = '';
           }
+        } else if (goalLineEl) {
+          goalLineEl.style.display = '';
         }
       } catch (_) {}
     } catch (_) {}

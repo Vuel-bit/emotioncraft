@@ -373,6 +373,8 @@
     const coachActive = !!(SIM && SIM._coach && SIM._coach.active);
     const coachMask = (coachActive && SIM._coach && Array.isArray(SIM._coach.focusMask)) ? SIM._coach.focusMask : null;
     const coachTargets = [];
+    const tutorialActive = !!(SIM && SIM.tutorialActive);
+    const tutTargets = [];
 
     // ------------------------------------------------------------
     // Authoritative well geometry for DOM hit-testing (mobile)
@@ -777,7 +779,7 @@
       // UI_STATE comes from ENGINE snapshot
       const sel = (typeof UI_STATE.selectedWellIndex === 'number') ? UI_STATE.selectedWellIndex : -1;
       const isSel = (i === sel);
-      const tutOn = !!SIM.tutorialActive;
+      const tutOn = tutorialActive;
       const tutStep = (typeof SIM._tutStep === 'number') ? (SIM._tutStep|0) : 0;
       const tutFocus = (typeof SIM._tutFocusWell === 'number') ? (SIM._tutFocusWell|0) : -1;
       const tutOpp = (typeof SIM._tutFocusOpp === 'number') ? (SIM._tutFocusOpp|0) : -1;
@@ -785,6 +787,7 @@
       const isTutTarget = tutOn && (i === tutFocus || (pulseOpp && i === tutOpp));
       const isCoachTarget = !!(coachMask && coachMask[i]);
       if (isCoachTarget) coachTargets.push({ cx, cy, r });
+      if (isTutTarget) tutTargets.push({ cx, cy, r });
 
       // Baseline rim strokes removed (PASS A26): user requested NO solid line border.
       // Edge definition is handled via water FX rim sprite + subtle inner edge shading, while selG remains the strong ring.
@@ -1122,7 +1125,10 @@
       const dimG = EC.RENDER && EC.RENDER.coachDimG;
       const ringG = EC.RENDER && EC.RENDER.coachRingG;
       if (overlay && dimG && ringG) {
-        if (coachActive && coachTargets.length) {
+        const targets = (coachActive && coachTargets.length)
+          ? coachTargets
+          : ((tutorialActive && tutTargets.length) ? tutTargets : null);
+        if (targets && targets.length) {
           const app = EC.RENDER && EC.RENDER.app;
           const screen = app && app.screen ? app.screen : null;
           const sw = screen ? screen.width : 0;
@@ -1135,8 +1141,8 @@
           dimG.clear();
           dimG.beginFill(0x000000, 0.44);
           dimG.drawRect(0, 0, sw, sh);
-          for (let j = 0; j < coachTargets.length; j++) {
-            const t = coachTargets[j];
+          for (let j = 0; j < targets.length; j++) {
+            const t = targets[j];
             const hr = t.r + t.r * 0.35;
             dimG.beginHole();
             dimG.drawCircle(t.cx, t.cy, hr);
@@ -1145,8 +1151,8 @@
           dimG.endFill();
 
           ringG.clear();
-          for (let j = 0; j < coachTargets.length; j++) {
-            const t = coachTargets[j];
+          for (let j = 0; j < targets.length; j++) {
+            const t = targets[j];
             const hr = t.r + t.r * 0.35;
             ringG.lineStyle(Math.max(3, t.r * 0.09), 0xffffff, 0.22 + 0.14 * pulse, 0.5);
             ringG.drawCircle(t.cx, t.cy, hr + Math.max(4, t.r * 0.08));
