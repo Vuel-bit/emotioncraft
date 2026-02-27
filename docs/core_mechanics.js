@@ -895,7 +895,7 @@ instability: 0,
                 },
                 {
                   focus: [wi],
-                  text: 'Spill (3/3): Spills can ripple around the ring until everything is back in range.'
+                  text: 'Spill (3/3): Spills can cascade through the wells around the psyche.'
                 }
               ]
             });

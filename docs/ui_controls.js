@@ -877,18 +877,32 @@ if (btnZeroPairEl) {
           out = out.replace(/\n/g, '<br>');
           out = out.replace(/\bNerves\b/g, '<span class="goalHue goalGreen">Nerves</span>');
           out = out.replace(/\bGrit\b/g, '<span class="goalHue goalRed">Grit</span>');
+          out = out.replace(/\bEgo\b/g, '<span class="goalHue goalPurple">Ego</span>');
+          out = out.replace(/\bFocus\b/g, '<span class="goalHue goalYellow">Focus</span>');
           return out;
         };
 
         if (tutOn) {
-          // Tutorial instructions moved to top notify bar; keep drawer text area collapsed.
-          if (goalLineEl) {
-            goalLineEl.innerHTML = '';
-            goalLineEl.style.display = 'none';
-          }
-          if (objectiveSummaryEl) {
-            objectiveSummaryEl.style.display = 'none';
-            objectiveSummaryEl.textContent = '';
+          const tutPlan = !!(SIM && SIM._tutDrawerMode === 'PLAN');
+          if (tutPlan) {
+            if (goalLineEl) {
+              goalLineEl.style.display = '';
+              goalLineEl.innerHTML = 'Current: ' + tutFmt(String(SIM._tutPlanCurrent || '—'));
+            }
+            if (objectiveSummaryEl) {
+              objectiveSummaryEl.style.display = '';
+              objectiveSummaryEl.innerHTML = 'Next: ' + tutFmt(String(SIM._tutPlanNext || '—'));
+            }
+          } else {
+            // Tutorial instructions moved to top notify bar; keep drawer text area collapsed.
+            if (goalLineEl) {
+              goalLineEl.innerHTML = '';
+              goalLineEl.style.display = 'none';
+            }
+            if (objectiveSummaryEl) {
+              objectiveSummaryEl.style.display = 'none';
+              objectiveSummaryEl.textContent = '';
+            }
           }
         } else if (goalLineEl) {
           goalLineEl.style.display = '';

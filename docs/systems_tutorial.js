@@ -133,6 +133,7 @@
     // Ensure no patient context is attached.
     try { SIM._patientId = null; } catch(_) {}
     try { SIM._patientPlanKey = ''; } catch(_) {}
+    try { SIM._patientPortrait = '__PRINCESS__'; } catch(_) {}
 
     _initMVP(_def);
 
@@ -152,6 +153,7 @@
     SIM._tutPulseSpin0 = false;
     SIM._tutPulsePair0 = false;
     SIM._tutSuccessFxOn = false;
+    SIM._tutSpotlightPsyche = false;
     // Ensure plan-hold fields are clean (tutorial uses them for hold steps without enabling PLAN UI).
     try {
       SIM._planHoldReqSec = 0;
@@ -194,8 +196,10 @@
     SIM._tutPulseSpin0 = false;
     SIM._tutPulsePair0 = false;
     SIM._tutSuccessFxOn = false;
+    SIM._tutSpotlightPsyche = false;
     SIM._tutNoHazards = false;
     try { delete SIM._tutNoHazards; } catch (_) {}
+    try { delete SIM._patientPortrait; } catch (_) {}
     try { delete SIM._tutCanSpin0; } catch (_) {}
     try { delete SIM._tutCanPair0; } catch (_) {}
     try { delete SIM._tutDrawerMode; } catch (_) {}
@@ -207,6 +211,7 @@
     try { delete SIM._tutPulseSpin0; } catch (_) {}
     try { delete SIM._tutPulsePair0; } catch (_) {}
     try { delete SIM._tutSuccessFxOn; } catch (_) {}
+    try { delete SIM._tutSpotlightPsyche; } catch (_) {}
     // Clear any plan-hold fields so countdown never leaks into lobby/normal play.
     try {
       SIM._planHoldReqSec = 0;
@@ -296,6 +301,7 @@
     SIM._tutDrawerMode = (spec && typeof spec.drawerMode === 'string') ? spec.drawerMode : 'INSTRUCT';
     SIM._tutPlanCurrent = (spec && typeof spec.planCurrent === 'string') ? spec.planCurrent : '';
     SIM._tutPlanNext = (spec && typeof spec.planNext === 'string') ? spec.planNext : '';
+    SIM._tutSpotlightPsyche = !!(spec && spec.spotlightPsyche);
 
     // Tutorial-only mechanics exception: suppress opposite push during first spin lesson.
     SIM._tutSuppressOppPush = !!(spec && spec.suppressOppPush);

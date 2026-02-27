@@ -189,10 +189,10 @@
           type: 'break',
           wellIdx: w,
           steps: [
-            { focus: [w], text: 'Mental Break (1/4): A psyche limit was hit — the patient just snapped to relieve pressure.' },
+            { focus: [w], text: `Mental Break (1/4): A psychic limit was reached in the ${_wellName(w)} psyche.` },
             { focus: [w], text: 'Mental Break (2/4): The break relieves pressure by zeroing that well’s Spin.' },
             { focus: [left, right], text: 'Mental Break (3/4): The shock redistributes Spin into neighboring wells.' },
-            { focus: [opposite], text: 'Mental Break (4/4): It can also jolt the opposite well — watch the ripple effects.' }
+            { focus: [opposite], text: 'Mental Break (4/4): It also jolts the opposite well in the other direction.' }
           ]
         });
       }

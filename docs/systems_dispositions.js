@@ -916,6 +916,21 @@
           env: null
         };
         _instances.push(inst);
+        try {
+          const coachOk = EC.COACH && typeof EC.COACH.startOnce === 'function';
+          const coachActive = !!(SIM && SIM._coach && SIM._coach.active);
+          if (coachOk && !coachActive && !SIM.tutorialActive && !SIM._tutNoHazards) {
+            EC.COACH.startOnce('coach_quirk', {
+              wellIdx: hi,
+              quirkType: inst.type,
+              steps: [
+                { focus: [hi], text: `Quirk (1/3): A ${typeDisplayName(inst.type)} is about to start on the ${hueName(hi)} well.` },
+                { focus: [hi], text: 'Quirk (2/3): Quirks can increase or decrease size or change spin.' },
+                { focus: [hi], text: 'Quirk (3/3): The warning ring around the well indicates the type and strength of the quirk.' }
+              ]
+            });
+          }
+        } catch (_) {}
         return 1;
       }
 
