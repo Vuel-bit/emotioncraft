@@ -300,10 +300,10 @@
     const logOverlayEl = dom.logOverlayEl || document.getElementById('logOverlay');
     const logBodyEl = dom.logBodyEl || document.getElementById('logBody');
 
-    // Coach tap-to-advance on top notify area (except control buttons).
+    // Coach tap-to-advance (global capture), except notify controls (Log/Lobby/Debug).
     if (!UI_STATE._coachTapWired) {
       UI_STATE._coachTapWired = true;
-      const onCoachTap = function(e) {
+      document.addEventListener('pointerdown', function onCoachTapCapture(e) {
         try {
           const t = e && e.target;
           if (t && t.closest && t.closest('#notifyControls')) return;
@@ -312,20 +312,11 @@
           if (EC.COACH && typeof EC.COACH.tapAdvance === 'function') {
             e.preventDefault();
             e.stopPropagation();
+            if (typeof e.stopImmediatePropagation === 'function') e.stopImmediatePropagation();
             EC.COACH.tapAdvance();
           }
         } catch (_) {}
-      };
-      const nb = document.getElementById('notifyBar');
-      const nt = document.getElementById('notifyText');
-      if (nb) {
-        nb.addEventListener('click', onCoachTap);
-        nb.addEventListener('touchstart', onCoachTap, { passive: false });
-      }
-      if (nt && nt !== nb) {
-        nt.addEventListener('click', onCoachTap);
-        nt.addEventListener('touchstart', onCoachTap, { passive: false });
-      }
+      }, { capture: true });
     }
 
     // PASS A40f (layout): stack Lobby over Log, and keep Debug adjacent/close
