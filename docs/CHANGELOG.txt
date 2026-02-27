@@ -348,3 +348,7 @@ Pass A31: BAP intro cutscene polish — fixed framing so shots start in full fit
 - UI (Tutorial drawer): Capped tutorial drawer height and made the instruction text area scrollable to prevent the drawer from expanding upward and covering wells.
 - Tutorial (Goals): Princess goalViz targets updated to Ego > 200 and Focus < 150; plan copy updated to match; DONE copy updated.
 - Tutorial (Hold): Goal-satisfied checks now read targets from SIM.goalViz (so hold steps automatically follow the current tutorial goalViz targets).
+
+=== PASS A68 (2026-02-27) — Coach Mode for first-time Spill + Mental Break explanations ===
+- Gameplay: first-time Spill + Mental Break explanations now use top-bar Coach Mode (pause + stepper + highlights) instead of modal popup.
+

@@ -275,6 +275,7 @@
     ctx.SIM = SIM;
     if (!SIM) return;
 
+
     if (UI_STATE._hudInited) return;
     UI_STATE._hudInited = true;
 
@@ -298,6 +299,34 @@
     const btnLogCloseEl = dom.btnLogCloseEl || document.getElementById('btnLogClose');
     const logOverlayEl = dom.logOverlayEl || document.getElementById('logOverlay');
     const logBodyEl = dom.logBodyEl || document.getElementById('logBody');
+
+    // Coach tap-to-advance on top notify area (except control buttons).
+    if (!UI_STATE._coachTapWired) {
+      UI_STATE._coachTapWired = true;
+      const onCoachTap = function(e) {
+        try {
+          const t = e && e.target;
+          if (t && t.closest && t.closest('#notifyControls')) return;
+          const SIMx = EC.SIM || {};
+          if (!(SIMx && SIMx._coach && SIMx._coach.active)) return;
+          if (EC.COACH && typeof EC.COACH.tapAdvance === 'function') {
+            e.preventDefault();
+            e.stopPropagation();
+            EC.COACH.tapAdvance();
+          }
+        } catch (_) {}
+      };
+      const nb = document.getElementById('notifyBar');
+      const nt = document.getElementById('notifyText');
+      if (nb) {
+        nb.addEventListener('click', onCoachTap);
+        nb.addEventListener('touchstart', onCoachTap, { passive: false });
+      }
+      if (nt && nt !== nb) {
+        nt.addEventListener('click', onCoachTap);
+        nt.addEventListener('touchstart', onCoachTap, { passive: false });
+      }
+    }
 
     // PASS A40f (layout): stack Lobby over Log, and keep Debug adjacent/close
     try {
@@ -585,6 +614,8 @@
     const UI_STATE = (ctx.UI_STATE = ctx.UI_STATE || snap.UI || {});
     ctx.SIM = SIM;
     if (!SIM) return;
+
+    try { if (EC.COACH && typeof EC.COACH.update === 'function') EC.COACH.update(dt || 0); } catch (_) {}
     const dom = ctx.dom || {};
     const mvpHudEl = dom.mvpHudEl || document.getElementById('mvpHud');
     const notifyBarEl = document.getElementById('notifyBar');
@@ -700,8 +731,16 @@
         }
         // PASS A42: Loss message must read exactly "Treatment Failed." in the notifyText region.
         // (Keep reason available elsewhere; do not replace the required message.)
+        if (notifyBarEl) notifyBarEl.classList.remove('breakMode');
         setText(notifyTextEl, 'notifyText', 'Treatment Failed.');
+      } else if (SIM._coach && SIM._coach.active) {
+        if (notifyBarEl) notifyBarEl.classList.add('breakMode');
+        const c = SIM._coach || {};
+        const st = (Array.isArray(c.steps) && c.steps[c.stepIdx]) ? c.steps[c.stepIdx] : null;
+        const txt = st && st.text ? String(st.text) : '';
+        setText(notifyTextEl, 'notifyText', txt ? (txt + "\nTap to continue") : 'Tap to continue');
       } else {
+        if (notifyBarEl) notifyBarEl.classList.remove('breakMode');
         // Normal mode: show disposition HUD or short message + gesture debug line.
         // Hide disposition telegraph/active text from HUD; keep only UI messages.
         const short = ((UI_STATE.uiMsgT > 0 && UI_STATE.uiMsg) ? UI_STATE.uiMsg : '');

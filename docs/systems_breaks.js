@@ -150,7 +150,7 @@
     arr.push({ tSec: (sim && typeof sim.mvpTime === 'number') ? sim.mvpTime : 0, html: String(html || '') });
   }
 
-  function _triggerBreakUI(sim, titleLine, before, after, announceShort) {
+  function _triggerBreakUI(sim, titleLine, before, after, announceShort, focusWellIdx) {
     if (!sim) return;
     // Quirks must not carry through a mental break: cancel pending/telegraph/active and reset ramp timers.
     try {
@@ -177,6 +177,26 @@
       }
     } catch (_) {}
     sim._breakFx = { startMs: _nowMs(), durMs: 900, wellMask, psyMask };
+    // First-time board-visible coach explanation (replaces modal for break info).
+    try {
+      if (EC.COACH && typeof EC.COACH.startOnce === 'function') {
+        const wRaw = (typeof focusWellIdx === 'number') ? (focusWellIdx | 0) : 0;
+        const w = ((wRaw % 6) + 6) % 6;
+        const left = (w + 5) % 6;
+        const right = (w + 1) % 6;
+        const opposite = (EC.CONST && Array.isArray(EC.CONST.OPPOSITE_OF)) ? (EC.CONST.OPPOSITE_OF[w] ?? ((w + 3) % 6)) : ((w + 3) % 6);
+        EC.COACH.startOnce('coach_break', {
+          type: 'break',
+          wellIdx: w,
+          steps: [
+            { focus: [w], text: 'Mental Break (1/4): A psyche limit was hit — the board just snapped to relieve pressure.' },
+            { focus: [w], text: 'Mental Break (2/4): The break relieves pressure by zeroing that well’s Spin.' },
+            { focus: [left, right], text: 'Mental Break (3/4): The shock redistributes Spin into neighboring wells.' },
+            { focus: [opposite], text: 'Mental Break (4/4): It can also jolt the opposite well — watch the ripple effects.' }
+          ]
+        });
+      }
+    } catch (_) {}
     // Log entry
     try {
       const lines = [];
@@ -409,21 +429,9 @@
       _formatSpinDelta(before.s, after.s),
     ];
 
-    // First-time informational popup (additive; does not change mechanics).
-    // Spec: title = first line, body = remaining lines.
-    try {
-      if (EC.BREAK && typeof EC.BREAK.showInfoOnce === 'function') {
-        if (kind === 'LOW') {
-          EC.BREAK.showInfoOnce('break_hue_under_floor', msgArr[0], msgArr.slice(1));
-        } else {
-          EC.BREAK.showInfoOnce('break_hue_over_cap', msgArr[0], msgArr.slice(1));
-        }
-      }
-    } catch (_) {}
-
     const msgLines = msgArr.join('\n');
     _pushBreakMsg(msgLines);
-    _triggerBreakUI(sim, typeLine, before, after, 'Psyche ' + _wellDispName(h));
+    _triggerBreakUI(sim, typeLine, before, after, 'Psyche ' + _wellDispName(h), h);
     _record(sim.mvpTime || 0, kind === 'LOW' ? 'PSY_HUE_LOW' : 'PSY_HUE_HIGH', { hue: h, value: val }, msgLines);
     _maybeTriggerLose(sim);
   }
@@ -565,21 +573,9 @@
       _formatSpinDelta(before.s, after.s),
     ];
 
-    // First-time informational popup (spin jam min/max required).
-    // Spec: title = first line, body = remaining lines.
-    try {
-      if (EC.BREAK && typeof EC.BREAK.showInfoOnce === 'function') {
-        if (cause === 'SPIN_MAX_JAM') {
-          EC.BREAK.showInfoOnce('break_jam_spin_max', msgArr[0], msgArr.slice(1));
-        } else if (cause === 'SPIN_MIN_JAM') {
-          EC.BREAK.showInfoOnce('break_jam_spin_min', msgArr[0], msgArr.slice(1));
-        }
-      }
-    } catch (_) {}
-
     const msgLines = msgArr.join('\n');
     _pushBreakMsg(msgLines);
-    _triggerBreakUI(sim, typeLine, before, after, 'Well overflow');
+    _triggerBreakUI(sim, typeLine, before, after, 'Well overflow', (details && typeof details.idx === 'number') ? (details.idx | 0) : 0);
     const recDetails = details ? Object.assign({}, details) : {};
     if (penaltyDetails) recDetails.penalty = penaltyDetails;
     _record(sim.mvpTime || 0, cause, recDetails, msgLines);
