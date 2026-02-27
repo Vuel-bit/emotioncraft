@@ -1,0 +1,70 @@
+name: docs smoke + guardrails
+
+on:
+  pull_request:
+    paths:
+      - 'docs/**'
+      - '.github/**'
+      - 'AGENTS.md'
+  push:
+    branches:
+      - main
+    paths:
+      - 'docs/**'
+      - '.github/**'
+      - 'AGENTS.md'
+
+jobs:
+  smoke-docs:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Guardrail scan (no modules in docs)
+        shell: bash
+        run: |
+          set -euo pipefail
+          if rg -n 'type\s*=\s*["'"'"']module["'"'"']' docs; then
+            echo 'Found disallowed module script usage in docs/.'
+            exit 1
+          fi
+
+          if rg -n --glob '*.{js,html,mjs,cjs,ts,tsx,jsx}' '\bexport\s' docs; then
+            echo 'Found disallowed export syntax in docs/.'
+            exit 1
+          fi
+
+          if rg -n --glob '*.{js,html,mjs,cjs,ts,tsx,jsx}' 'import\s+.+\s+from\s+' docs; then
+            echo 'Found disallowed import-from syntax in docs/.'
+            exit 1
+          fi
+
+      - name: Install Playwright
+        run: |
+          npm install --no-save playwright
+          npx playwright install --with-deps chromium
+
+      - name: Smoke test docs/index.html
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m http.server 4173 --directory docs >/tmp/docs-http.log 2>&1 &
+          SERVER_PID=$!
+          trap 'kill $SERVER_PID' EXIT
+          node .github/scripts/smoke_docs.mjs
+
+      - name: Zip docs folder
+        run: zip -r docs.zip docs
+
+      - name: Upload docs artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: docs-zip
+          path: docs.zip
