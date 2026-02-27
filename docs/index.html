@@ -821,7 +821,11 @@
     overflow: visible;
   }
   #drawer.tutDrawer .sub{ font-size: 15px; line-height: 1.28; color: rgba(232,238,252,0.92); }
-  #drawer.tutDrawer #goalLine{ font-size: 15px; color: rgba(232,238,252,0.96); }
+  #drawer.tutDrawer #goalLine{ font-size: 15px; color: rgba(232,238,252,0.96); 
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 6;
+    overflow: hidden;}
   #drawer.tutDrawer #objectiveSummary{ font-size: 13px; color: rgba(232,238,252,0.86); }
 
   /* Keep tutorial instruction text clear of the fixed spin/pair buttons. */

@@ -149,7 +149,15 @@
     SIM._tutSuppressOppPush = false;
     SIM._tutPulseOpp = false;
     SIM._tutPulseGoals = false;
+    SIM._tutPulseSpin0 = false;
+    SIM._tutPulsePair0 = false;
     SIM._tutSuccessFxOn = false;
+    // Ensure plan-hold fields are clean (tutorial uses them for hold steps without enabling PLAN UI).
+    try {
+      SIM._planHoldReqSec = 0;
+      SIM.planHoldSec = 0;
+      SIM._planStepOk = false;
+    } catch (_) {}
     // Strict safety: tutorial must never trigger spill or mental breaks.
     SIM._tutNoHazards = true;
     _forceSelect(SIM._tutFocusWell);
@@ -183,6 +191,8 @@
     SIM._tutSuppressOppPush = false;
     SIM._tutPulseOpp = false;
     SIM._tutPulseGoals = false;
+    SIM._tutPulseSpin0 = false;
+    SIM._tutPulsePair0 = false;
     SIM._tutSuccessFxOn = false;
     SIM._tutNoHazards = false;
     try { delete SIM._tutNoHazards; } catch (_) {}
@@ -194,7 +204,15 @@
     try { delete SIM._tutSuppressOppPush; } catch (_) {}
     try { delete SIM._tutPulseOpp; } catch (_) {}
     try { delete SIM._tutPulseGoals; } catch (_) {}
+    try { delete SIM._tutPulseSpin0; } catch (_) {}
+    try { delete SIM._tutPulsePair0; } catch (_) {}
     try { delete SIM._tutSuccessFxOn; } catch (_) {}
+    // Clear any plan-hold fields so countdown never leaks into lobby/normal play.
+    try {
+      SIM._planHoldReqSec = 0;
+      SIM.planHoldSec = 0;
+      SIM._planStepOk = false;
+    } catch (_) {}
     // Clear any goal viz from tutorial so it never leaks into normal play.
     try {
       if (SIM.goalViz && Array.isArray(SIM.goalViz.perHue)) {
@@ -287,12 +305,13 @@
 
     // Pulse goal shading during goal instruction step (tutorial-only).
     SIM._tutPulseGoals = !!(spec && spec.pulseGoals);
-
     // Tutorial button gating source-of-truth (ui_controls reads these flags).
     SIM._tutCanSpin0 = !!spec.canSpin0;
     SIM._tutCanPair0 = !!spec.canPair0;
+    SIM._tutPulseSpin0 = !!spec.pulseSpin0;
+    SIM._tutPulsePair0 = !!spec.pulsePair0;
     _setBtnsEnabled(SIM._tutCanSpin0, SIM._tutCanPair0);
-    _setBtnPulse(!!spec.pulseSpin0, !!spec.pulsePair0);
+    _setBtnPulse(!!SIM._tutPulseSpin0, !!SIM._tutPulsePair0);
 
     // Energy top-up (when applicable).
     try {
@@ -326,10 +345,23 @@
     if (!_def) return;
 
     const TD = _tutData();
-    const stepsLen = (TD && Array.isArray(TD.STEPS)) ? TD.STEPS.length : 1;
+    const steps = (TD && Array.isArray(TD.STEPS)) ? TD.STEPS : null;
+    const stepsLen = steps ? steps.length : 1;
 
     const step = (SIM._tutStep|0);
     if (!_stepStarted) _onStepEnter(step);
+
+    // Tutorial-only hold flow uses the plan countdown fields. Clear by default.
+    const spec0 = (steps && steps[step]) ? steps[step] : null;
+    const sid = (spec0 && typeof spec0.id === 'string') ? spec0.id : '';
+    const isHoldStep = (sid === 'HOLD_GOALS_10S' || sid === 'HOLD_SPINZERO_3S');
+    if (!isHoldStep) {
+      try {
+        if ((SIM._planHoldReqSec || 0) !== 0) SIM._planHoldReqSec = 0;
+        if ((SIM.planHoldSec || 0) !== 0) SIM.planHoldSec = 0;
+        if (!!SIM._planStepOk) SIM._planStepOk = false;
+      } catch (_) {}
+    }
 
     const i = (typeof SIM._tutFocusWell === 'number') ? (SIM._tutFocusWell|0) : 0;
     const j = (typeof SIM._tutFocusOpp === 'number') ? (SIM._tutFocusOpp|0) : ((i + 3) % 6);
@@ -349,7 +381,7 @@
     } else if (step === 2) {
       // Flux definition (watch psyche move)
       const now = (SIM.psyP && typeof SIM.psyP[i] === 'number') ? SIM.psyP[i] : 0;
-      if (Math.abs(now - _psySnap) >= 2) {
+      if (Math.abs(now - _psySnap) >= 5) {
         _advance();
       }
     } else if (step === 3) {
@@ -390,7 +422,7 @@
         } catch (_) {}
       }
 
-      if (last && (last.kind === 'TAP_SELECT' || last.kind === 'SWIPE')) {
+      if (last && last.kind === 'TAP_SELECT') {
         const w = last.well|0;
         if (w === 1 || w === 4) {
           // Keep focus on whichever goal well the player selected.
@@ -402,16 +434,34 @@
         }
       }
     } else if (step === 8) {
-      // Brief plan intro line, then switch the drawer into Plan Mode.
-      _altFocusT += (typeof dt === 'number' && isFinite(dt) ? dt : 0);
-      if (_altFocusT >= 1.05) {
-        _advance();
-      }
-    } else if (step === 9) {
-      // Plan Mode: Ego >= 300 AND Focus <= 200, then stop all spin.
-      const eps = (EC.TUNE && typeof EC.TUNE.PAT_SPIN_ZERO_EPS === 'number') ? EC.TUNE.PAT_SPIN_ZERO_EPS : 0.01;
+      // Goals active: wait for both goals satisfied, then start the 10s hold step.
       const pEgo = (SIM.psyP && typeof SIM.psyP[1] === 'number') ? SIM.psyP[1] : 0;
       const pFoc = (SIM.psyP && typeof SIM.psyP[4] === 'number') ? SIM.psyP[4] : 0;
+      if (pEgo >= 300 && pFoc <= 200) {
+        _advance();
+      }
+    } else if (sid === 'HOLD_GOALS_10S') {
+      // Hold goals for 10 seconds (center countdown).
+      const pEgo = (SIM.psyP && typeof SIM.psyP[1] === 'number') ? SIM.psyP[1] : 0;
+      const pFoc = (SIM.psyP && typeof SIM.psyP[4] === 'number') ? SIM.psyP[4] : 0;
+      const okGoals = (pEgo >= 300 && pFoc <= 200);
+      const dt0 = (typeof dt === 'number' && isFinite(dt) ? dt : 0);
+      try {
+        SIM._planHoldReqSec = 10;
+        SIM._planStepOk = !!okGoals;
+        if (!okGoals) {
+          SIM.planHoldSec = 0;
+        } else {
+          SIM.planHoldSec = (SIM.planHoldSec || 0) + dt0;
+          if (SIM.planHoldSec >= 10) {
+            SIM.planHoldSec = 0;
+            _advance();
+          }
+        }
+      } catch (_) {}
+    } else if (sid === 'HOLD_SPINZERO_3S') {
+      // Set all spin to zero, then hold for 3 seconds.
+      const eps = (EC.TUNE && typeof EC.TUNE.PAT_SPIN_ZERO_EPS === 'number') ? EC.TUNE.PAT_SPIN_ZERO_EPS : 0.01;
       let allZero = true;
       if (SIM.wellsS) {
         for (let k = 0; k < 6; k++) {
@@ -419,16 +469,26 @@
           if (Math.abs(s) > eps) { allZero = false; break; }
         }
       }
-      if (!_didShowDone && pEgo >= 300 && pFoc <= 200 && allZero) {
-        _didShowDone = true;
-        // Trigger success FX (tutorial-only hold)
-        try {
-          SIM._tutSuccessFxOn = true;
-          const stamp = 'TUT|' + String((typeof SIM._mvpInitStamp === 'number') ? SIM._mvpInitStamp : Date.now());
-          if (EC.RENDER_SUCCESS_FX && typeof EC.RENDER_SUCCESS_FX.trigger === 'function') EC.RENDER_SUCCESS_FX.trigger(stamp);
-        } catch (_) {}
-        _advance();
-      }
+      const dt0 = (typeof dt === 'number' && isFinite(dt) ? dt : 0);
+      try {
+        SIM._planHoldReqSec = 3;
+        SIM._planStepOk = !!allZero;
+        if (!allZero) {
+          SIM.planHoldSec = 0;
+        } else {
+          SIM.planHoldSec = (SIM.planHoldSec || 0) + dt0;
+          if (SIM.planHoldSec >= 3) {
+            SIM.planHoldSec = 0;
+            if (!_didShowDone) {
+              _didShowDone = true;
+              SIM._tutSuccessFxOn = true;
+              const stamp = 'TUT|' + String((typeof SIM._mvpInitStamp === 'number') ? SIM._mvpInitStamp : Date.now());
+              if (EC.RENDER_SUCCESS_FX && typeof EC.RENDER_SUCCESS_FX.trigger === 'function') EC.RENDER_SUCCESS_FX.trigger(stamp);
+            }
+            _advance();
+          }
+        }
+      } catch (_) {}
     } else {
       // DONE: wait for Lobby (or any exit)
     }

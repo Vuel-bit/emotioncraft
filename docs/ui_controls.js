@@ -876,36 +876,18 @@ if (btnZeroPairEl) {
           out = out.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
           out = out.replace(/\n/g, '<br>');
           out = out.replace(/\bNerves\b/g, '<span class="goalHue goalGreen">Nerves</span>');
+          out = out.replace(/\bGrit\b/g, '<span class="goalHue goalRed">Grit</span>');
           return out;
         };
 
         if (tutOn) {
-          const mode = String(SIM._tutDrawerMode || 'INSTRUCT').toUpperCase();
-
-          if (mode === 'PLAN') {
-            if (goalLineEl) {
-              const cur = String(SIM._tutPlanCurrent || '');
-              goalLineEl.innerHTML = 'Current: ' + tutFmt(cur);
-            }
-            if (objectiveSummaryEl) {
-              objectiveSummaryEl.style.display = '';
-              const nxt = String(SIM._tutPlanNext || '—');
-              objectiveSummaryEl.innerHTML = 'Next: ' + tutFmt(nxt);
-            }
-          } else {
-            // INSTRUCT + DONE: single instruction area (no labels, no next line)
-            let raw = '';
-            try {
-              raw = (EC.UI_HUD && typeof EC.UI_HUD.getObjectiveSummaryText === 'function')
-                ? String(EC.UI_HUD.getObjectiveSummaryText() || '')
-                : '';
-            } catch (_) { raw = ''; }
-            raw = raw.replace(/^\s*Goal:\s*/i, '').trim();
-            if (goalLineEl) goalLineEl.innerHTML = tutFmt(raw);
-            if (objectiveSummaryEl) {
-              objectiveSummaryEl.style.display = 'none';
-              objectiveSummaryEl.textContent = '';
-            }
+          // Tutorial: ALWAYS show the tutorial def's objectiveText (never the HUD summary/progress).
+          const def = (typeof EC.getActiveLevelDef === 'function') ? EC.getActiveLevelDef() : null;
+          const raw = def ? String(def.objectiveText || '') : '';
+          if (goalLineEl) goalLineEl.innerHTML = tutFmt(raw);
+          if (objectiveSummaryEl) {
+            objectiveSummaryEl.style.display = 'none';
+            objectiveSummaryEl.textContent = '';
           }
         }
       } catch (_) {}
@@ -1139,16 +1121,16 @@ if (btnZeroPairEl) {
         btnSpinZeroEl2.disabled = !canSpin;
         btnSpinZeroEl2.style.opacity = canSpin ? '1' : '0.55';
 
-        // Tutorial pulse highlight
+        // Tutorial pulse highlight (pulse flags only; do not infer from can flags)
         try {
-          if (SIM && SIM.tutorialActive && (typeof SIM._tutCanSpin0 === 'boolean')) {
-            if (SIM._tutCanSpin0) btnSpinZeroEl2.classList.add('tutPulse');
+          if (SIM && SIM.tutorialActive && (typeof SIM._tutPulseSpin0 === 'boolean')) {
+            if (SIM._tutPulseSpin0) btnSpinZeroEl2.classList.add('tutPulse');
             else btnSpinZeroEl2.classList.remove('tutPulse');
           } else {
             btnSpinZeroEl2.classList.remove('tutPulse');
           }
         } catch (_) {}
-      }
+}
 
       // --- Pair-0 ---
       const c2 = computeZeroPairCostCanonical(sel);
@@ -1175,16 +1157,16 @@ if (btnZeroPairEl) {
         btnZeroPairEl2.disabled = !canPair;
         btnZeroPairEl2.style.opacity = canPair ? '1' : '0.55';
 
-        // Tutorial pulse highlight
+        // Tutorial pulse highlight (pulse flags only; do not infer from can flags)
         try {
-          if (SIM && SIM.tutorialActive && (typeof SIM._tutCanPair0 === 'boolean')) {
-            if (SIM._tutCanPair0) btnZeroPairEl2.classList.add('tutPulse');
+          if (SIM && SIM.tutorialActive && (typeof SIM._tutPulsePair0 === 'boolean')) {
+            if (SIM._tutPulsePair0) btnZeroPairEl2.classList.add('tutPulse');
             else btnZeroPairEl2.classList.remove('tutPulse');
           } else {
             btnZeroPairEl2.classList.remove('tutPulse');
           }
         } catch (_) {}
-      }
+}
     }
   };
 

@@ -1,6 +1,20 @@
 
+=== PASS A66 (2026-02-26) — Tutorial copy + goal tap-only gating ===
+- Shortened nudge lesson objectiveText (no blank lines) to prevent clamp truncation; retains bold rule and Nerves/Grit coloring.
+- Goal reveal step now advances only on TAP_SELECT (swipes no longer trigger progression), while keeping Ego/Focus alternating focus ring.
 
 
+
+
+
+=== PASS A64 (2026-02-26) — Tutorial drawer + pulse flags + copy fixes ===
+- Tutorial bottom panel now always renders the active tutorial level def objectiveText (never HUD progress like "Tutorial (x/y)").
+- Tutorial no longer uses split Current/Next plan drawer; objectiveSummary is hidden for the full tutorial.
+- Flux definition step now requires ≥5 psyche movement from snapshot before advancing.
+- Spin lesson copy is now 3 lines; nudge lesson copy updated + explicit "Press 0 Pair Spin" instruction.
+- Tutorial text formatter colors Nerves (green) and Grit (red).
+- Button pulsing is driven by explicit SIM flags (_tutPulseSpin0/_tutPulsePair0), not by can/enabled flags (prevents both buttons pulsing).
+- Tutorial goalLine clamp increased to 6 lines to prevent mid-sentence cutoffs.
 === PASS A63 (2026-02-26) — Hotfix: hide spin buttons in Lobby ===
 - Fixed regression where the lifted spin overlay buttons were visible above the Lobby overlay.
 - Added screen-state gate (SIM.inLobby) to hide/show btnSpinZero + btnZeroPair reliably.
@@ -321,3 +335,10 @@ Pass A31: BAP intro cutscene polish — fixed framing so shots start in full fit
 === PASS A62 (2026-02-26) — Tutorial drawer no-clip + smaller footprint ===
 - UI (Tutorial drawer): Removed overflow scrolling/clipping on the tutorial drawer (overflow: visible) so pulsing controls never appear clipped at the drawer edge.
 - UI (Tutorial drawer): Reduced padding + lowered min-height; reduced max-height cap to keep drawer footprint smaller on short phone viewports.
+
+
+=== PASS A65 (2026-02-26) — Tutorial goal reveal copy + 10s/3s hold flow ===
+- Tutorial (Goals): Updated goal reveal copy to the new 2-phase text (Targets live… then Princess’s plan short version).
+- Tutorial (Hold): Added two end steps driven by the existing center countdown fields: hold goals for 10s, then set all Spin to zero and hold for 3s before success FX.
+- Tutorial (Safety): Plan-hold countdown fields are cleared outside the hold steps and hard-reset on tutorial stop so nothing leaks into Lobby/normal play.
+- Tutorial (Copy): Tightened flux / 0 Spin / pair instruction copy to shorter multi-line variants for mobile readability.
