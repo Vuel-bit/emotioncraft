@@ -45,6 +45,37 @@
 
   // HUD Announcements (PASS A40f) — single-line HUD row + log entry with elapsed sim time
 
+  function _wellHueClassMap() {
+    const names = (EC.CONST && Array.isArray(EC.CONST.WELL_DISPLAY_NAMES))
+      ? EC.CONST.WELL_DISPLAY_NAMES
+      : ['Grit', 'Ego', 'Chill', 'Nerves', 'Focus', 'Pep'];
+    const classes = ['goalRed', 'goalPurple', 'goalBlue', 'goalGreen', 'goalYellow', 'goalOrange'];
+    const map = Object.create(null);
+    for (let i = 0; i < 6; i++) {
+      const n = String(names[i] || '').trim();
+      if (n) map[n] = classes[i] || 'goalBlue';
+    }
+    // Legacy/alt labels that may still appear in coach/tutorial copy.
+    map.Drive = 'goalOrange';
+    map.Flow = 'goalBlue';
+    map.Awe = 'goalPurple';
+    map.Dread = 'goalGreen';
+    return map;
+  }
+
+  function _formatWellNamesInEscapedText(escapedText) {
+    let out = String(escapedText == null ? '' : escapedText);
+    const map = _wellHueClassMap();
+    const escRe = (s) => String(s).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    for (const nm in map) {
+      if (!Object.prototype.hasOwnProperty.call(map, nm)) continue;
+      const cls = map[nm];
+      const re = new RegExp('\\b' + escRe(nm) + '\\b', 'g');
+      out = out.replace(re, '<span class="goalHue ' + cls + '">' + nm + '</span>');
+    }
+    return out;
+  }
+
   function _formatTutorialNotifyText(text){
     const esc = (v) => String(v == null ? '' : v)
       .replace(/&/g, '&amp;')
@@ -53,10 +84,19 @@
     let out = esc(text);
     out = out.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
     out = out.replace(/\n/g, '<br>');
-    out = out.replace(/\bNerves\b/g, '<span class="goalHue goalGreen">Nerves</span>');
-    out = out.replace(/\bGrit\b/g, '<span class="goalHue goalRed">Grit</span>');
-    out = out.replace(/\bEgo\b/g, '<span class="goalHue goalPurple">Ego</span>');
-    out = out.replace(/\bFocus\b/g, '<span class="goalHue goalYellow">Focus</span>');
+    out = _formatWellNamesInEscapedText(out);
+    return out;
+  }
+
+  function _formatCoachNotifyText(text) {
+    const esc = (v) => String(v == null ? '' : v)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;');
+    let out = esc(text);
+    out = out.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+    out = out.replace(/\n/g, '<br>');
+    out = _formatWellNamesInEscapedText(out);
     return out;
   }
 
@@ -754,7 +794,8 @@
         const st = (Array.isArray(c.steps) && c.steps[c.stepIdx]) ? c.steps[c.stepIdx] : null;
         const txt = st && st.text ? String(st.text) : '';
         const withHint = ((c.stepIdx | 0) === 0);
-        setText(notifyTextEl, 'notifyText', txt ? (withHint ? (txt + "\nTap to continue.") : txt) : (withHint ? 'Tap to continue.' : ''));
+        const coachText = txt ? (withHint ? (txt + "\nTap to continue.") : txt) : (withHint ? 'Tap to continue.' : '');
+        setHTML(notifyTextEl, 'notifyText', _formatCoachNotifyText(coachText));
       } else if (SIM && SIM.tutorialActive) {
         if (notifyBarEl) {
           notifyBarEl.classList.remove('breakMode');

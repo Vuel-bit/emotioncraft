@@ -879,6 +879,7 @@ instability: 0,
             const wi = ((flavor.wi | 0) + 6) % 6;
             const leftNeighbor = (wi + 5) % 6;
             const rightNeighbor = (wi + 1) % 6;
+            const affectedNeighbors = [leftNeighbor, rightNeighbor];
             EC.COACH.startOnce('coach_spill', {
               type: 'spill',
               wellIdx: wi,
@@ -890,7 +891,8 @@ instability: 0,
                   text: `Spill (1/3): ${wellName(wi)} crossed a safe limit (${flavor.kind} ${flavor.dir}).`
                 },
                 {
-                  focus: [leftNeighbor, rightNeighbor],
+                  focus: affectedNeighbors,
+                  spotlight: affectedNeighbors,
                   text: 'Spill (2/3): Overflow pushes into neighbors. Underflow pulls from neighbors.'
                 },
                 {

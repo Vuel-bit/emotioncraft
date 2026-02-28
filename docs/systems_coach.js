@@ -53,7 +53,8 @@
   function _applyStepFocus(SIM) {
     const c = _ensureCoachObj(SIM);
     const step = (Array.isArray(c.steps) && c.steps[c.stepIdx]) ? c.steps[c.stepIdx] : null;
-    c.focusMask = _toMask(step && Array.isArray(step.focus) ? step.focus : []);
+    const focus = (step && Array.isArray(step.spotlight)) ? step.spotlight : (step && Array.isArray(step.focus) ? step.focus : []);
+    c.focusMask = _toMask(focus);
   }
 
   MOD._setFocus = function _setFocus(wellIndicesArray) {
@@ -122,7 +123,11 @@
       const st = stepsIn[i] || {};
       const txt = String(st.text || '').trim();
       if (!txt) continue;
-      steps.push({ text: txt, focus: Array.isArray(st.focus) ? st.focus.slice(0) : [] });
+      steps.push({
+        text: txt,
+        focus: Array.isArray(st.focus) ? st.focus.slice(0) : [],
+        spotlight: Array.isArray(st.spotlight) ? st.spotlight.slice(0) : null
+      });
     }
     if (!steps.length) return { started: false };
 
