@@ -513,15 +513,25 @@
       if (!view) continue;
       // Mental break FX pulse (driven by real time so it animates during hit-stop)
       let breakPulse = 0;
+      let breakPulseLong = 0;
       try {
+        const nowMs = (performance && performance.now) ? performance.now() : Date.now();
         const bf = SIM._breakFx;
         if (bf && bf.wellMask && bf.wellMask[i]) {
-          const nowMs = (performance && performance.now) ? performance.now() : Date.now();
           const bdt = nowMs - (bf.startMs || 0);
           const bn = (bf.durMs || 0);
           if (bdt >= 0 && bdt <= bn && bn > 0) {
             const bp = 1.0 - (bdt / bn);
             breakPulse = (0.30 + 0.70 * Math.abs(Math.sin((bdt / bn) * Math.PI * 3))) * bp;
+          }
+        }
+        const bl = SIM._breakPulse;
+        if (bl && Array.isArray(bl.wells) && bl.wells.indexOf(i) >= 0) {
+          const bdt = nowMs - (bl.startMs || 0);
+          const bn = (bl.durMs || 0);
+          if (bdt >= 0 && bdt <= bn && bn > 0) {
+            const p = bdt / bn;
+            breakPulseLong = (0.35 + 0.65 * Math.abs(Math.sin(p * Math.PI * 3))) * (1 - 0.30 * p);
           }
         }
       } catch (_) {}
@@ -843,8 +853,11 @@
       if (rimG) rimG.clear();
       if (selG) {
         selG.clear();
-        if (isSel || isTutTarget || isCoachTarget) {
-          const pulse = 0.55 + 0.45 * Math.sin((tNow || 0) * 3.2 + ((isTutTarget || isCoachTarget) ? 0.6 : 0));
+        const isBreakPulseTarget = breakPulseLong > 0.01;
+        if (isSel || isTutTarget || isCoachTarget || isBreakPulseTarget) {
+          const pulse = isBreakPulseTarget
+            ? breakPulseLong
+            : (0.55 + 0.45 * Math.sin((tNow || 0) * 3.2 + ((isTutTarget || isCoachTarget) ? 0.6 : 0)));
           if (isCoachTarget) {
             const pad = Math.max(8, r * 0.16);
             const outerR = r + pad;
@@ -854,6 +867,14 @@
             selG.lineStyle(wOuter, 0xffffff, 0.16 + 0.20 * pulse, 0.5);
             selG.drawCircle(0, 0, outerR);
             selG.lineStyle(wInner, 0xffffff, 0.68 + 0.24 * pulse, 0.5);
+            selG.drawCircle(0, 0, innerR);
+          } else if (isBreakPulseTarget) {
+            const pad = Math.max(7, r * 0.14);
+            const outerR = r + pad;
+            const innerR = r + Math.max(3, r * 0.07);
+            selG.lineStyle(Math.max(3, r * 0.08), 0xffffff, 0.20 + 0.28 * pulse, 0.5);
+            selG.drawCircle(0, 0, outerR);
+            selG.lineStyle(Math.max(2, r * 0.05), 0xffffff, 0.45 + 0.35 * pulse, 0.5);
             selG.drawCircle(0, 0, innerR);
           } else {
             const w = Math.max(2, r * 0.055);

@@ -177,6 +177,25 @@
       }
     } catch (_) {}
     sim._breakFx = { startMs: _nowMs(), durMs: 900, wellMask, psyMask };
+    // Post-first-coach break indicator (visual-only): 3 pulses over ~3s on affected wells/wedges.
+    // Keep out of the first coached break and avoid stacking while coach mode is active.
+    try {
+      const UI = EC.UI_STATE || (EC.UI_STATE = {});
+      const seen = UI._seenFirstPopups || {};
+      const coachSeen = !!seen.coach_break;
+      const coachActive = !!(sim && sim._coach && sim._coach.active);
+      if (coachSeen && !coachActive) {
+        const wells = [];
+        const wedges = [];
+        for (let i = 0; i < 6; i++) {
+          if (wellMask[i]) wells.push(i);
+          if (psyMask[i]) wedges.push(i);
+        }
+        if (wells.length || wedges.length) {
+          sim._breakPulse = { startMs: _nowMs(), durMs: 3000, wells, wedges };
+        }
+      }
+    } catch (_) {}
     // First-time board-visible coach explanation (replaces modal for break info).
     try {
       if (EC.COACH && typeof EC.COACH.startOnce === 'function') {

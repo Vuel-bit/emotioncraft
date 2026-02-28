@@ -670,6 +670,18 @@ function renderPsyche() {
         const bdur = (typeof bf.durMs === 'number') ? bf.durMs : 900;
         if (bdt >= 0 && bdt <= bdur) bPulse = 1 - (bdt / bdur);
       }
+      try {
+        const bl = (SIM && SIM._breakPulse) ? SIM._breakPulse : null;
+        if (bl && Array.isArray(bl.wedges) && bl.wedges.indexOf(i) >= 0 && typeof bl.startMs === 'number') {
+          const bdt = nowMs - bl.startMs;
+          const bdur = (typeof bl.durMs === 'number') ? bl.durMs : 3000;
+          if (bdt >= 0 && bdt <= bdur && bdur > 0) {
+            const p = bdt / bdur;
+            const longPulse = (0.35 + 0.65 * Math.abs(Math.sin(p * Math.PI * 3))) * (1 - 0.30 * p);
+            bPulse = Math.max(bPulse, longPulse);
+          }
+        }
+      } catch (_) {}
 
       // Warning flashes: fill wedge with pulsing red (player expectation: pies flash red)
       if (wPulse > 0.01) {
