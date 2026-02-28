@@ -826,20 +826,23 @@ function layout() {
   // The board should be constrained primarily by screen width.
   const leftReserved = 0;
 
-  const topReserved = Math.max(0, notifyRect.bottom + 8);
+  const isShort = h <= 700;
+  const hudGap = isShort ? 4 : 8;
+
+  const topReserved = Math.max(0, notifyRect.bottom + hudGap);
   // Reserve the *actual* on-screen area occupied by the bottom drawer so the board never overlaps.
   // Using height alone can be wrong when CSS/viewport changes cause the drawer to float.
-  const bottomReserved = Math.max(0, (h - (drawerRect.top || h)) + 8);
+  const bottomReserved = Math.max(0, (h - (drawerRect.top || h)) + hudGap);
 
   const availableH = Math.max(120, h - topReserved - bottomReserved);
 
   // MVP redesign layout: compact board region with Psyche + 6 wells in a ring.
   if (SIM && SIM.wellsA && Array.isArray(SIM.wellsA) && SIM.wellsA.length === 6) {
-    const pad = 14;
+    const pad = isShort ? 10 : 14;
     const leftX = pad + (typeof leftReserved === 'number' ? leftReserved : 0);
     const rightX = w - pad;
     const availW = Math.max(160, rightX - leftX);
-    const boardSize = Math.max(160, Math.min(availW, availableH - 8));
+    const boardSize = Math.max(160, Math.min(availW, availableH - hudGap));
     const cx = (leftX + rightX) / 2;
     const cy = clamp(topReserved + availableH * 0.50, topReserved + boardSize * 0.20, h - bottomReserved - boardSize * 0.20);
 
