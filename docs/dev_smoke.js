@@ -312,7 +312,7 @@
     if (eng && typeof eng.dispatch === 'function') {
       const r = eng.dispatch('patBackToLobby');
       SMOKE.log(`Back to Lobby: ${(r && r.ok) ? 'ok' : 'no-op'}`);
-      return { ok: true };
+      return (r && r.ok) ? { ok: true } : { ok: false, reason: 'back_to_lobby_failed', detail: r };
     }
     return { ok: false, reason: 'no_engine' };
   };
@@ -397,7 +397,8 @@
       await step('fastForward 22s', () => SMOKE.fastForward(22));
 
       await step('backToLobby', async () => {
-        SMOKE.backToLobby();
+        const r = SMOKE.backToLobby();
+        if (!r.ok) return r;
         // Let UI settle one frame.
         await SMOKE.fastForward(0.2);
         return { ok: true };
