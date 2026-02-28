@@ -34,6 +34,7 @@
 
 
   const OPP = (EC.CONST && Array.isArray(EC.CONST.OPP)) ? EC.CONST.OPP : [3,4,5,0,1,2];
+  const TUTORIAL_PORTRAIT_PLACEHOLDER = '__PRINCESS__';
 
   function _btn(id){ try { return document.getElementById(id); } catch(_) { return null; } }
 
@@ -133,7 +134,7 @@
     // Ensure no patient context is attached.
     try { SIM._patientId = null; } catch(_) {}
     try { SIM._patientPlanKey = ''; } catch(_) {}
-    try { SIM._patientPortrait = '__PRINCESS__'; } catch(_) {}
+    try { SIM._patientPortrait = TUTORIAL_PORTRAIT_PLACEHOLDER; } catch(_) {}
 
     _initMVP(_def);
 
