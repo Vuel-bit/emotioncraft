@@ -27,14 +27,33 @@
       overscroll-behavior: none;
       touch-action: none;
     }
-    #app { position: fixed; inset: 0; overflow: hidden; z-index: 0; overscroll-behavior: none; touch-action: none; }
+    #app {
+      position: fixed;
+      left: 0;
+      top: 0;
+      width: 100vw;
+      height: 100dvh;
+      overflow: hidden;
+      z-index: 0;
+      overscroll-behavior: none;
+      touch-action: none;
+    }
     /* Mobile gesture reliability: prevent browser from hijacking swipes over the game surface. */
-    canvas { display: block; width: 100vw; height: 100vh; touch-action: none; position: relative; z-index: 0; user-select: none; -webkit-user-select: none; }
+    canvas { display: block; width: 100%; height: 100%; touch-action: none; position: relative; z-index: 0; user-select: none; -webkit-user-select: none; }
 
     .hud {
-      position: fixed; inset: 0; pointer-events: none;
+      position: fixed;
+      left: 0;
+      top: 0;
+      width: 100vw;
+      height: 100dvh;
+      pointer-events: none;
       z-index: 5;
       padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+    }
+
+    @supports not (height: 100dvh) {
+      #app, .hud { height: 100vh; }
     }
 
     /* Board-first: always-available top notification bar (lightweight) */
@@ -925,6 +944,34 @@
     .hudQuirkPill.hudQuirkActive{ filter: brightness(1.65); box-shadow: 0 0 16px rgba(255,255,255,0.22); transform: translateY(-0.5px) scale(1.02); animation: quirkActivePulse 0.7s ease-in-out infinite; }
     @keyframes quirkTelePulse{ 0%,100%{ transform: translateY(0) scale(1.0); } 50%{ transform: translateY(-0.5px) scale(1.02);} }
     @keyframes quirkActivePulse{ 0%,100%{ transform: translateY(0) scale(1.02); } 50%{ transform: translateY(-1px) scale(1.05);} }
+
+
+
+  @media (max-height: 700px){
+    .notifyBar{ top: 6px; left: 10px; right: 10px; padding: 6px 9px; gap: 3px 6px; }
+    .patientInfo{ font-size: 11px; }
+    .notifyText{ font-size: 14px; }
+    .notifyControls{ gap: 5px; }
+    .notifyBtnStack{ gap: 5px; }
+    .notifyBtnStack .btn{ min-width: 66px; }
+    .notifyControls .btn{ padding: 5px 8px; font-size: 11px; }
+    .notifyBar.coachMode .notifyText{ font-size: 14px; max-height: calc(1.25em * 3); }
+
+    .drawer{ left: 10px; right: 10px; bottom: 10px; padding: 7px 9px; max-height: min(26dvh, 190px); overflow: auto; }
+    #goalLine, #objectiveSummary{ -webkit-line-clamp: 3; }
+  }
+
+  @media (max-height: 620px){
+    .notifyBar{ top: 5px; left: 8px; right: 8px; padding: 5px 8px; gap: 3px 5px; }
+    .patientInfo{ font-size: 10px; }
+    .notifyText{ font-size: 13px; }
+    .notifyBtnStack .btn{ min-width: 62px; }
+    .notifyControls .btn{ padding: 4px 7px; font-size: 11px; }
+    .notifyBar.coachMode .notifyText{ font-size: 13px; max-height: calc(1.25em * 3); }
+
+    .drawer{ left: 8px; right: 8px; bottom: 8px; padding: 6px 8px; max-height: min(24dvh, 170px); }
+    #goalLine, #objectiveSummary{ font-size: 10px; }
+  }
 
   </style>
 </head>
