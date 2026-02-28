@@ -280,10 +280,25 @@
         try {
           SIM.goalViz = SIM.goalViz || { perHue: new Array(6).fill(null) };
           const per = new Array(6).fill(null);
-          const over = op.over || null;
-          const under = op.under || null;
-          if (over && typeof over.hue === 'number') per[over.hue|0] = { type: 'OVER', target: over.target };
-          if (under && typeof under.hue === 'number') per[under.hue|0] = { type: 'UNDER', target: under.target };
+          if (Array.isArray(op.goals)) {
+            for (let g = 0; g < op.goals.length; g++) {
+              const entry = op.goals[g] || null;
+              if (!entry || typeof entry.hue !== 'number') continue;
+              const hue = entry.hue|0;
+              if (hue < 0 || hue >= 6) continue;
+              const type = String(entry.type || '').toUpperCase();
+              if (type === 'OVER' || type === 'UNDER') {
+                per[hue] = { type: type, target: entry.target };
+              } else if (type === 'BAND') {
+                per[hue] = { type: 'BAND', low: entry.low, high: entry.high };
+              }
+            }
+          } else {
+            const over = op.over || null;
+            const under = op.under || null;
+            if (over && typeof over.hue === 'number') per[over.hue|0] = { type: 'OVER', target: over.target };
+            if (under && typeof under.hue === 'number') per[under.hue|0] = { type: 'UNDER', target: under.target };
+          }
           SIM.goalViz.perHue = per;
         } catch(_) {}
       }
@@ -408,6 +423,34 @@
     const j = (typeof SIM._tutFocusOpp === 'number') ? (SIM._tutFocusOpp|0) : ((i + 3) % 6);
     const last = SIM._tutLastAction || null;
 
+    function goalSatisfied(goal, psycheVal) {
+      if (!goal) return true;
+      const type = String(goal.type || '').toUpperCase();
+      if (type === 'OVER') return psycheVal >= Number(goal.target || 0);
+      if (type === 'UNDER') return psycheVal <= Number(goal.target || 0);
+      if (type === 'BAND') {
+        const lo = Number(goal.low);
+        const hi = Number(goal.high);
+        if (!isFinite(lo) || !isFinite(hi)) return false;
+        return psycheVal >= lo && psycheVal <= hi;
+      }
+      return true;
+    }
+
+    function areTutorialGoalsSatisfied() {
+      const gv = (SIM.goalViz && Array.isArray(SIM.goalViz.perHue)) ? SIM.goalViz.perHue : null;
+      if (!gv) return false;
+      let hasAny = false;
+      for (let h = 0; h < gv.length; h++) {
+        const goal = gv[h];
+        if (!goal) continue;
+        hasAny = true;
+        const psycheVal = (SIM.psyP && typeof SIM.psyP[h] === 'number') ? SIM.psyP[h] : 0;
+        if (!goalSatisfied(goal, psycheVal)) return false;
+      }
+      return hasAny;
+    }
+
     // Step checks (tutorial progresses by doing actions)
     if (step === 0) {
       // Amount lesson
@@ -459,27 +502,13 @@
         }
       }
     } else if (step === 8) {
-      // Goals active: wait for both goals satisfied, then start the 10s hold step.
-      const pEgo = (SIM.psyP && typeof SIM.psyP[1] === 'number') ? SIM.psyP[1] : 0;
-      const pFoc = (SIM.psyP && typeof SIM.psyP[4] === 'number') ? SIM.psyP[4] : 0;
-      const gv = (SIM.goalViz && Array.isArray(SIM.goalViz.perHue)) ? SIM.goalViz.perHue : null;
-      const gOver = gv ? gv[1] : null;
-      const gUnder = gv ? gv[4] : null;
-      const tEgo = (gOver && gOver.type === 'OVER' && typeof gOver.target === 'number') ? gOver.target : 200;
-      const tFoc = (gUnder && gUnder.type === 'UNDER' && typeof gUnder.target === 'number') ? gUnder.target : 150;
-      if (pEgo >= tEgo && pFoc <= tFoc) {
+      // Goals active: wait for active goal-viz goals to be satisfied, then start the 10s hold step.
+      if (areTutorialGoalsSatisfied()) {
         _advance();
       }
     } else if (sid === 'HOLD_GOALS_10S') {
-      // Hold goals for 10 seconds (center countdown).
-      const pEgo = (SIM.psyP && typeof SIM.psyP[1] === 'number') ? SIM.psyP[1] : 0;
-      const pFoc = (SIM.psyP && typeof SIM.psyP[4] === 'number') ? SIM.psyP[4] : 0;
-      const gv = (SIM.goalViz && Array.isArray(SIM.goalViz.perHue)) ? SIM.goalViz.perHue : null;
-      const gOver = gv ? gv[1] : null;
-      const gUnder = gv ? gv[4] : null;
-      const tEgo = (gOver && gOver.type === 'OVER' && typeof gOver.target === 'number') ? gOver.target : 200;
-      const tFoc = (gUnder && gUnder.type === 'UNDER' && typeof gUnder.target === 'number') ? gUnder.target : 150;
-      const okGoals = (pEgo >= tEgo && pFoc <= tFoc);
+      // Hold active goal-viz goals for 10 seconds (center countdown).
+      const okGoals = areTutorialGoalsSatisfied();
       const dt0 = (typeof dt === 'number' && isFinite(dt) ? dt : 0);
       try {
         SIM._planHoldReqSec = 10;

@@ -768,14 +768,7 @@
 }
 
       if (isLose) {
-        setText(patientInfoEl, 'patientInfo', 'TREATMENT FAILED');
-        // Optional second line: keep it short + player-facing.
-        let line2 = 'Too many breaks';
-        const r = String(SIM.gameOverReason || '').trim();
-        if (r && !/4\s*breaks\s*in\s*5\s*seconds/i.test(r)) {
-          // If reason isn't the standard one, show it.
-          line2 = r;
-        }
+        setText(patientInfoEl, 'patientInfo', 'Cascading mental breaks cause treatment failure.');
         // PASS A42: Loss message must read exactly "Treatment Failed." in the notifyText region.
         // (Keep reason available elsewhere; do not replace the required message.)
         if (notifyBarEl) {

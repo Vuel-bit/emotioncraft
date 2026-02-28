@@ -233,7 +233,7 @@
       a2: mkLine('center bot', `<span class="scrim"><span class="tBody">The Noodler 2000 is finally ready.</span></span>`),
 
       // Plate B (four beats)
-      b1: mkLine('center bot', `<span class="scrim"><span class="tBody">With only three sessions under the helmet, our patients can achieve transcendence - guaranteed!</span></span>`),
+      b1: mkLine('center bot', `<span class="scrim"><span class="tBody">With The Noodler 2000 our patients can achieve transcendence - guaranteed!</span></span>`),
       b2: mkLine('center bot', `<span class="scrim"><span class="tBody">Probably.</span></span>`),
       b3: mkLine('center bot', `<span class="scrim"><span class="tBody">Most likely.</span></span>`),
       b4: mkLine('center bot', `<span class="scrim"><span class="tBody">Hopefully.</span></span>`),
@@ -241,7 +241,7 @@
       // Plate C0 / D / C1 / E
       c0: mkLine('center bot', `<span class="scrim"><span class="tBody">We already have the office space.</span></span>`),
       d:  mkLine('center bot', `<span class="scrim"><span class="tBody">We just need some quick changes.</span></span>`),
-      c1: mkLine('center bot', `<span class="scrim"><span class="tBody">Now we just need our first patient. Princess...</span></span>`),
+      c1: mkLine('center bot', `<span class="scrim"><span class="tBody">Now we need our first patient. Princess...</span></span>`),
       e:  mkLine('center bot', `<span class="scrim"><span class="tBody">Let’s get to work.</span></span>`),
     };
     stage.appendChild(textLayer);

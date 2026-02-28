@@ -615,11 +615,36 @@ function _uniq(arr) {
   }
 
   function _weeklyRewardLabel(kind, detail) {
-    if (kind === 'QUIRK') return `Weekly success: eased ${quirkTypeName(detail)}.`;
-    if (kind === 'MOOD') return 'Weekly success: mood steadier.';
-    if (kind === 'VIBE') return 'Weekly success: vibe steadier.';
+    if (kind === 'QUIRK' && detail && detail.removed) {
+      return `Weekly success: removed ${quirkTypeName(detail.type)}.`;
+    }
+    if (kind === 'QUIRK' && detail) {
+      return `Weekly success: eased ${quirkTypeName(detail.type)} to Low.`;
+    }
+    if (kind === 'MOOD' && detail) {
+      return `Weekly success: mood ${detail.from} → ${detail.to}.`;
+    }
+    if (kind === 'VIBE' && detail) {
+      return `Weekly success: vibe ${detail.from} → ${detail.to}.`;
+    }
     if (kind === 'TRAIT') return `Weekly success: removed trait ${_titlecase(detail)}.`;
     return 'Weekly success.';
+  }
+
+  function _replaceWeeklySuccessHistory(p, detailLine) {
+    try {
+      if (!p || !detailLine) return;
+      if (!Array.isArray(p.treatmentHistory)) p.treatmentHistory = [];
+      const hist = p.treatmentHistory;
+      for (let i = hist.length - 1; i >= 0; i--) {
+        if (String(hist[i] || '').trim() === 'Weekly — success.') {
+          hist[i] = `Weekly — ${detailLine}`;
+          return;
+        }
+      }
+      hist.push(`Weekly — ${detailLine}`);
+      if (hist.length > 60) p.treatmentHistory = hist.slice(hist.length - 60);
+    } catch (_) {}
   }
 
   function applyWeeklyReward(action) {
@@ -642,7 +667,7 @@ function _uniq(arr) {
         if (qs.length > 2) {
           const q = qs[idx];
           qs.splice(idx, 1);
-          p.lastOutcome = _weeklyRewardLabel('QUIRK', q && q.type);
+          p.lastOutcome = _weeklyRewardLabel('QUIRK', { type: q && q.type, removed: true });
           did = true;
         } else {
           const q = qs[idx];
@@ -652,7 +677,7 @@ function _uniq(arr) {
             did = false;
           } else {
             q.intensityTier = 0;
-            p.lastOutcome = _weeklyRewardLabel('QUIRK', q.type);
+            p.lastOutcome = _weeklyRewardLabel('QUIRK', { type: q.type, removed: false });
             did = true;
           }
         }
@@ -661,15 +686,17 @@ function _uniq(arr) {
       const cur = String((p.mood && p.mood.label) ? p.mood.label : 'Steady');
       const map = { 'Spent': 'Drained', 'Drained': 'Steady', 'Overwhelmed': 'Antsy', 'Antsy': 'Steady', 'Steady': 'Steady' };
       if (!p.mood || typeof p.mood !== 'object') p.mood = { label: 'Steady', template: 'FLAT' };
-      p.mood.label = map[cur] || 'Steady';
-      p.lastOutcome = _weeklyRewardLabel('MOOD');
+      const nextMood = map[cur] || 'Steady';
+      p.mood.label = nextMood;
+      p.lastOutcome = _weeklyRewardLabel('MOOD', { from: cur, to: nextMood });
       did = true;
     } else if (kind === 'VIBE') {
       const cur = String((p.vibe && p.vibe.label) ? p.vibe.label : 'Mid');
       const map = { 'Crisis': 'Blah', 'Blah': 'Mid', 'Freaking': 'Anxious', 'Anxious': 'Mid', 'Mid': 'Mid' };
       if (!p.vibe || typeof p.vibe !== 'object') p.vibe = { label: 'Mid' };
-      p.vibe.label = map[cur] || 'Mid';
-      p.lastOutcome = _weeklyRewardLabel('VIBE');
+      const nextVibe = map[cur] || 'Mid';
+      p.vibe.label = nextVibe;
+      p.lastOutcome = _weeklyRewardLabel('VIBE', { from: cur, to: nextVibe });
       did = true;
     } else if (kind === 'TRAIT') {
       const idx = (typeof a.index === 'number') ? Math.floor(a.index) : -1;
@@ -681,6 +708,8 @@ function _uniq(arr) {
     }
 
     if (!did) return false;
+
+    _replaceWeeklySuccessHistory(p, String(p.lastOutcome || '').replace(/^Weekly success:\s*/i, '').trim());
 
     // Return patient to end of queue.
     STATE.pendingWeeklyRewardId = null;

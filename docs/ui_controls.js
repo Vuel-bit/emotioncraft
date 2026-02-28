@@ -888,11 +888,11 @@ if (btnZeroPairEl) {
           if (tutPlan) {
             if (goalLineEl) {
               goalLineEl.style.display = '';
-              goalLineEl.innerHTML = 'Current: ' + tutFmt(String(SIM._tutPlanCurrent || '—'));
+              goalLineEl.innerHTML = 'Current: ' + tutFmt(String(SIM._tutPlanCurrent || '—')) + '<br><br>' + 'Next: ' + tutFmt(String(SIM._tutPlanNext || '—'));
             }
             if (objectiveSummaryEl) {
-              objectiveSummaryEl.style.display = '';
-              objectiveSummaryEl.innerHTML = 'Next: ' + tutFmt(String(SIM._tutPlanNext || '—'));
+              objectiveSummaryEl.style.display = 'none';
+              objectiveSummaryEl.textContent = '';
             }
           } else {
             // Tutorial instructions moved to top notify bar; keep drawer text area collapsed.
