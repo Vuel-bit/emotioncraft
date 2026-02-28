@@ -126,7 +126,8 @@
       steps.push({
         text: txt,
         focus: Array.isArray(st.focus) ? st.focus.slice(0) : [],
-        spotlight: Array.isArray(st.spotlight) ? st.spotlight.slice(0) : null
+        spotlight: Array.isArray(st.spotlight) ? st.spotlight.slice(0) : null,
+        domSpotlightId: (st && st.domSpotlightId != null) ? String(st.domSpotlightId) : ''
       });
     }
     if (!steps.length) return { started: false };

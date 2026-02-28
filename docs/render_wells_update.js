@@ -420,7 +420,9 @@
 
     const coachActive = !!(SIM && SIM._coach && SIM._coach.active);
     const coachMask = (coachActive && SIM._coach && Array.isArray(SIM._coach.focusMask)) ? SIM._coach.focusMask : null;
+    const coachStep = (coachActive && SIM._coach && Array.isArray(SIM._coach.steps)) ? SIM._coach.steps[SIM._coach.stepIdx|0] : null;
     const coachTargets = [];
+    const coachDomTargets = [];
     const tutorialActive = !!(SIM && SIM.tutorialActive);
     const tutSpotlightPsyche = !!(tutorialActive && SIM._tutSpotlightPsyche);
     const tutTargets = [];
@@ -1200,6 +1202,32 @@
       tutTargets.push({ cx: geom.cx, cy: geom.cy, r: pr, holeR: pr + 12 });
     }
 
+    if (coachStep && coachStep.domSpotlightId) {
+      try {
+        const el = document.getElementById(String(coachStep.domSpotlightId));
+        const app = EC.RENDER && EC.RENDER.app;
+        const view = app && app.view;
+        if (el && view && typeof el.getBoundingClientRect === 'function' && typeof view.getBoundingClientRect === 'function') {
+          const er = el.getBoundingClientRect();
+          const vr = view.getBoundingClientRect();
+          const sw = app.screen ? app.screen.width : 0;
+          const sh = app.screen ? app.screen.height : 0;
+          const sx = (vr.width > 0 && sw > 0) ? (sw / vr.width) : 1;
+          const sy = (vr.height > 0 && sh > 0) ? (sh / vr.height) : 1;
+          if (er.width > 1 && er.height > 1) {
+            const pad = 10;
+            coachDomTargets.push({
+              x: (er.left - vr.left) * sx - pad,
+              y: (er.top - vr.top) * sy - pad,
+              w: er.width * sx + pad * 2,
+              h: er.height * sy + pad * 2,
+              rr: Math.max(14, Math.min(er.height * sy * 0.6, (er.width * sx) * 0.4))
+            });
+          }
+        }
+      } catch (_) {}
+    }
+
     // Coach spotlight overlay (visual-only): dim board except focused wells.
     try {
       if (EC.ensureCoachOverlayView) EC.ensureCoachOverlayView();
@@ -1214,27 +1242,38 @@
           overlay.visible = false;
           dimG.clear();
           ringG.clear();
-        } else if (targets && targets.length) {
+        } else if ((targets && targets.length) || (coachDomTargets && coachDomTargets.length)) {
           const app = EC.RENDER && EC.RENDER.app;
           const screen = app && app.screen ? app.screen : null;
           const sw = screen ? screen.width : 0;
           const sh = screen ? screen.height : 0;
           const pulse = 0.5 + 0.5 * Math.sin((tNow || 0) * 2.4);
+          const coachNeedsDim = !!(coachActive && (targets && targets.length) && !coachDomTargets.length);
+          const hasDomSpotlight = !!(coachDomTargets && coachDomTargets.length);
+          const drawDim = hasDomSpotlight || coachNeedsDim || (tutorialActive && targets && targets.length);
           overlay.visible = true;
-          dimG.visible = true;
-          ringG.visible = true;
+          dimG.visible = drawDim;
+          ringG.visible = !!(targets && targets.length);
 
           dimG.clear();
-          dimG.beginFill(0x000000, 0.44);
-          dimG.drawRect(0, 0, sw, sh);
-          for (let j = 0; j < targets.length; j++) {
-            const t = targets[j];
-            const hr = (typeof t.holeR === 'number') ? t.holeR : (t.r + t.r * 0.35);
-            dimG.beginHole();
-            dimG.drawCircle(t.cx, t.cy, hr);
-            dimG.endHole();
+          if (drawDim) {
+            dimG.beginFill(0x000000, 0.44);
+            dimG.drawRect(0, 0, sw, sh);
+            for (let j = 0; j < (targets ? targets.length : 0); j++) {
+              const t = targets[j];
+              const hr = (typeof t.holeR === 'number') ? t.holeR : (t.r + t.r * 0.35);
+              dimG.beginHole();
+              dimG.drawCircle(t.cx, t.cy, hr);
+              dimG.endHole();
+            }
+            for (let j = 0; j < coachDomTargets.length; j++) {
+              const t = coachDomTargets[j];
+              dimG.beginHole();
+              dimG.drawRoundedRect(t.x, t.y, t.w, t.h, t.rr);
+              dimG.endHole();
+            }
+            dimG.endFill();
           }
-          dimG.endFill();
 
           ringG.clear();
           for (let j = 0; j < targets.length; j++) {
