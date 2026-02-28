@@ -44,6 +44,22 @@
   }
 
   // HUD Announcements (PASS A40f) — single-line HUD row + log entry with elapsed sim time
+
+  function _formatTutorialNotifyText(text){
+    const esc = (v) => String(v == null ? '' : v)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;');
+    let out = esc(text);
+    out = out.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+    out = out.replace(/\n/g, '<br>');
+    out = out.replace(/\bNerves\b/g, '<span class="goalHue goalGreen">Nerves</span>');
+    out = out.replace(/\bGrit\b/g, '<span class="goalHue goalRed">Grit</span>');
+    out = out.replace(/\bEgo\b/g, '<span class="goalHue goalPurple">Ego</span>');
+    out = out.replace(/\bFocus\b/g, '<span class="goalHue goalYellow">Focus</span>');
+    return out;
+  }
+
   function _escHtml(s){
     return String(s==null?'':s)
       .replace(/&/g,'&amp;')
@@ -747,7 +763,7 @@
         }
         const def = (typeof EC.getActiveLevelDef === 'function') ? EC.getActiveLevelDef() : null;
         const tutText = def ? String(def.objectiveText || def.name || '') : '';
-        setText(notifyTextEl, 'notifyText', tutText);
+        setHTML(notifyTextEl, 'notifyText', _formatTutorialNotifyText(tutText));
       } else {
         if (notifyBarEl) {
           notifyBarEl.classList.remove('breakMode');

@@ -30,9 +30,9 @@
     return (r << 16) | (g << 8) | bl;
   }
 
-  function getPrincessTexture() {
+  function getPrincessTextureFallback() {
     const R = (EC.RENDER = EC.RENDER || {});
-    if (R._princessTex) return R._princessTex;
+    if (R._princessTexFallback) return R._princessTexFallback;
     const app = R.app;
     if (!app || !app.renderer || typeof PIXI === 'undefined' || !PIXI.Graphics) return null;
     try {
@@ -46,10 +46,35 @@
       g.lineStyle(3, 0x2f2436, 0.8, 0.5); g.drawCircle(c - 22, c - 26, 10); g.drawCircle(c + 22, c - 26, 10);
       const tex = app.renderer.generateTexture(g);
       g.destroy(true);
-      R._princessTex = tex;
+      R._princessTexFallback = tex;
       return tex;
     } catch (_) {
       return null;
+    }
+  }
+
+  function getPrincessTexture() {
+    const R = (EC.RENDER = EC.RENDER || {});
+    if (R._princessTex) return R._princessTex;
+    if (R._princessTexFailed) return getPrincessTextureFallback();
+    try {
+      const tex = PIXI.Texture.from('assets/patients/princess.png');
+      if (tex && tex.baseTexture) {
+        R._princessTex = tex;
+        const bt = tex.baseTexture;
+        if (bt.valid) return tex;
+        bt.once('loaded', () => {
+          if (!R._princessTexFailed) R._princessTex = tex;
+        });
+        bt.once('error', () => {
+          R._princessTexFailed = true;
+          R._princessTex = getPrincessTextureFallback();
+        });
+      }
+      return tex || getPrincessTextureFallback();
+    } catch (_) {
+      R._princessTexFailed = true;
+      return getPrincessTextureFallback();
     }
   }
 
@@ -1148,8 +1173,10 @@
     } catch (_) {}
 
     if (tutorialActive && tutSpotlightPsyche && geom) {
-      const pr = Math.max(28, Math.min(120, (typeof geom.wellMaxR === 'number' ? geom.wellMaxR : 56) * 0.95));
-      tutTargets.push({ cx: geom.cx, cy: geom.cy, r: pr, holeR: pr + 10 });
+      const pr = (typeof geom.psycheOuterR === 'number' && isFinite(geom.psycheOuterR))
+        ? Math.max(30, geom.psycheOuterR)
+        : Math.max(28, Math.min(120, (typeof geom.wellMaxR === 'number' ? geom.wellMaxR : 56) * 0.95));
+      tutTargets.push({ cx: geom.cx, cy: geom.cy, r: pr, holeR: pr + 12 });
     }
 
     // Coach spotlight overlay (visual-only): dim board except focused wells.
@@ -1162,7 +1189,11 @@
         const targets = (coachActive && coachTargets.length)
           ? coachTargets
           : ((tutorialActive && tutTargets.length) ? tutTargets : null);
-        if (targets && targets.length) {
+        if (tutorialActive && SIM && SIM._tutNoDim) {
+          overlay.visible = false;
+          dimG.clear();
+          ringG.clear();
+        } else if (targets && targets.length) {
           const app = EC.RENDER && EC.RENDER.app;
           const screen = app && app.screen ? app.screen : null;
           const sw = screen ? screen.width : 0;

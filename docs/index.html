@@ -779,7 +779,12 @@
     color: rgba(232,238,252,0.95);
     text-shadow: 0 1px 10px rgba(0,0,0,0.45);
     white-space: pre-line;
-    -webkit-line-clamp: 2;
+    display: block;
+    -webkit-line-clamp: unset;
+    -webkit-box-orient: initial;
+    overflow: visible;
+    text-overflow: clip;
+    max-height: calc(1.25em * 3);
   }
   .notifyBar.tutMode{
     pointer-events: none;
@@ -842,6 +847,7 @@
 
   /* Tutorial-only: instructions are in top notify bar; hide bottom drawer copy area. */
   #drawer.tutDrawer{ display: none; }
+  #drawer.tutDrawer.planMode{ display: block; }
   .energyHud{ position: fixed; left: 12px; bottom: 180px; z-index: 25; font-size: 13px; padding: 6px 10px; border-radius: 999px; background: rgba(18,22,35,0.70); border: 1px solid rgba(255,255,255,0.10); color: rgba(232,238,252,0.92); font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; pointer-events:none; }
 
   /* Zen timer HUD (upper-right) */
