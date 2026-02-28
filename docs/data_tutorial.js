@@ -12,7 +12,7 @@
       name: 'Tutorial',
       objectiveShort: 'Tutorial',
       // Initial bottom-panel instruction (Step 0)
-      objectiveText: 'Swipe up/down on the highlighted well to fill/empty it.\nLeft number = Size.',
+      objectiveText: 'Swipe up/down on the highlighted well to change its size.\nLeft number = Size.',
       dispositions: [],
       startState: {
         // Stable, tutorial-friendly state: clear spins, moderate amounts.
@@ -32,7 +32,7 @@
         drawerMode: 'INSTRUCT',
         focusWell: 0,
         suppressOppPush: true,
-        objectiveText: 'Swipe up/down on the highlighted well to fill/empty it.\nLeft number = Size.',
+        objectiveText: 'Swipe up/down on the highlighted well to change its size.\nLeft number = Size.',
         blockSwipes: false,
         allowWellMode: 'FOCUS',
         canSpin0: false,
@@ -148,14 +148,14 @@
         minEnergy: 50,
         enterOps: [
           // Princess plan goals (display-only goal viz)
-          { type: 'SET_GOALVIZ_FINAL', over: { hue: 1, target: 200 }, under: { hue: 4, target: 150 } },
+          { type: 'SET_GOALVIZ_FINAL', goals: [{ hue: 1, type: 'OVER', target: 200 }, { hue: 4, type: 'OVER', target: 200 }] },
         ],
       },
       {
         drawerMode: 'PLAN',
 	        objectiveText: 'Princess’s plan is below.',
         planCurrent: '**Ego** above 200',
-        planNext: '**Focus** below 150',
+        planNext: '**Focus** above 200',
         focusWell: 1,
         pulseOpp: true,
         spotlightPsyche: true,

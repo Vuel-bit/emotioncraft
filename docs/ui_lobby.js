@@ -916,8 +916,11 @@
             // Treatment History (portrait column) — only when details are expanded.
             if (els.treatmentHistory) {
               const hist = Array.isArray(p.treatmentHistory) ? p.treatmentHistory : [];
-              const lines = ['Treatment History'];
-              if (hist.length) hist.forEach((h) => lines.push(String(h)));
+              const lines = ['Treatment History', ''];
+              if (hist.length) hist.forEach((h, idx) => {
+                if (idx > 0) lines.push('');
+                lines.push(String(h));
+              });
               else lines.push('—');
               els.treatmentHistory.textContent = lines.join('\n');
               els.treatmentHistory.style.display = '';

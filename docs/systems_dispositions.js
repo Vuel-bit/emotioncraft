@@ -925,7 +925,7 @@
               quirkType: inst.type,
               steps: [
                 { focus: [hi], text: `Quirk (1/3): A ${typeDisplayName(inst.type)} is about to start on the ${hueName(hi)} well.` },
-                { focus: [hi], text: 'Quirk (2/3): Quirks can increase or decrease size or change spin.' },
+                { focus: [hi], text: 'Quirk (2/3): Quirks can increase or decrease well size or change spin.' },
                 { focus: [hi], text: 'Quirk (3/3): The warning ring around the well indicates the type and strength of the quirk.' }
               ]
             });
