@@ -834,6 +834,29 @@
                     EC.SFX.play('bong_001');
                   }
                 } catch (_) {}
+                try {
+                  const canCoach = (applyReason === 'noenergy') && EC.COACH && (typeof EC.COACH.startOnce === 'function');
+                  const coachActive = !!(SIM && SIM._coach && SIM._coach.active);
+                  if (canCoach && !coachActive) {
+                    EC.COACH.startOnce('coach_energy_insufficient', {
+                      kind: 'energy_insufficient',
+                      wellIdx: w,
+                      dir: dir,
+                      steps: [
+                        {
+                          text: "Energy (1/3): You don't have enough energy to make that move.",
+                          domSpotlightId: 'energyHud'
+                        },
+                        {
+                          text: 'Energy (2/3): Large wells with strong spin cost more energy to move.'
+                        },
+                        {
+                          text: 'Energy (3/3): Energy replenishes over time.'
+                        }
+                      ]
+                    });
+                  }
+                } catch (_) {}
               }
 
               // Record the last successful tutorial action.
