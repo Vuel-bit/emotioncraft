@@ -45,6 +45,7 @@
   let _psySnap = 0;
   let _didShowDone = false;
   let _altFocusT = 0;
+  let _stepTapAdvanceHandler = null;
 
   function _setBtnPulse(spin0On, pairOn) {
     const b1 = _btn('btnSpinZero');
@@ -91,6 +92,29 @@
 
   function _clearLastAction() {
     try { SIM._tutLastAction = null; } catch(_) {}
+  }
+
+
+  function _removeStepTapAdvanceListener() {
+    try {
+      if (_stepTapAdvanceHandler) document.removeEventListener('pointerdown', _stepTapAdvanceHandler, true);
+    } catch (_) {}
+    _stepTapAdvanceHandler = null;
+  }
+
+  function _installStepTapAdvanceListener() {
+    _removeStepTapAdvanceListener();
+    _stepTapAdvanceHandler = (e) => {
+      try {
+        const t = e && e.target;
+        if (t && t.closest && t.closest('#notifyControls')) return;
+      } catch (_) {}
+      try { if (e && e.preventDefault) e.preventDefault(); } catch (_) {}
+      try { if (e && e.stopPropagation) e.stopPropagation(); } catch (_) {}
+      try { if (e && e.stopImmediatePropagation) e.stopImmediatePropagation(); } catch (_) {}
+      _advance();
+    };
+    try { document.addEventListener('pointerdown', _stepTapAdvanceHandler, true); } catch (_) { _stepTapAdvanceHandler = null; }
   }
 
   function _tutData(){
@@ -155,6 +179,7 @@
     SIM._tutPulsePair0 = false;
     SIM._tutSuccessFxOn = false;
     SIM._tutSpotlightPsyche = false;
+    SIM._tutNoDim = false;
     // Ensure plan-hold fields are clean (tutorial uses them for hold steps without enabling PLAN UI).
     try {
       SIM._planHoldReqSec = 0;
@@ -198,6 +223,7 @@
     SIM._tutPulsePair0 = false;
     SIM._tutSuccessFxOn = false;
     SIM._tutSpotlightPsyche = false;
+    SIM._tutNoDim = false;
     SIM._tutNoHazards = false;
     try { delete SIM._tutNoHazards; } catch (_) {}
     try { delete SIM._patientPortrait; } catch (_) {}
@@ -233,6 +259,8 @@
     _stepStarted = false;
     _didShowDone = false;
     _altFocusT = 0;
+    _removeStepTapAdvanceListener();
+    try { SIM._tutNoDim = false; } catch (_) {}
   };
 
   function _setObjective(text) {
@@ -266,6 +294,7 @@
     _stepStarted = true;
     _clearLastAction();
     _altFocusT = 0;
+    _removeStepTapAdvanceListener();
 
     const TD = _tutData();
     const steps = TD && Array.isArray(TD.STEPS) ? TD.STEPS : null;
@@ -332,6 +361,8 @@
     // Enter ops (logic remains here; data is declarative).
     _applyEnterOps(step, spec);
 
+    if (spec && spec.advanceOnTap) _installStepTapAdvanceListener();
+
     // Keep selection aligned with focus for tutorial clarity,
     // except for steps that require explicit tap selection (e.g., "tap Nerves").
     const noAutoSelect = !!(spec && spec.noAutoSelect);
@@ -343,7 +374,10 @@
   }
 
   function _advance() {
-    SIM._tutStep = (SIM._tutStep|0) + 1;
+    _removeStepTapAdvanceListener();
+    const prevStep = (SIM._tutStep|0);
+    if (prevStep === 2) SIM._tutNoDim = true;
+    SIM._tutStep = prevStep + 1;
     _stepStarted = false;
   }
 
@@ -388,7 +422,8 @@
     } else if (step === 2) {
       // Flux definition (watch psyche move)
       const now = (SIM.psyP && typeof SIM.psyP[i] === 'number') ? SIM.psyP[i] : 0;
-      if (Math.abs(now - _psySnap) >= 5) {
+      const req = (spec0 && typeof spec0.advancePsyDelta === 'number') ? Math.max(0, spec0.advancePsyDelta) : 5;
+      if (Math.abs(now - _psySnap) >= req) {
         _advance();
       }
     } else if (step === 3) {
@@ -417,26 +452,9 @@
       }
     } else if (step === 7) {
       // Goals instruction: wait for selecting Ego or Focus.
-      // Optional: pulse focus between Ego and Focus by toggling the tut focus ring.
-      _altFocusT += (typeof dt === 'number' && isFinite(dt) ? dt : 0);
-      if (_altFocusT >= 0.85) {
-        _altFocusT = 0;
-        try {
-          const cur = (SIM._tutFocusWell|0);
-          const next = (cur === 1) ? 4 : 1;
-          SIM._tutFocusWell = next;
-          SIM._tutFocusOpp = OPP[next] || ((next + 3) % 6);
-        } catch (_) {}
-      }
-
       if (last && last.kind === 'TAP_SELECT') {
         const w = last.well|0;
         if (w === 1 || w === 4) {
-          // Keep focus on whichever goal well the player selected.
-          try {
-            SIM._tutFocusWell = w;
-            SIM._tutFocusOpp = OPP[w] || ((w + 3) % 6);
-          } catch (_) {}
           _advance();
         }
       }

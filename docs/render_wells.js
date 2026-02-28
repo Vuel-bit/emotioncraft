@@ -356,6 +356,7 @@ function renderPsyche() {
   // Donut geometry (ratios so it scales cleanly)
   const r1 = safeR * 0.98; // outer radius of wedges
   const r0 = safeR * 0.20; // inner radius of wedges (edge of core) — smaller core, thicker donut
+  if (geom) geom.psycheOuterR = r1;
 
   const g = EC.RENDER.psycheG;
   g.clear();

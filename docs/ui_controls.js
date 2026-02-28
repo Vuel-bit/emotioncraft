@@ -884,6 +884,7 @@ if (btnZeroPairEl) {
 
         if (tutOn) {
           const tutPlan = !!(SIM && SIM._tutDrawerMode === 'PLAN');
+          if (drawerEl) drawerEl.classList.toggle('planMode', tutPlan);
           if (tutPlan) {
             if (goalLineEl) {
               goalLineEl.style.display = '';
@@ -904,8 +905,9 @@ if (btnZeroPairEl) {
               objectiveSummaryEl.textContent = '';
             }
           }
-        } else if (goalLineEl) {
-          goalLineEl.style.display = '';
+        } else {
+          if (drawerEl) drawerEl.classList.remove('planMode');
+          if (goalLineEl) goalLineEl.style.display = '';
         }
       } catch (_) {}
     } catch (_) {}
