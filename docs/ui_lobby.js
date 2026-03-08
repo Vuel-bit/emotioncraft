@@ -65,6 +65,17 @@
 
   function $(id) { return document.getElementById(id); }
 
+  function _primeAudioFromGesture() {
+    try {
+      if (EC.SFX && typeof EC.SFX.unlockFromGesture === 'function') {
+        EC.SFX.unlockFromGesture();
+      } else if (EC.SFX) {
+        if (typeof EC.SFX.unlock === 'function') EC.SFX.unlock();
+        if (typeof EC.SFX.updateRouting === 'function') EC.SFX.updateRouting();
+      }
+    } catch (_) {}
+  }
+
   function _setInLobby(flag) {
     let out = { ok: false, reason: 'no_engine' };
     try {
@@ -1212,6 +1223,7 @@
     try {
       if (els.btnAuthSignIn) {
         els.btnAuthSignIn.addEventListener('click', () => {
+          _primeAudioFromGesture();
           try {
             if (EC.AUTH && typeof EC.AUTH.signInGoogle === 'function') {
               const p = EC.AUTH.signInGoogle();
@@ -1222,6 +1234,7 @@
       }
       if (els.btnAuthSignOut) {
         els.btnAuthSignOut.addEventListener('click', () => {
+          _primeAudioFromGesture();
           try {
             if (EC.AUTH && typeof EC.AUTH.signOut === 'function') {
               const p = EC.AUTH.signOut();
@@ -1309,6 +1322,7 @@
       if (els.settingsBtn && !els.settingsBtn._ecBound) {
         els.settingsBtn._ecBound = true;
         els.settingsBtn.addEventListener('click', () => {
+          _primeAudioFromGesture();
           _setSettingsOpen(els, true);
           _syncSettingsUI(els);
         });
@@ -1316,6 +1330,7 @@
       if (els.settingsBackBtn && !els.settingsBackBtn._ecBound) {
         els.settingsBackBtn._ecBound = true;
         els.settingsBackBtn.addEventListener('click', () => {
+          _primeAudioFromGesture();
           _setSettingsOpen(els, false);
         });
       }
@@ -1329,6 +1344,7 @@
       if (els.confirmReplaceBtn && !els.confirmReplaceBtn._ecBound) {
         els.confirmReplaceBtn._ecBound = true;
         els.confirmReplaceBtn.addEventListener('click', () => {
+          _primeAudioFromGesture();
           _startSelectedPatient(els);
         });
       }
@@ -1371,6 +1387,7 @@
     // Resume button (only shown when a session is paused and resumable)
     if (els.resumeBtn) {
       els.resumeBtn.addEventListener('click', () => {
+        _primeAudioFromGesture();
         const r = _patResumeFromLobby();
         if (!r || !r.ok) {
           _setInLobby(false);
@@ -1393,6 +1410,7 @@
     if (els.tutorialBtn && !els.tutorialBtn._ecBound) {
       els.tutorialBtn._ecBound = true;
       els.tutorialBtn.addEventListener('click', () => {
+        _primeAudioFromGesture();
         // Close any lobby sub-overlays similar to starting a run.
         try { hidePlanChoice(els); } catch (_) {}
         try { if (_heroesOpen) hideHeroes(els); } catch (_) {}
@@ -1415,6 +1433,7 @@
 
       // Start / Begin
       els.startBtn.addEventListener('click', () => {
+        _primeAudioFromGesture();
         const resumable = _isResumable(_snap().SIM);
         const needsConfirm = resumable && (EC.SETTINGS && typeof EC.SETTINGS.confirmBeforeNewRunEnabled === 'function' ? EC.SETTINGS.confirmBeforeNewRunEnabled() : true);
         if (needsConfirm) {
@@ -1428,6 +1447,7 @@
       if (els.planWeeklyBtn && !els.planWeeklyBtn._ecBound) {
         els.planWeeklyBtn._ecBound = true;
         els.planWeeklyBtn.addEventListener('click', () => {
+          _primeAudioFromGesture();
           const pid = pendingPlanPickPatientId;
           pendingPlanPickPatientId = null;
           hidePlanChoice(els);
@@ -1441,6 +1461,7 @@
       if (els.planZenBtn && !els.planZenBtn._ecBound) {
         els.planZenBtn._ecBound = true;
         els.planZenBtn.addEventListener('click', () => {
+          _primeAudioFromGesture();
           const pid = pendingPlanPickPatientId;
           pendingPlanPickPatientId = null;
           hidePlanChoice(els);
@@ -1455,6 +1476,7 @@
       if (els.planTranquilityBtn && !els.planTranquilityBtn._ecBound) {
         els.planTranquilityBtn._ecBound = true;
         els.planTranquilityBtn.addEventListener('click', () => {
+          _primeAudioFromGesture();
           const pid = pendingPlanPickPatientId;
           pendingPlanPickPatientId = null;
           hidePlanChoice(els);
@@ -1468,6 +1490,7 @@
       if (els.planTranscendenceBtn && !els.planTranscendenceBtn._ecBound) {
         els.planTranscendenceBtn._ecBound = true;
         els.planTranscendenceBtn.addEventListener('click', () => {
+          _primeAudioFromGesture();
           const pid = pendingPlanPickPatientId;
           pendingPlanPickPatientId = null;
           hidePlanChoice(els);
