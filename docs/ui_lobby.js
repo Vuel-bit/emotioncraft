@@ -1630,8 +1630,14 @@ function render() {
     }
   }
 
+
+  function isAudioInterstitialActive() {
+    return !!(_planChoiceOpen || _rewardShowingFor || _congratsShowingFor || _intakeCongratsShowingFor);
+  }
+
   EC.UI_LOBBY = {
     init,
     render,
+    isAudioInterstitialActive,
   };
 })();

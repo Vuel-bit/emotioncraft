@@ -109,7 +109,7 @@
 
   function _pushBreakMsg(reasonText) {
     // Break messaging is log-only: no HUD notify/toast.
-    try { if (EC.SFX && typeof EC.SFX.play === 'function') EC.SFX.play('error_003'); } catch (_) {}
+    try { if (EC.SFX && typeof EC.SFX.playSfx === 'function') EC.SFX.playSfx('break'); } catch (_) {}
   }
 
   function _nowMs() {

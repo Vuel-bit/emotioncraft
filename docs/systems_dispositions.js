@@ -931,6 +931,9 @@
             });
           }
         } catch (_) {}
+        try {
+          if (EC.SFX && typeof EC.SFX.playSfx === 'function') EC.SFX.playSfx('quirk');
+        } catch (_) {}
         return 1;
       }
 
@@ -1062,14 +1065,6 @@
               teleMode = 'flash';
               const hz = 1.3; // >=3 flashes in 3s
               flash01 = 0.5 + 0.5 * Math.sin((Math.PI * 2) * hz * tInto);
-              // SFX: play once per flash pulse during telegraph warning.
-              try {
-                const pulseIdx = Math.floor(hz * tInto);
-                if ((inst._sndPulse | 0) !== pulseIdx) {
-                  inst._sndPulse = pulseIdx;
-                  if (EC.SFX && typeof EC.SFX.play === 'function') EC.SFX.play('pluck_002');
-                }
-              } catch (_) {}
             } else {
               const t2 = tInto - 3.0;
               const cycLen = 2.0;
