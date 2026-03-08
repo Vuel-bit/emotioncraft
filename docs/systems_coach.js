@@ -107,6 +107,11 @@
     const SIM = _sim();
     if (!SIM) return { started: false };
     if (SIM._tutNoHazards) return { started: false };
+    try {
+      if (EC.SETTINGS && typeof EC.SETTINGS.tutorialHintsEnabled === 'function' && !EC.SETTINGS.tutorialHintsEnabled()) {
+        return { started: false };
+      }
+    } catch (_) {}
 
     const k = String(key || '');
     if (!k) return { started: false };
