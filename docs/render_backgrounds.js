@@ -50,6 +50,13 @@
     return R.bgImageLayer;
   }
 
+  function _resolveDesiredPath() {
+    const SIM = EC.SIM || {};
+    if (SIM.inLobby) return null;
+    const planKey = normalizePlanKey(SIM._patientPlanKey || SIM._activePlanKey);
+    return resolvePathForPlan(planKey);
+  }
+
   function _clearActiveImage() {
     const R = EC.RENDER || {};
     if (R.bgImageSprite && R.bgImageLayer && R.bgImageSprite.parent === R.bgImageLayer) {
@@ -99,14 +106,17 @@
     resizeActiveBackground();
   }
 
-  function syncActiveBackground() {
-    const SIM = EC.SIM || {};
-    const inLobby = !!SIM.inLobby;
-    const planKey = normalizePlanKey(SIM._patientPlanKey || SIM._activePlanKey);
-    const desiredPath = inLobby ? null : resolvePathForPlan(planKey);
+  function syncActiveBackground(force) {
     const R = EC.RENDER || {};
-
     _ensureLayer();
+
+    const desiredPath = _resolveDesiredPath();
+    const prevDesired = R._desiredBoardBgPath || null;
+    R._desiredBoardBgPath = desiredPath || '';
+
+    if (!force && prevDesired === (desiredPath || null)) {
+      return;
+    }
 
     if (!desiredPath) {
       if (R._activeBoardBgPath) _clearActiveImage();
@@ -151,10 +161,9 @@
 
     bt.once('loaded', () => {
       cleanup();
+      const nowPath = _resolveDesiredPath();
+      if (nowPath !== desiredPath) return;
       if ((EC.RENDER || {})._activeBoardBgPath === desiredPath) return;
-      const SIM_NOW = EC.SIM || {};
-      const nowPlanPath = (!!SIM_NOW.inLobby) ? null : resolvePathForPlan(normalizePlanKey(SIM_NOW._patientPlanKey || SIM_NOW._activePlanKey));
-      if (nowPlanPath !== desiredPath) return;
       _applyTexture(desiredPath, tex);
     });
 
@@ -162,14 +171,24 @@
       cleanup();
       _failedByPath[desiredPath] = true;
       const R2 = EC.RENDER || {};
-      if (R2._activeBoardBgPath === desiredPath) _clearActiveImage();
+      if ((R2._desiredBoardBgPath || '') === desiredPath || R2._activeBoardBgPath === desiredPath) _clearActiveImage();
     });
+  }
+
+  function requestSync() {
+    syncActiveBackground(false);
+  }
+
+  function syncNow() {
+    syncActiveBackground(true);
   }
 
   EC.RENDER_BACKGROUNDS = {
     normalizePlanKey,
     resolvePathForPlan,
     syncActiveBackground,
+    requestSync,
+    syncNow,
     resizeActiveBackground,
     ensureLayer: _ensureLayer,
   };

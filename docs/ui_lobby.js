@@ -66,11 +66,19 @@
   function $(id) { return document.getElementById(id); }
 
   function _setInLobby(flag) {
+    let out = { ok: false, reason: 'no_engine' };
     try {
-      if (EC.ENGINE && typeof EC.ENGINE.dispatch === 'function') return EC.ENGINE.dispatch('setInLobby', !!flag);
-      if (EC.ACTIONS && typeof EC.ACTIONS.setInLobby === 'function') return EC.ACTIONS.setInLobby(!!flag);
+      if (EC.ENGINE && typeof EC.ENGINE.dispatch === 'function') out = EC.ENGINE.dispatch('setInLobby', !!flag);
+      else if (EC.ACTIONS && typeof EC.ACTIONS.setInLobby === 'function') out = EC.ACTIONS.setInLobby(!!flag);
     } catch (_) {}
-    return { ok: false, reason: 'no_engine' };
+
+    try {
+      const RB = EC.RENDER_BACKGROUNDS;
+      if (RB && typeof RB.requestSync === 'function') RB.requestSync();
+      else if (RB && typeof RB.syncActiveBackground === 'function') RB.syncActiveBackground();
+    } catch (_) {}
+
+    return out;
   }
 
   // Patient transition helpers: prefer ENGINE.dispatch (bracketed), fallback to ACTIONS,

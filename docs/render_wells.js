@@ -87,10 +87,10 @@ function ensurePsycheView() {
     layer.eventMode = 'none';
     EC.RENDER.psycheLayer = layer;
 
-    // Insert above bg and below wells.
+    // Insert above board background and below wells.
     const root = EC.RENDER.root;
-    const bgIndex = Math.max(0, root.getChildIndex(EC.RENDER.bg));
-    root.addChildAt(layer, bgIndex + 1);
+    const wellsIndex = Math.max(0, root.getChildIndex(EC.RENDER.wellLayer));
+    root.addChildAt(layer, wellsIndex);
   }
 
   if (!EC.RENDER.psycheG) {
@@ -794,11 +794,8 @@ EC.updatePsycheView = renderPsyche;
 
 function layout() {
   drawBackground();
-  if (EC.RENDER_BACKGROUNDS && typeof EC.RENDER_BACKGROUNDS.syncActiveBackground === 'function') {
-    EC.RENDER_BACKGROUNDS.syncActiveBackground();
-    if (typeof EC.RENDER_BACKGROUNDS.resizeActiveBackground === 'function') {
-      EC.RENDER_BACKGROUNDS.resizeActiveBackground();
-    }
+  if (EC.RENDER_BACKGROUNDS && typeof EC.RENDER_BACKGROUNDS.resizeActiveBackground === 'function') {
+    EC.RENDER_BACKGROUNDS.resizeActiveBackground();
   }
 
   // Ensure psyche exists before laying out other items.
