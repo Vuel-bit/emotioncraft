@@ -830,8 +830,8 @@
                 applyReason = (res && res.reason) ? res.reason : 'apply_failed';
                 // SFX: error beep ONLY for lack-of-energy swipe/drag attempts.
                 try {
-                  if (applyReason === 'noenergy' && EC.SFX && typeof EC.SFX.play === 'function') {
-                    EC.SFX.play('bong_001');
+                  if (applyReason === 'noenergy' && EC.SFX && typeof EC.SFX.playSfx === 'function') {
+                    EC.SFX.playSfx('swipe');
                   }
                 } catch (_) {}
                 try {

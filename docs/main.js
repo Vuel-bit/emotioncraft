@@ -52,6 +52,7 @@
 
     // Touch events (canonical arming lives in systems_input)
     view.addEventListener('touchstart', (e) => {
+      try { if (EC.SFX && typeof EC.SFX.unlock === 'function') EC.SFX.unlock(); } catch (_) {}
       try { e.preventDefault(); } catch (_) {}
       if (isDbg()) { ensureDbg(); try { EC.INPUT.dbgRecordDomTouch && EC.INPUT.dbgRecordDomTouch(e, 'ts'); } catch (_) {} }
       try { EC.INPUT && EC.INPUT.armGestureFromDomTouchStart && EC.INPUT.armGestureFromDomTouchStart(e); } catch (_) {}

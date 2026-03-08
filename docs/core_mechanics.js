@@ -1054,6 +1054,9 @@ EC.tickUI = function tickUI(safeDt) {
     }
   } catch (_) {}
   if (EC.updateUI) EC.updateUI(safeDt);
+  try {
+    if (EC.SFX && typeof EC.SFX.updateRouting === 'function') EC.SFX.updateRouting();
+  } catch (_) {}
 };
 
 // -----------------------------
