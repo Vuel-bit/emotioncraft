@@ -8,19 +8,22 @@
   const EC = (window.EC = window.EC || {});
 
   const _MAP = {
-    bong_001: 'assets/sfx/bong_001.ogg',
-    drop_001: 'assets/sfx/drop_001.ogg',
-    pluck_002: 'assets/sfx/pluck_002.ogg',
-    highup: 'assets/sfx/highup.ogg',
-    error_003: 'assets/sfx/error_003.ogg',
+    break: 'assets/sfx/break.ogg',
+    quirk: 'assets/sfx/quirk.ogg',
+    swipe: 'assets/sfx/swipe.ogg',
+    success: 'assets/sfx/success.ogg',
+    lobby: 'assets/sfx/lobby.ogg',
+    weekly: 'assets/sfx/weekly.ogg',
+    zen: 'assets/sfx/zen.ogg',
+    tranquility: 'assets/sfx/tranquility.ogg',
+    transcendance: 'assets/sfx/transcendance.ogg',
   };
 
   const _COOLDOWN_MS = {
-    bong_001: 150,
-    drop_001: 80,
-    pluck_002: 120,
-    highup: 400,
-    error_003: 500,
+    break: 500,
+    quirk: 120,
+    swipe: 80,
+    success: 350,
   };
 
   const _POOL_N = 3;
@@ -136,9 +139,7 @@
 
     // Simple error helper (used by render_wells no-energy path).
     error() {
-      // Prefer bong_001 if bundled; otherwise fall back to any known id.
-      if (_MAP.bong_001) return SFX.play('bong_001');
-      if (_MAP.error_003) return SFX.play('error_003');
+      if (_MAP.break) return SFX.play('break');
       const k = Object.keys(_MAP)[0];
       if (k) SFX.play(k);
     },

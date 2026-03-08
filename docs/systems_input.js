@@ -831,7 +831,7 @@
                 // SFX: error beep ONLY for lack-of-energy swipe/drag attempts.
                 try {
                   if (applyReason === 'noenergy' && EC.SFX && typeof EC.SFX.play === 'function') {
-                    EC.SFX.play('bong_001');
+                    EC.SFX.play('swipe');
                   }
                 } catch (_) {}
                 try {
