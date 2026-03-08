@@ -794,6 +794,12 @@ EC.updatePsycheView = renderPsyche;
 
 function layout() {
   drawBackground();
+  if (EC.RENDER_BACKGROUNDS && typeof EC.RENDER_BACKGROUNDS.syncActiveBackground === 'function') {
+    EC.RENDER_BACKGROUNDS.syncActiveBackground();
+    if (typeof EC.RENDER_BACKGROUNDS.resizeActiveBackground === 'function') {
+      EC.RENDER_BACKGROUNDS.resizeActiveBackground();
+    }
+  }
 
   // Ensure psyche exists before laying out other items.
   if (EC.ensurePsycheView) EC.ensurePsycheView();
