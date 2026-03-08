@@ -26,6 +26,17 @@
   }
 
 
+
+  function _syncBoardBackground(force) {
+    try {
+      const RB = EC.RENDER_BACKGROUNDS;
+      if (!RB) return;
+      if (force && typeof RB.syncNow === 'function') { RB.syncNow(); return; }
+      if (typeof RB.requestSync === 'function') { RB.requestSync(); return; }
+      if (typeof RB.syncActiveBackground === 'function') RB.syncActiveBackground(!!force);
+    } catch (_) {}
+  }
+
   // Route MVP init through ENGINE/ACTIONS so SIM init writes are bracketed (simguard-friendly).
   function _initMVP(levelOrDef) {
     try {
@@ -871,6 +882,7 @@ function _uniq(arr) {
     SIM._patientLevelId = def.id;
     SIM._patientPlanKey = plan && plan.planKey ? plan.planKey : useKey;
     _setInLobby(false);
+    _syncBoardBackground(true);
 
     STATE.activePatientId = p.id;
 
@@ -1052,6 +1064,7 @@ if (pk === 'INTAKE') {
     }
 
     if (EC.UI_STATE) EC.UI_STATE._lobbyDirtyStamp = (EC.UI_STATE._lobbyDirtyStamp || 0) + 1;
+    _syncBoardBackground(true);
   }
 
   // Soft lobby open: pause the simulation behind the lobby overlay without resetting.
@@ -1062,12 +1075,14 @@ if (pk === 'INTAKE') {
 
 function openLobbyPause() {
     _setInLobby(true);
+    _syncBoardBackground(true);
     // Keep SIM._patientActive + current sim state intact for Resume.
     if (EC.UI_STATE) EC.UI_STATE._lobbyDirtyStamp = (EC.UI_STATE._lobbyDirtyStamp || 0) + 1;
   }
 
   function resumeFromLobby() {
     _setInLobby(false);
+    _syncBoardBackground(true);
     if (EC.UI_STATE) EC.UI_STATE._lobbyDirtyStamp = (EC.UI_STATE._lobbyDirtyStamp || 0) + 1;
   }
 

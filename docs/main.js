@@ -159,6 +159,12 @@
   const bg = new PIXI.Graphics();
   root.addChild(bg);
 
+  const boardBgLayer = new PIXI.Container();
+  boardBgLayer.eventMode = 'none';
+  boardBgLayer.interactiveChildren = false;
+  boardBgLayer.visible = false;
+  root.addChild(boardBgLayer);
+
   const wellLayer = new PIXI.Container();
   root.addChild(wellLayer);
 
@@ -170,6 +176,8 @@
   EC.RENDER.app = app;
   EC.RENDER.root = root;
   EC.RENDER.bg = bg;
+  EC.RENDER.boardBgLayer = boardBgLayer;
+  EC.RENDER.bgImageLayer = boardBgLayer;
   EC.RENDER.wellLayer = wellLayer;
   EC.RENDER.labelLayer = labelLayer;
 

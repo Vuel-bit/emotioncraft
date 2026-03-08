@@ -82,12 +82,22 @@
 
   // Route lobby state changes through ACTIONS (single SIM write point).
   function _setInLobby(flag) {
+    let out = { ok: false, reason: 'missing_setInLobby' };
     try {
-      if (EC.ACTIONS && typeof EC.ACTIONS.setInLobby === 'function') return EC.ACTIONS.setInLobby(!!flag);
-      const eng = EC.ENGINE;
-      if (eng && typeof eng.dispatch === 'function') return eng.dispatch('setInLobby', !!flag);
+      if (EC.ACTIONS && typeof EC.ACTIONS.setInLobby === 'function') out = EC.ACTIONS.setInLobby(!!flag);
+      else {
+        const eng = EC.ENGINE;
+        if (eng && typeof eng.dispatch === 'function') out = eng.dispatch('setInLobby', !!flag);
+      }
     } catch (_) {}
-    return { ok: false, reason: 'missing_setInLobby' };
+
+    try {
+      const RB = EC.RENDER_BACKGROUNDS;
+      if (RB && typeof RB.requestSync === 'function') RB.requestSync();
+      else if (RB && typeof RB.syncActiveBackground === 'function') RB.syncActiveBackground();
+    } catch (_) {}
+
+    return out;
   }
 
   function _clearLastAction() {
