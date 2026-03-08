@@ -90,10 +90,16 @@
         EC._registerModule && EC._registerModule('systems_sfx', {
           provides: [
             'EC.SFX.playSfx', 'EC.SFX.playMusic', 'EC.SFX.stopMusic',
-            'EC.SFX.stopAllAudio', 'EC.SFX.unlock', 'EC.SFX.updateRouting'
+            'EC.SFX.stopAllAudio', 'EC.SFX.unlock', 'EC.SFX.unlockFromGesture', 'EC.SFX.updateRouting'
           ]
         });
       } catch (_) {}
+    },
+
+    unlockFromGesture() {
+      if (!SFX._ready) SFX.init();
+      if (!SFX._unlocked) SFX.unlock();
+      SFX.updateRouting();
     },
 
     unlock() {
