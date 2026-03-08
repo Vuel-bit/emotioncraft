@@ -1067,7 +1067,7 @@
                 const pulseIdx = Math.floor(hz * tInto);
                 if ((inst._sndPulse | 0) !== pulseIdx) {
                   inst._sndPulse = pulseIdx;
-                  if (EC.SFX && typeof EC.SFX.play === 'function') EC.SFX.play('pluck_002');
+                  if (EC.SFX && typeof EC.SFX.play === 'function') EC.SFX.play('quirk');
                 }
               } catch (_) {}
             } else {
