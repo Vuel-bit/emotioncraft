@@ -494,8 +494,11 @@
         if (Math.abs(s0) <= 0.01 && Math.abs(s1) <= 0.01) _advance();
       }
     } else if (step === 7) {
-      // Goals instruction: wait for selecting Ego or Focus.
-      if (last && last.kind === 'TAP_SELECT') {
+      // Goals instruction: advance once tutorial goals are met.
+      // Keep tap-select on Ego/Focus as a fallback nudge.
+      if (areTutorialGoalsSatisfied()) {
+        _advance();
+      } else if (last && last.kind === 'TAP_SELECT') {
         const w = last.well|0;
         if (w === 1 || w === 4) {
           _advance();
