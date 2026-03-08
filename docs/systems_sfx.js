@@ -164,6 +164,10 @@
 
       try { a.currentTime = 0; } catch (_) {}
       try {
+        const eff = (EC.SETTINGS && typeof EC.SETTINGS.getEffectiveSfx === 'function') ? EC.SETTINGS.getEffectiveSfx() : 0.72;
+        a.volume = Math.max(0, Math.min(1, Number(eff) || 0));
+      } catch (_) {}
+      try {
         const p = a.play();
         if (p && typeof p.catch === 'function') p.catch(() => {});
       } catch (_) {}
@@ -176,6 +180,10 @@
       if (!src || !m) return;
 
       if (SFX._musicId === id) {
+        try {
+          const eff = (EC.SETTINGS && typeof EC.SETTINGS.getEffectiveMusic === 'function') ? EC.SETTINGS.getEffectiveMusic() : 0.55;
+          m.volume = Math.max(0, Math.min(1, Number(eff) || 0));
+        } catch (_) {}
         if (m.paused) {
           try {
             const p = m.play();
@@ -189,6 +197,10 @@
       try { m.currentTime = 0; } catch (_) {}
       try { m.src = src; } catch (_) {}
       try { m.loop = true; } catch (_) {}
+      try {
+        const eff = (EC.SETTINGS && typeof EC.SETTINGS.getEffectiveMusic === 'function') ? EC.SETTINGS.getEffectiveMusic() : 0.55;
+        m.volume = Math.max(0, Math.min(1, Number(eff) || 0));
+      } catch (_) {}
       SFX._musicId = id;
 
       try {

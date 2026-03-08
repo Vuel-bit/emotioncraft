@@ -51,6 +51,9 @@
   // Track lobby visibility transitions for UI gating.
   let _lobbyWasVisible = false;
 
+  // Lobby/Settings view state.
+  let _settingsOpen = false;
+  let _confirmNewRunOpen = false;
 
   // Post-run progression modals
   let _rewardShowingFor = null;
@@ -118,6 +121,10 @@
       tutorialBtn: $("btnLobbyTutorial"),
       startBtn: $("btnLobbyStart"),
       resumeBtn: $("btnLobbyResume"),
+      settingsBtn: $("btnLobbySettings"),
+      confirmWrap: $("lobbyConfirmNewRun"),
+      confirmCancelBtn: $("btnLobbyConfirmCancel"),
+      confirmReplaceBtn: $("btnLobbyConfirmReplace"),
       hint: $("lobbyHint"),
       authWrap: $("lobbyAuth"),
       btnAuthSignIn: $("btnAuthSignIn"),
@@ -134,6 +141,16 @@
       detailsMeta: $("lobbyDetailsMeta"),
       detailsQuirks: $("lobbyDetailsQuirks"),
       detailsHelp: $("lobbyDetailsHelp"),
+      settingsOverlay: $("settingsOverlay"),
+      settingsBackBtn: $("btnSettingsBack"),
+      settingsMaster: $("settingsMasterVolume"),
+      settingsMasterPct: $("settingsMasterPct"),
+      settingsMusic: $("settingsMusicVolume"),
+      settingsMusicPct: $("settingsMusicPct"),
+      settingsEffects: $("settingsEffectsVolume"),
+      settingsEffectsPct: $("settingsEffectsPct"),
+      settingsTutorialHints: $("settingsTutorialHints"),
+      settingsConfirmNewRun: $("settingsConfirmNewRun"),
       // Created dynamically
       rewardOverlay: document.getElementById('weeklyRewardOverlay'),
       congratsOverlay: document.getElementById('zenCongratsOverlay'),
@@ -767,6 +784,72 @@
     }
   }
 
+
+  function _setSettingsOpen(els, on) {
+    _settingsOpen = !!on;
+    if (_settingsOpen) _confirmNewRunOpen = false;
+    try {
+      if (els && els.overlay) els.overlay.classList.toggle('show', !_settingsOpen);
+      if (els && els.settingsOverlay) els.settingsOverlay.classList.toggle('show', _settingsOpen);
+    } catch (_) {}
+  }
+
+  function _isResumable(sim) {
+    const SIM = sim || _snap().SIM || {};
+    const isWin = (SIM.levelState === 'win') || !!SIM.mvpWin;
+    const isLose = (SIM.levelState === 'lose') || !!SIM.mvpLose || !!SIM.gameOver;
+    return !!(SIM._patientActive && !isWin && !isLose);
+  }
+
+  function _startSelectedPatient(els) {
+    const pid = _snap().UI.selectedPatientId;
+    if (!pid || !EC.PAT) return;
+
+    const p = (EC.PAT.get && typeof EC.PAT.get === 'function') ? EC.PAT.get(pid) : null;
+    if (!p) return;
+
+    if (!p.intakeDone) {
+      try { if (EC.SETTINGS && typeof EC.SETTINGS.markPlayedBefore === 'function') EC.SETTINGS.markPlayedBefore(); } catch (_) {}
+      _patBeginFromLobby(pid);
+      try { renderList(els); } catch (_) {}
+
+      const sp = _patStartPending('INTAKE');
+      if (!(sp && sp.ok) && EC.PAT && EC.PAT.startRun && typeof EC.PAT.startRun === 'function') {
+        EC.PAT.startRun(pid, 'INTAKE');
+      } else if (!(sp && sp.ok) && EC.PAT && EC.PAT.start) {
+        EC.PAT.start(pid, 'INTAKE');
+      }
+      pendingPlanPickPatientId = null;
+      _confirmNewRunOpen = false;
+      _setInLobby(false);
+      hidePlanChoice(els);
+      hide(els);
+      return;
+    }
+
+    pendingPlanPickPatientId = pid;
+    _confirmNewRunOpen = false;
+    showPlanChoice(els, p.name);
+  }
+
+  function _syncSettingsUI(els) {
+    if (!els) return;
+    const s = (EC.SETTINGS && typeof EC.SETTINGS.get === 'function') ? EC.SETTINGS.get() : null;
+    if (!s) return;
+
+    function setPct(el, v) { if (el) el.textContent = `${Math.round(v)}%`; }
+
+    if (els.settingsMaster) els.settingsMaster.value = String(s.masterVolume);
+    if (els.settingsMusic) els.settingsMusic.value = String(s.musicVolume);
+    if (els.settingsEffects) els.settingsEffects.value = String(s.effectsVolume);
+    setPct(els.settingsMasterPct, s.masterVolume);
+    setPct(els.settingsMusicPct, s.musicVolume);
+    setPct(els.settingsEffectsPct, s.effectsVolume);
+
+    if (els.settingsTutorialHints) els.settingsTutorialHints.checked = !!s.tutorialHints;
+    if (els.settingsConfirmNewRun) els.settingsConfirmNewRun.checked = !!s.confirmBeforeNewRun;
+  }
+
   function _hasPortrait(p) {
     const src = (p && typeof p.portrait === 'string') ? p.portrait : '';
     if (!src) return false;
@@ -1213,6 +1296,70 @@
       }
     } catch (_) {}
 
+    // Lobby/settings flow controls
+    try {
+      if (els.settingsBtn && !els.settingsBtn._ecBound) {
+        els.settingsBtn._ecBound = true;
+        els.settingsBtn.addEventListener('click', () => {
+          _setSettingsOpen(els, true);
+          _syncSettingsUI(els);
+        });
+      }
+      if (els.settingsBackBtn && !els.settingsBackBtn._ecBound) {
+        els.settingsBackBtn._ecBound = true;
+        els.settingsBackBtn.addEventListener('click', () => {
+          _setSettingsOpen(els, false);
+        });
+      }
+
+      if (els.confirmCancelBtn && !els.confirmCancelBtn._ecBound) {
+        els.confirmCancelBtn._ecBound = true;
+        els.confirmCancelBtn.addEventListener('click', () => {
+          _confirmNewRunOpen = false;
+        });
+      }
+      if (els.confirmReplaceBtn && !els.confirmReplaceBtn._ecBound) {
+        els.confirmReplaceBtn._ecBound = true;
+        els.confirmReplaceBtn.addEventListener('click', () => {
+          _startSelectedPatient(els);
+        });
+      }
+
+      const bindRange = (el, key, pctEl) => {
+        if (!el || el._ecBound) return;
+        el._ecBound = true;
+        const onInput = () => {
+          const v = Math.max(0, Math.min(100, Math.round(Number(el.value) || 0)));
+          if (pctEl) pctEl.textContent = `${v}%`;
+          try { if (EC.SETTINGS && typeof EC.SETTINGS.setVolume === 'function') EC.SETTINGS.setVolume(key, v); } catch (_) {}
+        };
+        el.addEventListener('input', onInput);
+        el.addEventListener('change', onInput);
+      };
+      bindRange(els.settingsMaster, 'masterVolume', els.settingsMasterPct);
+      bindRange(els.settingsMusic, 'musicVolume', els.settingsMusicPct);
+      bindRange(els.settingsEffects, 'effectsVolume', els.settingsEffectsPct);
+
+      if (els.settingsTutorialHints && !els.settingsTutorialHints._ecBound) {
+        els.settingsTutorialHints._ecBound = true;
+        els.settingsTutorialHints.addEventListener('change', () => {
+          try {
+            if (EC.SETTINGS && typeof EC.SETTINGS.setTutorialHints === 'function') EC.SETTINGS.setTutorialHints(!!els.settingsTutorialHints.checked);
+          } catch (_) {}
+        });
+      }
+      if (els.settingsConfirmNewRun && !els.settingsConfirmNewRun._ecBound) {
+        els.settingsConfirmNewRun._ecBound = true;
+        els.settingsConfirmNewRun.addEventListener('change', () => {
+          try {
+            if (EC.SETTINGS && typeof EC.SETTINGS.setConfirmBeforeNewRun === 'function') EC.SETTINGS.setConfirmBeforeNewRun(!!els.settingsConfirmNewRun.checked);
+          } catch (_) {}
+        });
+      }
+
+      _syncSettingsUI(els);
+    } catch (_) {}
+
     // Resume button (only shown when a session is paused and resumable)
     if (els.resumeBtn) {
       els.resumeBtn.addEventListener('click', () => {
@@ -1260,35 +1407,13 @@
 
       // Start / Begin
       els.startBtn.addEventListener('click', () => {
-        const pid = _snap().UI.selectedPatientId;
-        if (!pid || !EC.PAT) return;
-
-        const p = (EC.PAT.get && typeof EC.PAT.get === 'function') ? EC.PAT.get(pid) : null;
-        if (!p) return;
-
-        // Intake gating: first session is always INTAKE (Begin starts immediately).
-        if (!p.intakeDone) {
-          // Rotation rule: reserve patient (remove from slots + refill) before starting.
-          _patBeginFromLobby(pid);
-          // Refresh slot list immediately.
-          try { renderList(els); } catch (_) {}
-
-          const sp = _patStartPending('INTAKE');
-          if (!(sp && sp.ok) && EC.PAT && EC.PAT.startRun && typeof EC.PAT.startRun === 'function') {
-            EC.PAT.startRun(pid, 'INTAKE');
-          } else if (!(sp && sp.ok) && EC.PAT && EC.PAT.start) {
-            EC.PAT.start(pid, 'INTAKE');
-          }
-          pendingPlanPickPatientId = null;
-          _setInLobby(false);
-          hidePlanChoice(els);
-          hide(els);
+        const resumable = _isResumable(_snap().SIM);
+        const needsConfirm = resumable && (EC.SETTINGS && typeof EC.SETTINGS.confirmBeforeNewRunEnabled === 'function' ? EC.SETTINGS.confirmBeforeNewRunEnabled() : true);
+        if (needsConfirm) {
+          _confirmNewRunOpen = true;
           return;
         }
-
-        // Otherwise: choose plan WITHOUT reserving/removing yet.
-        pendingPlanPickPatientId = pid;
-        showPlanChoice(els, p.name);
+        _startSelectedPatient(els);
       });
 
       // Plan choice buttons (bind once).
@@ -1298,6 +1423,7 @@
           const pid = pendingPlanPickPatientId;
           pendingPlanPickPatientId = null;
           hidePlanChoice(els);
+          try { if (EC.SETTINGS && typeof EC.SETTINGS.markPlayedBefore === 'function') EC.SETTINGS.markPlayedBefore(); } catch (_) {}
           if (pid) _patBeginFromLobby(pid);
           _patStartPending('WEEKLY');
           _setInLobby(false);
@@ -1310,6 +1436,7 @@
           const pid = pendingPlanPickPatientId;
           pendingPlanPickPatientId = null;
           hidePlanChoice(els);
+          try { if (EC.SETTINGS && typeof EC.SETTINGS.markPlayedBefore === 'function') EC.SETTINGS.markPlayedBefore(); } catch (_) {}
           if (pid) _patBeginFromLobby(pid);
           _patStartPending('ZEN');
           _setInLobby(false);
@@ -1323,6 +1450,7 @@
           const pid = pendingPlanPickPatientId;
           pendingPlanPickPatientId = null;
           hidePlanChoice(els);
+          try { if (EC.SETTINGS && typeof EC.SETTINGS.markPlayedBefore === 'function') EC.SETTINGS.markPlayedBefore(); } catch (_) {}
           if (pid) _patBeginFromLobby(pid);
           _patStartPending('TRANQUILITY');
           _setInLobby(false);
@@ -1335,6 +1463,7 @@
           const pid = pendingPlanPickPatientId;
           pendingPlanPickPatientId = null;
           hidePlanChoice(els);
+          try { if (EC.SETTINGS && typeof EC.SETTINGS.markPlayedBefore === 'function') EC.SETTINGS.markPlayedBefore(); } catch (_) {}
           if (pid) _patBeginFromLobby(pid);
           _patStartPending('TRANSCENDENCE');
           _setInLobby(false);
@@ -1502,13 +1631,20 @@ function hidePlanChoice(els) {
   }
 
   function show(els) {
-    if (els.overlay) els.overlay.classList.add('show');
+    if (_settingsOpen) {
+      if (els.overlay) els.overlay.classList.remove('show');
+      if (els.settingsOverlay) els.settingsOverlay.classList.add('show');
+    } else {
+      if (els.overlay) els.overlay.classList.add('show');
+      if (els.settingsOverlay) els.settingsOverlay.classList.remove('show');
+    }
     // Do NOT auto-hide the plan choice overlay every tick; only hide when not open.
     if (!_planChoiceOpen) hidePlanChoice(els);
   }
 
   function hide(els) {
     if (els.overlay) els.overlay.classList.remove('show');
+    if (els.settingsOverlay) els.settingsOverlay.classList.remove('show');
     hidePlanChoice(els);
     hideHeroes(els);
   }
@@ -1539,6 +1675,9 @@ function render() {
     _lobbyWasVisible = want;
 
     if (want) {
+      try {
+        if (EC.SETTINGS && typeof EC.SETTINGS.syncHasPlayedFromPatients === 'function') EC.SETTINGS.syncHasPlayedFromPatients();
+      } catch (_) {}
       // Keep auth UI fresh while lobby is visible.
       try { updateAuthUI(els); } catch (_) {}
 
@@ -1592,6 +1731,17 @@ function render() {
         renderList(els);
       }
 
+      // Toggle in-lobby confirm panel (non-modal).
+      try {
+        const showConfirm = _confirmNewRunOpen && _isResumable(SIM);
+        const topActions = els.overlay ? els.overlay.querySelector('.lobbyActionsTop') : null;
+        if (topActions) topActions.style.display = showConfirm ? 'none' : '';
+        if (els.confirmWrap) els.confirmWrap.style.display = showConfirm ? '' : 'none';
+      } catch (_) {}
+
+      try { _syncSettingsUI(els); } catch (_) {}
+      try { _setSettingsOpen(els, _settingsOpen); } catch (_) {}
+
       // Post-run progression modals
       try {
         const rwid = (EC.PAT && EC.PAT.getPendingWeeklyRewardId) ? EC.PAT.getPendingWeeklyRewardId() : null;
@@ -1620,6 +1770,9 @@ function render() {
       } catch (_) {}
       show(els);
     } else {
+      _settingsOpen = false;
+      _confirmNewRunOpen = false;
+      _setSettingsOpen(els, false);
       hide(els);
       // Ensure modals are closed when lobby is hidden.
       try { hideWeeklyReward(els); } catch (_) {}

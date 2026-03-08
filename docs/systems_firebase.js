@@ -271,6 +271,13 @@
       UI._playerNameCustom = !!data.ui.playerNameCustom;
     }
 
+    // Persisted settings (audio + gameplay).
+    if (v >= 2 && data.ui && typeof data.ui === 'object' && data.ui.settings && typeof data.ui.settings === 'object') {
+      try {
+        if (EC.SETTINGS && typeof EC.SETTINGS.applyLoaded === 'function') EC.SETTINGS.applyLoaded(data.ui.settings);
+      } catch (_) {}
+    }
+
     if (v >= 2 && data.pat && typeof data.pat === 'object') {
       SAVE._pendingDoc = data;
       // Try immediately; if patients system not ready yet, retry a few times.
@@ -312,6 +319,9 @@
       } catch (_) {}
 
       const uiOut = { seenFirstPopups, seenIntroBAP, seenIntroBAP_v3 };
+      try {
+        if (EC.SETTINGS && typeof EC.SETTINGS._exportForSave === 'function') uiOut.settings = EC.SETTINGS._exportForSave();
+      } catch (_) {}
       if (customKnown) uiOut.playerNameCustom = playerNameCustom;
 
       if (playerNameCustom) {
@@ -344,6 +354,9 @@
     } catch (_) {}
 
     const uiOut = { seenFirstPopups, seenIntroBAP, seenIntroBAP_v3 };
+    try {
+      if (EC.SETTINGS && typeof EC.SETTINGS._exportForSave === 'function') uiOut.settings = EC.SETTINGS._exportForSave();
+    } catch (_) {}
     if (customKnown) uiOut.playerNameCustom = playerNameCustom;
 
     if (playerNameCustom) {

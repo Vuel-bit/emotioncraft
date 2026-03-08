@@ -400,7 +400,7 @@
     .lobbyHeader .sub{ font-size: 12px; color: rgba(232,238,252,0.72); text-align:right; white-space: pre-line; }
 
     /* Lobby auth mini-row (minimal functional scaffolding) */
-    .lobbyAuth{ display:flex; align-items:center; justify-content:space-between; gap: 10px; margin: 12px 0 0 0; flex-wrap: wrap; padding-top: 10px; border-top: 1px solid rgba(255,255,255,0.10); }
+    .lobbyAuth{ display:flex; align-items:center; justify-content:space-between; gap: 10px; margin: 0; flex-wrap: wrap; }
     .lobbyAuthLeft{ display:flex; align-items:center; gap: 8px; flex: 1 1 auto; min-width: 220px; }
     .lobbyAuthRight{ display:flex; align-items:center; gap: 8px; flex: 0 0 auto; flex-wrap: nowrap; }
     .lobbyAuthUser{ font-size: 12px; color: rgba(232,238,252,0.72); max-width: 420px; overflow:hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -512,6 +512,20 @@
       font-size: 11px; color: rgba(232,238,252,0.78); line-height: 1.25; white-space: pre-line; max-height: 148px; overflow: auto; }
     .lobbyActions{ display:flex; justify-content:flex-end; gap: 8px; margin-top: 12px; }
     .lobbyActionsTop{ margin: 6px 0 10px 0; }
+    .lobbyConfirm{ margin: 8px 0 12px; padding: 12px; border-radius: 14px; border: 1px solid rgba(255,255,255,0.10); background: rgba(12, 16, 26, 0.58); }
+    .lobbyConfirmTitle{ font-size: 14px; font-weight: 700; margin-bottom: 4px; }
+    .lobbyConfirmBody{ font-size: 12px; color: rgba(232,238,252,0.8); }
+    .lobbyFooter{ display:flex; align-items:center; justify-content:space-between; gap: 8px; margin-top: 12px; padding-top: 10px; border-top: 1px solid rgba(255,255,255,0.10); }
+    .lobbyFooterRight{ display:flex; align-items:center; justify-content:flex-end; }
+
+    .settingsSection{ margin-top: 12px; padding: 10px; border-radius: 14px; border: 1px solid rgba(255,255,255,0.10); background: rgba(12, 16, 26, 0.58); }
+    .settingsSection h3{ margin: 0 0 8px 0; font-size: 13px; }
+    .settingsRow{ display:flex; align-items:center; justify-content:space-between; gap: 8px; margin-top: 8px; }
+    .settingsLabel{ font-size: 12px; color: rgba(232,238,252,0.9); }
+    .settingsRangeWrap{ display:flex; align-items:center; gap: 8px; min-width: 210px; }
+    .settingsRange{ width: min(220px, 45vw); }
+    .settingsPct{ font-size: 11px; color: rgba(232,238,252,0.72); min-width: 32px; text-align:right; }
+    .settingsSwitch{ width: 18px; height: 18px; }
     .lobbyBtn{
       pointer-events: auto;
       background: rgba(255,255,255,0.08);
@@ -993,6 +1007,15 @@
         <button id="btnLobbyStart" class="lobbyBtn primary">Start Session</button>
       </div>
 
+      <div id="lobbyConfirmNewRun" class="lobbyConfirm" style="display:none;">
+        <div class="lobbyConfirmTitle">Start New Run?</div>
+        <div class="lobbyConfirmBody">Your current run will be replaced.</div>
+        <div class="lobbyActions" style="margin-top:10px;">
+          <button id="btnLobbyConfirmCancel" class="lobbyBtn">Cancel</button>
+          <button id="btnLobbyConfirmReplace" class="lobbyBtn primary">Replace Run</button>
+        </div>
+      </div>
+
       <div class="lobbyDetails" id="lobbyDetails" aria-hidden="false">
         <div class="lobbyPortraitCol">
           <div class="lobbyPortraitWrap">
@@ -1014,17 +1037,58 @@
       </div>
       <div id="patientList" class="patientList"></div>
 
-      <!-- Auth (minimal) - moved to bottom -->
-      <div class="lobbyAuth" id="lobbyAuth" aria-hidden="false">
-        <div class="lobbyAuthLeft">
-          <button id="btnAuthSignIn" class="lobbyBtn">Sign in with Google</button>
-          <div id="authUser" class="lobbyAuthUser" style="display:none;"></div>
-        </div>
-        <div class="lobbyAuthRight">
-          <div id="authPlayerNameDisplay" class="lobbyNameDisplay" style="display:none;"></div>
-          <input id="authPlayerName" class="lobbyInput" type="text" autocomplete="nickname" maxlength="28" style="display:none;" />
+      <div class="lobbyFooter" aria-hidden="false">
+        <div class="lobbyFooterLeft">
           <div id="lobbyStartEnergy" class="lobbyStartEnergy">Starting Energy: 0</div>
-          <button id="btnAuthSignOut" class="lobbyBtn" style="display:none;">Sign out</button>
+        </div>
+        <div class="lobbyFooterRight">
+          <button id="btnLobbySettings" class="lobbyBtn">Settings</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="settingsOverlay" class="lobbyOverlay" aria-hidden="true">
+    <div class="lobbyCard">
+      <div class="lobbyHeader">
+        <button id="btnSettingsBack" class="lobbyBtn">Back</button>
+        <h2>Settings</h2>
+      </div>
+
+      <div class="settingsSection">
+        <h3>Audio</h3>
+        <div class="settingsRow">
+          <div class="settingsLabel">Master Volume</div>
+          <div class="settingsRangeWrap"><input id="settingsMasterVolume" class="settingsRange" type="range" min="0" max="100" step="1" /><div id="settingsMasterPct" class="settingsPct">100%</div></div>
+        </div>
+        <div class="settingsRow">
+          <div class="settingsLabel">Music Volume</div>
+          <div class="settingsRangeWrap"><input id="settingsMusicVolume" class="settingsRange" type="range" min="0" max="100" step="1" /><div id="settingsMusicPct" class="settingsPct">100%</div></div>
+        </div>
+        <div class="settingsRow">
+          <div class="settingsLabel">Effects Volume</div>
+          <div class="settingsRangeWrap"><input id="settingsEffectsVolume" class="settingsRange" type="range" min="0" max="100" step="1" /><div id="settingsEffectsPct" class="settingsPct">100%</div></div>
+        </div>
+      </div>
+
+      <div class="settingsSection">
+        <h3>Gameplay</h3>
+        <div class="settingsRow"><label class="settingsLabel" for="settingsTutorialHints">Tutorial Hints</label><input id="settingsTutorialHints" class="settingsSwitch" type="checkbox" /></div>
+        <div class="settingsRow"><label class="settingsLabel" for="settingsConfirmNewRun">Confirm Before Starting New Run</label><input id="settingsConfirmNewRun" class="settingsSwitch" type="checkbox" /></div>
+      </div>
+
+      <div class="settingsSection">
+        <h3>Account</h3>
+        <div class="lobbyAuth" id="lobbyAuth" aria-hidden="false">
+          <div class="lobbyAuthLeft">
+            <button id="btnAuthSignIn" class="lobbyBtn">Sign in with Google</button>
+            <div id="authUser" class="lobbyAuthUser" style="display:none;"></div>
+          </div>
+          <div class="lobbyAuthRight">
+            <div id="authPlayerNameDisplay" class="lobbyNameDisplay" style="display:none;"></div>
+            <input id="authPlayerName" class="lobbyInput" type="text" autocomplete="nickname" maxlength="28" style="display:none;" />
+            <button id="btnAuthSignOut" class="lobbyBtn" style="display:none;">Sign out</button>
+          </div>
         </div>
       </div>
     </div>
@@ -1121,6 +1185,7 @@
 <script src="./core_actions.js"></script>
 <script src="./core_engine.js"></script>
 <script src="./systems_firebase.js"></script>
+<script src="./systems_settings.js"></script>
 <script src="./systems_sfx.js"></script>
 <script src="./data_roster.js"></script>
 <script src="./data_plans.js"></script>
